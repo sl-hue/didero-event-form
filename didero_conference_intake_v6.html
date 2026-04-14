@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Didero — Conference Intake</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9f9f7; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 2rem 1rem; }
+.card { background: white; border-radius: 16px; border: 0.5px solid #e5e5e0; max-width: 480px; width: 100%; overflow: hidden; }
+.screen { display: none; padding: 1.25rem 1.25rem 2rem; }
+.screen.active { display: block; }
+.top-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
+.back-btn { background: none; border: none; cursor: pointer; padding: 4px; display: flex; align-items: center; color: #999; flex-shrink: 0; }
+.back-btn:hover { color: #111; }
+.back-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+.progress { display: flex; gap: 6px; flex: 1; }
+.progress-dot { height: 4px; flex: 1; border-radius: 2px; background: #e5e5e0; }
+.progress-dot.done { background: #1D9E75; }
+.progress-dot.active { background: #5DCAA5; }
+h2 { font-size: 18px; font-weight: 500; color: #111; margin-bottom: 6px; }
+.sub { font-size: 14px; color: #666; margin-bottom: 1.5rem; line-height: 1.5; }
+.option-grid { display: flex; flex-direction: column; gap: 10px; }
+.option-btn { background: white; border: 0.5px solid #d0d0cc; border-radius: 8px; padding: 13px 16px; text-align: left; cursor: pointer; font-size: 15px; color: #111; display: flex; align-items: center; gap: 12px; font-family: inherit; transition: border-color 0.1s; }
+.option-btn:hover { border-color: #1D9E75; }
+.option-btn.selected { border-color: #1D9E75; background: #E1F5EE; color: #085041; }
+.option-btn .check { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #d0d0cc; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.option-btn.selected .check { background: #1D9E75; border-color: #1D9E75; }
+.option-btn.selected .check::after { content:''; display:block; width:6px; height:6px; background:white; border-radius:50%; }
+.next-btn { margin-top: 1.5rem; width: 100%; padding: 14px; background: #1D9E75; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.next-btn:disabled { background: #d0d0cc; color: #999; cursor: not-allowed; }
+.next-btn:not(:disabled):hover { background: #0F6E56; }
+.field-group { margin-bottom: 1.25rem; }
+label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; }
+input[type=text], input[type=email], input[type=url], select { width: 100%; padding: 10px 12px; border: 0.5px solid #d0d0cc; border-radius: 8px; font-size: 15px; color: #111; background: white; font-family: inherit; }
+input:focus, select:focus { outline: none; border-color: #1D9E75; box-shadow: 0 0 0 3px #E1F5EE; }
+.charger-badge { background: #E1F5EE; border: 0.5px solid #5DCAA5; border-radius: 8px; padding: 12px 14px; margin-bottom: 1.5rem; }
+.charger-badge .btext strong { font-weight: 500; display: block; font-size: 14px; color: #085041; }
+.charger-badge .btext { font-size: 13px; color: #085041; line-height: 1.4; }
+.cable-badge { background: #FAEEDA; border: 0.5px solid #EF9F27; border-radius: 8px; padding: 12px 14px; margin-bottom: 1.5rem; }
+.cable-badge .btext strong { font-weight: 500; display: block; font-size: 14px; color: #412402; }
+.cable-badge .btext { font-size: 13px; color: #412402; line-height: 1.4; }
+.ref-tip { background: #f5f5f2; border-radius: 8px; padding: 12px 14px; margin-bottom: 1.25rem; font-size: 13px; color: #555; line-height: 1.6; }
+.ref-tip strong { color: #111; font-weight: 500; display: block; margin-bottom: 4px; }
+.reward-callout { background: #E1F5EE; border: 0.5px solid #5DCAA5; border-radius: 8px; padding: 12px 14px; margin-bottom: 1.25rem; font-size: 13px; color: #085041; line-height: 1.5; display: flex; gap: 10px; align-items: flex-start; }
+.reward-callout .ricon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.reward-callout strong { font-weight: 500; display: block; margin-bottom: 2px; font-size: 14px; }
+.success-icon { width: 56px; height: 56px; border-radius: 50%; background: #E1F5EE; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; }
+.success-icon svg { width: 28px; height: 28px; stroke: #1D9E75; fill: none; stroke-width: 2.5; }
+.error-msg { font-size: 12px; color: #A32D2D; margin-top: 5px; display: none; }
+.error-msg.show { display: block; }
+.pain-section-label { font-size: 11px; font-weight: 500; color: #999; text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 6px; }
+.pain-section-label:first-child { margin-top: 0; }
+.cal-link-btn { width: 100%; padding: 14px; background: transparent; border: 0.5px solid #1D9E75; border-radius: 8px; color: #1D9E75; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 1rem; font-family: inherit; }
+.cal-link-btn:hover { background: #E1F5EE; }
+.skip-link { display: block; text-align: center; margin-top: 1rem; font-size: 13px; color: #999; cursor: pointer; text-decoration: underline; }
+.linkedin-submit-btn { width: 100%; padding: 13px; border: 0.5px solid #0077B5; border-radius: 8px; background: transparent; color: #0077B5; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 1.5rem; font-family: inherit; }
+.linkedin-submit-btn:hover:not(:disabled) { background: #E6F1FB; }
+.linkedin-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.consent-box { border: 0.5px solid #d0d0cc; border-radius: 8px; padding: 12px 14px; margin-top: 1.25rem; background: #f5f5f2; }
+.consent-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.consent-row:last-child { margin-bottom: 0; }
+.consent-row input[type=checkbox] { margin-top: 3px; width: 16px; height: 16px; flex-shrink: 0; accent-color: #1D9E75; cursor: pointer; }
+.consent-row .ct { font-size: 12px; color: #666; line-height: 1.5; }
+.consent-row .ct a { color: #1D9E75; text-decoration: underline; }
+.consent-err { font-size: 12px; color: #A32D2D; margin-top: 8px; display: none; }
+.consent-err.show { display: block; }
+.msg-preview { background: white; border: 0.5px solid #d0d0cc; border-radius: 8px; padding: 12px 14px; margin: 10px 0 0; font-size: 13px; color: #666; line-height: 1.6; font-style: italic; }
+.msg-preview strong { font-style: normal; font-weight: 500; color: #111; display: block; margin-bottom: 4px; font-size: 12px; }
+.legal-note { font-size: 11px; color: #aaa; line-height: 1.5; margin-top: 1rem; padding-top: 1rem; border-top: 0.5px solid #e5e5e0; }
+.legal-note a { color: #aaa; text-decoration: underline; }
+.summary-card { background: #f5f5f2; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; }
+.summary-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 9px 0; border-bottom: 0.5px solid #e5e5e0; gap: 12px; }
+.summary-row:last-child { border-bottom: none; }
+.summary-row .slabel { font-size: 12px; color: #666; flex-shrink: 0; width: 110px; }
+.summary-row .sval { font-size: 13px; color: #111; font-weight: 500; text-align: right; }
+.tag { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 500; }
+.tag-icp { background: #E1F5EE; color: #085041; }
+.tag-nonicp { background: #f5f5f2; color: #666; border: 0.5px solid #d0d0cc; }
+.charger-action { margin-top: 1rem; border-radius: 8px; padding: 14px; display: flex; align-items: center; justify-content: space-between; }
+.charger-action.power { background: #E1F5EE; border: 0.5px solid #5DCAA5; }
+.charger-action.cable { background: #FAEEDA; border: 0.5px solid #EF9F27; }
+.charger-action .ca-label { font-size: 13px; font-weight: 500; }
+.charger-action.power .ca-label { color: #085041; }
+.charger-action.cable .ca-label { color: #412402; }
+.charger-action .ca-sub { font-size: 12px; margin-top: 2px; }
+.charger-action.power .ca-sub { color: #0F6E56; }
+.charger-action.cable .ca-sub { color: #633806; }
+.checkmark-circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.checkmark-circle.green { background: #1D9E75; }
+.checkmark-circle.amber { background: #EF9F27; }
+.checkmark-circle svg { width: 16px; height: 16px; stroke: white; fill: none; stroke-width: 2.5; }
+.submit-status { font-size: 12px; margin-top: 8px; text-align: center; min-height: 18px; }
+.submit-status.saving { color: #999; }
+.submit-status.saved { color: #1D9E75; }
+.submit-status.failed { color: #A32D2D; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="card">
+
+<!-- SCREEN 0: Role -->
+<div id="s0" class="screen active">
+  <div class="top-bar">
+    <div class="progress" style="margin-bottom:0;">
+      <div class="progress-dot active"></div><div class="progress-dot"></div><div class="progress-dot"></div><div class="progress-dot"></div>
+    </div>
+  </div>
+  <h2>What best describes your role?</h2>
+  <p class="sub">Helps us make sure this conversation is worth your time.</p>
+  <div class="option-grid" id="role-opts">
+    <button class="option-btn" onclick="selectRole(this,'Procurement')"><span class="check"></span>Procurement</button>
+    <button class="option-btn" onclick="selectRole(this,'Supply chain')"><span class="check"></span>Supply chain</button>
+    <button class="option-btn" onclick="selectRole(this,'Operations')"><span class="check"></span>Operations</button>
+    <button class="option-btn" onclick="selectRole(this,'Finance')"><span class="check"></span>Finance</button>
+    <button class="option-btn" onclick="selectRole(this,'Technology / IT')"><span class="check"></span>Technology / IT</button>
+    <button class="option-btn" onclick="selectRole(this,'Executive / leadership')"><span class="check"></span>Executive / leadership</button>
+    <button class="option-btn" onclick="selectRole(this,'Other')"><span class="check"></span>Other</button>
+  </div>
+  <button class="next-btn" id="s0-next" disabled onclick="routeFromRole()">Continue</button>
+</div>
+
+<!-- SCREEN: ICP contact -->
+<div id="s-qual-contact" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goTo('s0')"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+    <div class="progress" style="margin-bottom:0;">
+      <div class="progress-dot done"></div><div class="progress-dot active"></div><div class="progress-dot"></div><div class="progress-dot"></div>
+    </div>
+  </div>
+  <div class="charger-badge"><div class="btext"><strong>Power bank is yours</strong>Grab one from our rep after you submit.</div></div>
+  <h2>Quick intro</h2>
+  <p class="sub">So we can follow up after the event.</p>
+  <div class="field-group"><label>Full name</label><input type="text" id="q-name" placeholder="Your full name" /></div>
+  <div class="field-group">
+    <label>Work email</label>
+    <input type="email" id="q-email" placeholder="you@company.com" />
+    <div class="error-msg" id="q-email-err">Please use a valid work email</div>
+  </div>
+  <div class="consent-box">
+    <div class="consent-row">
+      <input type="checkbox" id="q-c1" onchange="checkQConsent()" />
+      <span class="ct">I agree to Didero Inc.'s <a href="https://www.didero.ai/privacy-policy" target="_blank">Privacy Policy</a> and consent to the collection and use of my personal data (name, email, role, and challenges) to contact me about Didero's services. Didero Inc. is the sole recipient of this data.</span>
+    </div>
+    <div class="consent-row">
+      <input type="checkbox" id="q-c2" onchange="checkQConsent()" />
+      <span class="ct">I consent to receive follow-up emails from Didero Inc. after this event. I can unsubscribe at any time by replying "unsubscribe" or using the opt-out link in any email, in accordance with the CAN-SPAM Act.</span>
+    </div>
+    <div class="consent-row">
+      <input type="checkbox" id="q-c3" onchange="checkQConsent()" />
+      <span class="ct">If I am a California resident, I acknowledge my rights under the CCPA, including the right to know what data is collected and the right to request deletion by contacting <a href="mailto:support@didero.ai">support@didero.ai</a>.</span>
+    </div>
+  </div>
+  <div class="consent-err" id="q-consent-err">Please agree to all items above to continue.</div>
+  <div class="legal-note">By submitting you provide prior express written consent under U.S. federal and applicable state law. Subject to Didero Inc.'s <a href="https://www.didero.ai/privacy-policy" target="_blank">Privacy Policy</a> (last updated 02/01/2024). Illinois residents: this form does not collect biometric identifiers under BIPA (740 ILCS 14).</div>
+  <button class="next-btn" id="q-contact-next" disabled onclick="submitQualContact()">Continue</button>
+</div>
+
+<!-- SCREEN: ICP pain points -->
+<div id="s-qual-pain" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goTo('s-qual-contact')"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+    <div class="progress" style="margin-bottom:0;">
+      <div class="progress-dot done"></div><div class="progress-dot done"></div><div class="progress-dot active"></div><div class="progress-dot"></div>
+    </div>
+  </div>
+  <h2>What's your biggest challenge?</h2>
+  <p class="sub">Pick all that apply.</p>
+  <div id="qual-pain-opts">
+    <div class="pain-section-label">Sourcing</div>
+    <button class="option-btn" onclick="togglePain(this,'Finding and qualifying suppliers')"><span class="check"></span>Finding and qualifying the right suppliers</button>
+    <button class="option-btn" onclick="togglePain(this,'Running RFPs/RFQs manually')"><span class="check"></span>Running RFPs / RFQs manually</button>
+    <div class="pain-section-label">Contracting</div>
+    <button class="option-btn" onclick="togglePain(this,'Slow contract cycles')"><span class="check"></span>Slow contract review and approval cycles</button>
+    <button class="option-btn" onclick="togglePain(this,'Contract compliance tracking')"><span class="check"></span>Contract compliance and obligation tracking</button>
+    <div class="pain-section-label">Purchasing</div>
+    <button class="option-btn" onclick="togglePain(this,'Maverick spend')"><span class="check"></span>Maverick spend / off-contract purchasing</button>
+    <button class="option-btn" onclick="togglePain(this,'Slow PO approvals')"><span class="check"></span>Purchase order approvals taking too long</button>
+    <div class="pain-section-label">Invoicing and payment</div>
+    <button class="option-btn" onclick="togglePain(this,'Invoice matching and exceptions')"><span class="check"></span>Invoice matching and exception handling</button>
+    <button class="option-btn" onclick="togglePain(this,'No spend visibility until invoices arrive')"><span class="check"></span>No spend visibility until invoices arrive</button>
+    <div class="pain-section-label">Supplier relationships</div>
+    <button class="option-btn" onclick="togglePain(this,'Supplier performance tracking')"><span class="check"></span>Tracking supplier performance and risk</button>
+    <button class="option-btn" onclick="togglePain(this,'Manual supplier onboarding')"><span class="check"></span>Slow or manual supplier onboarding</button>
+    <div class="pain-section-label">Technology and data</div>
+    <button class="option-btn" onclick="togglePain(this,'ERP adoption issues')"><span class="check"></span>ERP is hard to use or not adopted by the team</button>
+    <button class="option-btn" onclick="togglePain(this,'Fragmented data across systems')"><span class="check"></span>Data fragmented across too many systems</button>
+    <button class="option-btn" onclick="togglePain(this,'Manual reporting')"><span class="check"></span>Reporting to leadership is a manual effort</button>
+  </div>
+  <button class="next-btn" id="qual-pain-next" disabled onclick="submitICP()">
+    <span id="qual-pain-btn-text">Continue</span>
+  </button>
+  <div class="submit-status" id="qual-submit-status"></div>
+</div>
+
+<!-- SCREEN: Non-ICP referral -->
+<div id="s-nonicp" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="goTo('s0')"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+    <div class="progress" style="margin-bottom:0;">
+      <div class="progress-dot done"></div><div class="progress-dot active"></div><div class="progress-dot"></div><div class="progress-dot"></div>
+    </div>
+  </div>
+  <div class="cable-badge"><div class="btext"><strong>Charging cable is yours</strong>Grab one from our rep after you submit.</div></div>
+  <h2>Refer someone in procurement</h2>
+  <p class="sub">Didero is built for procurement and supply chain teams. If you know someone who handles that — at your company or at another — refer them below.</p>
+
+  <div class="reward-callout">
+    <div class="ricon">🎁</div>
+    <div>
+      <strong>You get a power bank — not them</strong>
+      Refer someone in procurement and when they stop by and talk to us, we ship a premium power bank directly to <em>you</em>. The person you refer gets nothing from us at the door — this reward is yours.
+    </div>
+  </div>
+
+  <div class="field-group">
+    <label>Their LinkedIn profile URL</label>
+    <input type="url" id="ref-li" placeholder="linkedin.com/in/theirname" oninput="checkRefReady()" />
+    <div class="error-msg" id="ref-li-err">Please paste a valid LinkedIn profile URL</div>
+  </div>
+  <div class="field-group">
+    <label>Are they at this event or back at the office?</label>
+    <select id="ref-location" onchange="checkRefReady()">
+      <option value="">Select...</option>
+      <option value="At the event">Here at the event</option>
+      <option value="Back at office">Back at the office</option>
+      <option value="Not sure">Not sure</option>
+    </select>
+  </div>
+  <div class="field-group">
+    <label>Their main procurement or supply chain challenge</label>
+    <select id="ref-challenge">
+      <option value="">Select if you know...</option>
+      <optgroup label="Sourcing"><option>Finding and qualifying suppliers</option><option>Running RFPs or RFQs manually</option></optgroup>
+      <optgroup label="Contracting"><option>Slow contract cycles</option><option>Contract compliance tracking</option></optgroup>
+      <optgroup label="Purchasing"><option>Maverick spend</option><option>Slow PO approvals</option></optgroup>
+      <optgroup label="Invoicing"><option>Invoice matching and exceptions</option><option>No spend visibility until invoices arrive</option></optgroup>
+      <optgroup label="Supplier management"><option>Supplier performance tracking</option><option>Manual supplier onboarding</option></optgroup>
+      <optgroup label="Technology"><option>ERP adoption issues</option><option>Fragmented data across systems</option><option>Manual reporting</option></optgroup>
+    </select>
+  </div>
+  <div class="consent-box">
+    <div class="consent-row">
+      <input type="checkbox" id="ref-c1" onchange="checkRefReady()" />
+      <span class="ct">I agree to Didero Inc.'s <a href="https://www.didero.ai/privacy-policy" target="_blank">Privacy Policy</a> and consent to Didero Inc. collecting the referral information I provide, including the LinkedIn profile URL of the person I'm recommending.</span>
+    </div>
+    <div class="consent-row">
+      <input type="checkbox" id="ref-c2" onchange="checkRefReady()" />
+      <span class="ct">I consent to a pre-filled LinkedIn message being sent from my account to the person I'm recommending. I confirm I have reviewed the message preview below and understand I can edit it before sending.</span>
+    </div>
+    <div class="consent-row">
+      <input type="checkbox" id="ref-c3" onchange="checkRefReady()" />
+      <span class="ct">I confirm I have a legitimate professional relationship with the person I'm recommending. I understand their data will be used solely to contact them about Didero's services.</span>
+    </div>
+    <div class="msg-preview">
+      <strong>Message preview — you can edit this before it sends</strong>
+      "Hey! I just recommended you to Didero AI — I think it would be a great fit for your business. They're doing interesting work in procurement automation. Worth a quick chat if you're at the event."
+    </div>
+  </div>
+  <div class="consent-err" id="ref-consent-err">Please complete all required fields and agree to all items above.</div>
+  <div class="legal-note">By submitting you provide prior express written consent under the CAN-SPAM Act and applicable state law for Didero Inc. to contact the recommended individual. Didero Inc. will not sell or share this data with third parties. Subject to Didero's <a href="https://www.didero.ai/privacy-policy" target="_blank">Privacy Policy</a>.</div>
+  <button class="linkedin-submit-btn" id="ref-submit-btn" disabled onclick="submitNonICP()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="#0077B5"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+    <span id="ref-btn-text">Submit and send them a message on LinkedIn</span>
+  </button>
+  <div class="submit-status" id="ref-submit-status"></div>
+</div>
+
+<!-- SCREEN: Book / rep summary -->
+<div id="s-book" class="screen">
+  <div class="top-bar">
+    <div class="progress" style="margin-bottom:0;">
+      <div class="progress-dot done"></div><div class="progress-dot done"></div><div class="progress-dot done"></div><div class="progress-dot active"></div>
+    </div>
+  </div>
+  <div class="success-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+  <h2 style="text-align:center;">You're all set</h2>
+  <p class="sub" style="text-align:center;">Show this screen to our rep and grab your charger.</p>
+  <div id="rep-summary-card" class="summary-card"></div>
+  <h2 style="font-size:16px; margin-bottom:6px;">Want to book a 20-min session?</h2>
+  <p class="sub" style="margin-bottom:0;">No pitch — a working session to show you how Didero works for your team.</p>
+  <button class="cal-link-btn" onclick="openCalendly()">Book a time with our team</button>
+  <span class="skip-link" onclick="goTo('s-done')">Skip for now</span>
+</div>
+
+<!-- SCREEN: Done -->
+<div id="s-done" class="screen">
+  <div class="success-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+  <h2 style="text-align:center;">Thanks — enjoy the charger</h2>
+  <p class="sub" style="text-align:center;">We'll be in touch. Look out for a note from the Didero team.</p>
+</div>
+
+</div><!-- end .card -->
+
+<script>
+const SHEET_URL = 'https://script.google.com/a/macros/didero.ai/s/AKfycbyOtlIFbTDWFEULYtrikWpVdWzdRuc2J9k1pEPzELsUGN_e_xDw56U48MJap1VjQVt0/exec';
+const state = { role: null, pains: [], name: '', email: '', isICP: false };
+
+async function postToSheet(data) {
+  try {
+    const resp = await fetch(SHEET_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(data)
+    });
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+function setStatus(elId, type, msg) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.className = 'submit-status ' + type;
+  el.textContent = msg;
+}
+
+function selectRole(btn, val) {
+  document.querySelectorAll('#role-opts .option-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  state.role = val;
+  document.getElementById('s0-next').disabled = false;
+}
+
+const ICP = ['Procurement','Supply chain','Operations'];
+
+function routeFromRole() {
+  state.isICP = ICP.includes(state.role);
+  goTo(state.isICP ? 's-qual-contact' : 's-nonicp');
+}
+
+function checkQConsent() {
+  const all = ['q-c1','q-c2','q-c3'].every(id => document.getElementById(id).checked);
+  document.getElementById('q-contact-next').disabled = !all;
+  if (all) document.getElementById('q-consent-err').classList.remove('show');
+}
+
+function submitQualContact() {
+  const name = document.getElementById('q-name').value.trim();
+  const email = document.getElementById('q-email').value.trim();
+  const free = ['gmail.com','yahoo.com','hotmail.com','outlook.com','icloud.com','aol.com'];
+  const domain = email.split('@')[1] || '';
+  const errEl = document.getElementById('q-email-err');
+  const cErr = document.getElementById('q-consent-err');
+  if (!name) { errEl.textContent = 'Please enter your full name'; errEl.classList.add('show'); return; }
+  if (!email.includes('@') || free.includes(domain)) {
+    errEl.textContent = !email.includes('@') ? 'Please enter a valid email' : 'Please use your work email';
+    errEl.classList.add('show'); return;
+  }
+  errEl.classList.remove('show');
+  if (!['q-c1','q-c2','q-c3'].every(id => document.getElementById(id).checked)) {
+    cErr.classList.add('show'); return;
+  }
+  cErr.classList.remove('show');
+  state.name = name; state.email = email;
+  goTo('s-qual-pain');
+}
+
+function togglePain(btn, val) {
+  if (btn.classList.contains('selected')) {
+    btn.classList.remove('selected');
+    state.pains = state.pains.filter(p => p !== val);
+  } else {
+    btn.classList.add('selected');
+    state.pains.push(val);
+  }
+  document.getElementById('qual-pain-next').disabled = state.pains.length === 0;
+}
+
+async function submitICP() {
+  const btn = document.getElementById('qual-pain-next');
+  const btnText = document.getElementById('qual-pain-btn-text');
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="spinner"></span>';
+  setStatus('qual-submit-status', 'saving', 'Saving...');
+  const ok = await postToSheet({
+    route: 'ICP',
+    name: state.name,
+    email: state.email,
+    role: state.role,
+    challenges: state.pains.join('; '),
+    referralLinkedIn: '',
+    referralLocation: '',
+    referralChallenge: '',
+    bookedCall: 'No',
+    consents: 'Privacy policy, Email follow-up, CCPA'
+  });
+  btnText.textContent = 'Continue';
+  btn.disabled = false;
+  setStatus('qual-submit-status', ok ? 'saved' : 'failed', ok ? 'Saved ✓' : 'Could not reach sheet — check WiFi');
+  buildSummaryICP();
+  goTo('s-book');
+}
+
+function checkRefReady() {
+  const url = document.getElementById('ref-li').value.trim();
+  const loc = document.getElementById('ref-location').value;
+  const c1 = document.getElementById('ref-c1').checked;
+  const c2 = document.getElementById('ref-c2').checked;
+  const c3 = document.getElementById('ref-c3').checked;
+  const ready = url.includes('linkedin.com/in') && loc && c1 && c2 && c3;
+  document.getElementById('ref-submit-btn').disabled = !ready;
+  if (ready) document.getElementById('ref-consent-err').classList.remove('show');
+  if (url.includes('linkedin.com/in')) document.getElementById('ref-li-err').classList.remove('show');
+}
+
+async function submitNonICP() {
+  const url = document.getElementById('ref-li').value.trim();
+  const loc = document.getElementById('ref-location').value;
+  const challenge = document.getElementById('ref-challenge').value;
+  if (!url.includes('linkedin.com/in')) { document.getElementById('ref-li-err').classList.add('show'); return; }
+  if (!['ref-c1','ref-c2','ref-c3'].every(id => document.getElementById(id).checked) || !loc) {
+    document.getElementById('ref-consent-err').classList.add('show'); return;
+  }
+  const btn = document.getElementById('ref-submit-btn');
+  const btnText = document.getElementById('ref-btn-text');
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="spinner" style="border-color:rgba(0,119,181,0.3);border-top-color:#0077B5;"></span>';
+  setStatus('ref-submit-status', 'saving', 'Saving...');
+  const ok = await postToSheet({
+    route: 'Non-ICP referral',
+    name: '',
+    email: '',
+    role: state.role,
+    challenges: '',
+    referralLinkedIn: url,
+    referralLocation: loc,
+    referralChallenge: challenge,
+    bookedCall: 'No',
+    consents: 'Privacy policy, Referral data, LinkedIn message'
+  });
+  btnText.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#0077B5"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg> Submit and send them a message on LinkedIn';
+  btn.disabled = false;
+  setStatus('ref-submit-status', ok ? 'saved' : 'failed', ok ? 'Saved ✓' : 'Could not reach sheet — check WiFi');
+  const msg = encodeURIComponent("Hey! I just recommended you to Didero AI — I think it would be a great fit for your business. They're doing interesting work in procurement automation. Worth a quick chat if you're at the event.");
+  window.open('https://www.linkedin.com/messaging/compose?body=' + msg, '_blank');
+  buildSummaryNonICP(url, loc, challenge);
+  goTo('s-book');
+}
+
+function buildSummaryICP() {
+  const pains = state.pains.length ? state.pains.join(', ') : '—';
+  document.getElementById('rep-summary-card').innerHTML = `
+    <div class="summary-row"><span class="slabel">Name</span><span class="sval">${state.name}</span></div>
+    <div class="summary-row"><span class="slabel">Email</span><span class="sval">${state.email}</span></div>
+    <div class="summary-row"><span class="slabel">Role</span><span class="sval">${state.role}</span></div>
+    <div class="summary-row"><span class="slabel">ICP fit</span><span class="sval"><span class="tag tag-icp">ICP</span></span></div>
+    <div class="summary-row"><span class="slabel">Challenges</span><span class="sval" style="font-size:12px;text-align:right;">${pains}</span></div>
+    <div class="charger-action power">
+      <div><div class="ca-label">Give them a power bank</div><div class="ca-sub">Qualified ICP</div></div>
+      <div class="checkmark-circle green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+    </div>`;
+}
+
+function buildSummaryNonICP(url, loc, challenge) {
+  document.getElementById('rep-summary-card').innerHTML = `
+    <div class="summary-row"><span class="slabel">Role</span><span class="sval">${state.role}</span></div>
+    <div class="summary-row"><span class="slabel">ICP fit</span><span class="sval"><span class="tag tag-nonicp">Non-ICP</span></span></div>
+    <div class="summary-row"><span class="slabel">Referral URL</span><span class="sval" style="font-size:11px;word-break:break-all;text-align:right;">${url}</span></div>
+    <div class="summary-row"><span class="slabel">Referree location</span><span class="sval">${loc}</span></div>
+    ${challenge ? `<div class="summary-row"><span class="slabel">Their challenge</span><span class="sval" style="font-size:12px;">${challenge}</span></div>` : ''}
+    <div class="charger-action cable">
+      <div><div class="ca-label">Give them a charging cable</div><div class="ca-sub">Power bank ships to this person (the referrer) once their referral visits</div></div>
+      <div class="checkmark-circle amber"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+    </div>`;
+}
+
+function openCalendly() {
+  postToSheet({ route: state.isICP ? 'ICP' : 'Non-ICP referral', name: state.name, email: state.email, role: state.role, bookedCall: 'Yes', challenges: state.pains.join('; '), referralLinkedIn: '', referralLocation: '', referralChallenge: '', consents: '' });
+  window.open('https://calendly.com/didero-gtm/didero-intro', '_blank');
+  goTo('s-done');
+}
+
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>
