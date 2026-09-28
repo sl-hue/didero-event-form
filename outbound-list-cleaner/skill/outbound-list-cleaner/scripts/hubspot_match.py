@@ -5,6 +5,11 @@ HubSpot connector, saves each raw response as a JSON file in a folder, and the
 script scores the results. Companies first (they are the anchor records), then
 contacts.
 
+  check-token       Confirm HUBSPOT_PRIVATE_APP_TOKEN works (never prints it).
+  run-plan          Run a search plan directly against the HubSpot API with the
+                    private app token, saving responses in the same format the
+                    connector returns. Much faster than running the plan
+                    through the connector; use the connector only as fallback.
   plan-companies    Write the HubSpot searches to run for the company file.
   match-companies   Score saved HubSpot company results against the company
                     file -> company_matches.json.
@@ -23,8 +28,12 @@ when it is not in HubSpot:
 import argparse
 import csv
 import json
+import os
 import re
+import time
 import unicodedata
+import urllib.error
+import urllib.request
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -156,6 +165,99 @@ def in_searches(object_type, prop, values, properties):
     return [{"objectType": object_type, "properties": properties,
              "filterGroups": [{"filters": [{"propertyName": prop, "operator": "IN", "values": chunk}]}],
              "limit": 200} for chunk in chunks(values)]
+
+
+# ---------------------------------------------------------------- HubSpot API
+
+API = "https://api.hubapi.com"
+TOKEN_VAR = "HUBSPOT_PRIVATE_APP_TOKEN"
+OBJECT_PATHS = {"COMPANY": "companies", "CONTACT": "contacts"}
+OBJECT_TYPE_IDS = {"COMPANY": "0-2", "CONTACT": "0-1"}
+
+
+def api(method, path, body=None):
+    token = os.environ.get(TOKEN_VAR)
+    if not token:
+        raise SystemExit(f"{TOKEN_VAR} is not set; see the skill's setup section, or run the plan "
+                         "through the HubSpot connector instead")
+    data = json.dumps(body).encode() if body is not None else None
+    for attempt in range(6):
+        req = urllib.request.Request(API + path, data=data, method=method, headers={
+            "Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as e:
+            if e.code == 429 or e.code >= 500:  # rate limit / transient: back off
+                time.sleep(2 ** attempt)
+                continue
+            raise SystemExit(f"HubSpot API {method} {path} failed: {e.code} {e.read()[:300]!r}")
+    raise SystemExit(f"HubSpot API {method} {path}: still rate-limited after retries")
+
+
+def check_token(args):
+    info = api("GET", "/account-info/v3/details")
+    api("POST", "/crm/v3/objects/companies/search", {"limit": 1})
+    api("POST", "/crm/v3/objects/contacts/search", {"limit": 1})
+    print(f"token OK for HubSpot portal {info.get('portalId')}: can read companies and contacts")
+
+
+def run_plan(args):
+    searches = json.loads(Path(args.plan).read_text())
+    out = Path(args.raw_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    portal = api("GET", "/account-info/v3/details").get("portalId")
+    total = 0
+    for i, spec in enumerate(searches):
+        obj = spec["objectType"]
+        template = f"https://app.hubspot.com/contacts/{portal}/record/{OBJECT_TYPE_IDS[obj]}/{{id}}"
+        groups = spec.get("filterGroups") or []
+        assoc = groups[0].get("associatedWith") if groups else None
+        if assoc:
+            results = associated_records(assoc[0], spec["properties"])
+        else:
+            body = {"limit": min(spec.get("limit", 100), 200), "properties": spec["properties"]}
+            if groups:
+                body["filterGroups"] = groups
+            if spec.get("query"):
+                body["query"] = spec["query"]
+            results, after = [], None
+            while True:
+                if after:
+                    body["after"] = after
+                resp = api("POST", f"/crm/v3/objects/{OBJECT_PATHS[obj]}/search", body)
+                results += resp.get("results", [])
+                after = (resp.get("paging") or {}).get("next", {}).get("after")
+                # Free-text name searches only need the first page.
+                if not after or spec.get("query"):
+                    break
+                time.sleep(0.25)
+        recs = [{"id": r["id"], "properties": r.get("properties", {})} for r in results]
+        (out / f"{i:03d}.json").write_text(json.dumps({"results": recs, "total": len(recs),
+                                                        "urlTemplate": template}))
+        total += len(recs)
+        time.sleep(0.25)  # stay under the search API's per-second limit
+    print(f"ran {len(searches)} searches, {total} records -> {out}")
+
+
+def associated_records(assoc, properties):
+    """Contacts associated with any of the given companies (REST search can't filter on this)."""
+    ids = []
+    for company_id in assoc["objectIdValues"]:
+        after = None
+        while True:
+            path = f"/crm/v4/objects/companies/{company_id}/associations/contacts?limit=500"
+            resp = api("GET", path + (f"&after={after}" if after else ""))
+            ids += [str(r["toObjectId"]) for r in resp.get("results", [])]
+            after = (resp.get("paging") or {}).get("next", {}).get("after")
+            if not after:
+                break
+    results, unique = [], sorted(set(ids))
+    for k in range(0, len(unique), 100):
+        resp = api("POST", "/crm/v3/objects/contacts/batch/read",
+                   {"properties": properties, "inputs": [{"id": x} for x in unique[k:k + 100]]})
+        results += resp.get("results", [])
+    return results
 
 
 # ---------------------------------------------------------------- companies
@@ -398,6 +500,8 @@ def main():
             p.add_argument(f"--{o}", required=True)
         p.set_defaults(func=func)
 
+    add("check-token", check_token)
+    add("run-plan", run_plan, "plan", "raw-dir")
     add("plan-companies", plan_companies, "companies", "out-dir")
     add("match-companies", match_companies, "companies", "raw-dir", "out-dir")
     add("apply-companies", apply_companies, "companies", "contacts", "contacts-step1", "decisions")

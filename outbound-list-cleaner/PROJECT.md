@@ -84,11 +84,19 @@ on unclear rows through multiple-choice prompts in chat.
   Claude verifies via `hs_merged_object_ids`, then checks the survivor's
   name/domain (SRS merge kept "Superior Distribution").
 
+- 2026-09-28 — Always run on Opus 5.x or Fable (first reminder in the skill).
+  HubSpot searches run through the private app token
+  (`HUBSPOT_PRIVATE_APP_TOKEN`) via `hubspot_match.py run-plan`; each user sets
+  it up on their own device first. The connector is the slow fallback
+  (Claude has to re-type every result).
+
 ## Using this in Cowork
 
 - Create a Cowork project, e.g. "Outbound List Cleaner", and add
   `PROJECT.md` and `SPEC.md` as project files (or paste PROJECT.md into the
   project instructions).
+- Set `HUBSPOT_PRIVATE_APP_TOKEN` on the device and connect the HubSpot
+  connector before the first run.
 - Install the skill: zip `skill/outbound-list-cleaner/` and upload it as a
   skill.
 - Put sample/input files in the project's local folder, not in the repo.

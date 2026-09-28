@@ -1,5 +1,9 @@
 # Outbound list cleaner — process spec
 
+**Prerequisites (checked before every run):** run on Opus 5.x or Fable; the
+HubSpot connector is connected; `HUBSPOT_PRIVATE_APP_TOKEN` (read-only private
+app) is set on the device so the script can search HubSpot directly.
+
 Captured from the user's walkthrough. This is the source of truth for what the
 scripts and skill must do; update it as steps are added.
 

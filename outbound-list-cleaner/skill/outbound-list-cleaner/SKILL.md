@@ -11,6 +11,26 @@ specified; see `PROJECT.md` and `SPEC.md` in the project repo for the full plan.
 Every list produces two files: a contact file and a company file containing
 only that list's companies. A sublist gets its own company file.
 
+## Before you start (do this first, every run)
+
+1. **Model check.** This workflow needs a top-tier model: Opus 5 (any 5.x)
+   or Fable. Older or smaller models tend to take shortcuts on the judgment
+   calls. Before running any step, tell the user this, and if you are not
+   running on Opus 5.x or Fable, stop and ask them to switch models (e.g.
+   `/model` in Claude Code, or the model picker in Cowork) and start again.
+2. **HubSpot setup on this device.** Confirm both:
+   - The **HubSpot connector** is connected (used to verify merges and look
+     up properties).
+   - The **HubSpot private app token** is available to the script as the
+     environment variable `HUBSPOT_PRIVATE_APP_TOKEN` (read scopes:
+     `crm.objects.companies.read`, `crm.objects.contacts.read`). Run
+     `python3 scripts/hubspot_match.py check-token`. If it fails, tell the
+     user to set the token up on their device (in Claude Code on the web:
+     the environment's settings, as an environment variable) before running
+     step 3 — never ask them to paste it into the chat. Without it, step 3
+     falls back to the connector, which is many times slower (roughly 10–15
+     minutes per 60 companies instead of seconds).
+
 ## Step 1 — Email domain cleaning
 
 Goal: every contact has an email domain matching its company's domain so
@@ -124,11 +144,13 @@ you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
 **Companies**
 1. `python3 $S plan-companies --companies <run_dir>/companies_upload.csv --out-dir <run_dir>`
    writes `company_search_plan.json`.
-2. Run every search in the plan with the HubSpot connector's
-   `search_crm_objects` (objectType, properties, limit, filterGroups or
-   query as given; page with `offset` when `total` exceeds the results) and
-   save each raw JSON response to `<run_dir>/hs_companies/NNN.json`. For large
-   plans, hand this to a subagent so raw results don't flood the chat.
+2. Run the plan:
+   `python3 $S run-plan --plan <run_dir>/company_search_plan.json --raw-dir <run_dir>/hs_companies`
+   (uses the private app token; seconds). **Fallback only if no token:** run
+   every search with the HubSpot connector's `search_crm_objects`
+   (objectType, properties, limit, filterGroups or query as given; page with
+   `offset`) and save each raw JSON response to `<run_dir>/hs_companies/NNN.json`,
+   in a subagent so raw results don't flood the chat.
 3. `python3 $S match-companies --companies <run_dir>/companies_upload.csv --raw-dir <run_dir>/hs_companies --out-dir <run_dir>`
    writes `company_matches.json` (per company: candidates with HubSpot URL,
    strength, reasons, domain, location, employees, revenue, contacts).
@@ -168,7 +190,8 @@ you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
 1. `python3 $S plan-contacts --contacts <run_dir>/contacts_upload.csv --companies <run_dir>/companies_upload.csv --out-dir <run_dir>`
    (LinkedIn URL on `lgm_linkedinurl`, email, last name, and everyone
    associated with the list's HubSpot companies).
-2. Run the searches, saving to `<run_dir>/hs_contacts/`.
+2. `python3 $S run-plan --plan <run_dir>/contact_search_plan.json --raw-dir <run_dir>/hs_contacts`
+   (connector fallback as above if there's no token).
 3. `python3 $S match-contacts --contacts <run_dir>/contacts_upload.csv --companies <run_dir>/companies_upload.csv --contacts-step1 <run_dir>/contacts_step1.csv --raw-dir <run_dir>/hs_contacts --out-dir <run_dir>`
 4. Judge, review with the user (same merge-first flow), write
    `contact_decisions.json`, then
