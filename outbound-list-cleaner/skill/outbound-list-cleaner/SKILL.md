@@ -110,7 +110,9 @@ Everything the user needs to review goes in the chat.
    companies; revenue ×1000, `Employees.` prefix stripped, industry combined,
    website and domains synced from contacts), and `report_step2.json`.
 
-5. **Report in chat:** name fixes, blanked LinkedIn URLs (name, company,
+5. **Report in chat:** dropdown values with no matching HubSpot option
+   (`dropdown_values_not_matching`, e.g. a Management Level or Department
+   value HubSpot's dropdown doesn't have), name fixes, blanked LinkedIn URLs (name, company,
    removed URL, reason), the user's last-name decisions, and any companies
    dropped or missing.
 
@@ -186,6 +188,12 @@ The user runs the import in HubSpot; you prepare it and walk them through it.
      Type for those.
 4. After the company import, the user can run the contact import; contacts
    associate to companies through the company domain.
+5. **If HubSpot reports import errors**, tell the user to either fix the
+   value in the file and re-import those rows, or edit the records directly
+   in HubSpot. If a dropdown value keeps failing, check the property's
+   current options with the HubSpot connector (`get_properties`) and add the
+   conversion to `DROPDOWNS` in `scripts/normalize.py` so step 2 fixes it
+   next time.
 
 ## Data handling
 

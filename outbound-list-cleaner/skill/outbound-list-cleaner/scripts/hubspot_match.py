@@ -107,16 +107,27 @@ def norm_company_name(name):
     return " ".join(w for w in words if w not in COMPANY_STOPWORDS)
 
 
+# Words too common in company names to signal a duplicate on their own.
+GENERIC_WORDS = {"supply", "supplies", "industries", "industry", "group", "distribution", "products",
+                 "materials", "building", "solutions", "services", "international", "holdings",
+                 "manufacturing", "mfg", "systems", "enterprises", "partners", "global", "usa", "america"}
+
+
 def name_similarity(a, b):
     a, b = norm_company_name(a), norm_company_name(b)
     if not a or not b:
         return 0.0
     if a == b:
         return 1.0
-    ratio = SequenceMatcher(None, a, b).ratio()
-    # "Kodiak" vs "Kodiak Building Partners": one name contained in the other.
-    if a in b or b in a:
-        ratio = max(ratio, 0.85)
+    ta = [w for w in a.split() if w not in GENERIC_WORDS] or a.split()
+    tb = [w for w in b.split() if w not in GENERIC_WORDS] or b.split()
+    da, db = " ".join(ta), " ".join(tb)
+    ratio = SequenceMatcher(None, da, db).ratio()
+    # Whole-word containment ("Kodiak" in "Kodiak Building Partners"); weaker
+    # for short acronyms, which collide with unrelated names ("EMS").
+    small, big = (set(ta), set(tb)) if len(ta) <= len(tb) else (set(tb), set(ta))
+    if small <= big:
+        ratio = max(ratio, 0.85 if len("".join(small)) >= 5 else 0.7)
     return ratio
 
 
@@ -212,7 +223,7 @@ def match_companies(args):
                           if c.get(f) and (p.get(h) or "").strip().lower() == c[f].strip().lower()]
             if sim >= 0.85:
                 reasons.append(f"similar name ({p.get('name')})" + (f", same {'/'.join(h.split()[-1].lower() for h in same_place)}" if same_place else ""))
-            elif sim >= 0.6 and len(same_place) >= 2:
+            elif sim >= 0.7 and len(same_place) >= 2:
                 reasons.append(f"partly similar name ({p.get('name')}) in same {'/'.join(h.split()[-1].lower() for h in same_place)}")
             if not reasons:
                 continue

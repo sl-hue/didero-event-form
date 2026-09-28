@@ -61,9 +61,9 @@ CONTACT_MAPPING = {
     "First Name": ("First Name", "firstname"),
     "Last Name": ("Last Name", "lastname"),
     "Job Title": ("Job Title", "jobtitle"),
-    "Management Level": ("Seniority", "seniority"),
+    "Management Level": ("Employment Seniority", "hs_seniority"),  # dropdown; values converted in step 2
     "Job Function": ("Job function", "job_function"),
-    "Department": ("Department", "department"),
+    "Department": ("Department", "department"),  # dropdown; values checked in step 2
     "Direct Phone Number": ("Work Direct Phone", "work_direct_phone"),
     "Email Address": ("Email", "email"),
     "Email Domain": ("Company Domain", "company_domain"),

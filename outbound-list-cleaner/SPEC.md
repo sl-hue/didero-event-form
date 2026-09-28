@@ -114,6 +114,13 @@ review is reported in chat.
    belongs to someone else (Jordan Esco → `jwiggins@…`) is cleared (the
    domain stays); last name differs → ask the user.
 
+2c. **Dropdown values.** Values going into HubSpot dropdown properties are
+   rewritten to the exact option labels so the import doesn't reject them:
+   Management Level → Employment Seniority options (`VP-Level` → `VP`,
+   `C-Level` → `Executive`, Director, Manager, `Non-Manager` → `Employee`);
+   Department must be one of HubSpot's Department options. Values with no
+   matching option are listed in chat for the user to fix.
+
 **Company file** (from the ZoomInfo company export)
 3. **Only this list's companies** (two-file rule).
 4. **Sync with contacts.** `Website` taken from the contact file;
@@ -188,5 +195,10 @@ shows the field mapping in chat as a table so the user picks the same fields.
 - **Not imported:** ZoomInfo Company ID and ZoomInfo Contact ID (they confuse a
   calling tool). Fax is removed from the company file in step 2.
 - **Website** maps to `Website URL`, not "Website URL (Cleaned)".
+- **Management Level → Employment Seniority** (`hs_seniority`, a dropdown);
+  record IDs → HubSpot's built-in `Record ID` only (both confirmed).
+- **Import errors:** the user either fixes the value in the file and
+  re-imports, or edits the record directly in HubSpot. Recurring value
+  mismatches should be added to step 2's dropdown conversion.
 - Full column → property mapping: `COMPANY_MAPPING` / `CONTACT_MAPPING` in
   `scripts/hubspot_import.py`.

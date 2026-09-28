@@ -59,6 +59,22 @@ CREDENTIALS = {
 }
 GENERATIONAL = {"jr", "sr", "ii", "iii", "iv", "v"}
 
+# Values rewritten so they match HubSpot dropdown options exactly on import.
+# Column -> (HubSpot property, {ZoomInfo value (lowercase): HubSpot option label}).
+# Option lists as of 2026-09-28; re-check with the HubSpot connector
+# (get_properties) if an import rejects a value.
+DROPDOWNS = {
+    "Management Level": ("hs_seniority (Employment Seniority)", {
+        "c-level": "Executive", "vp-level": "VP", "director": "Director", "manager": "Manager",
+        "non-manager": "Employee", "owner": "Owner", "partner": "Partner", "board member": "Executive",
+        "senior": "Senior", "entry": "Entry", "employee": "Employee", "executive": "Executive", "vp": "VP",
+    }),
+    "Department": ("department (Department)", {
+        v.lower(): v for v in ("Finance", "C-Suite", "Engineering & Technical", "Operations", "Legal",
+                               "Information Technology", "Human Resources", "Sales", "Marketing")
+    }),
+}
+
 
 def read_rows(path):
     with open(path, newline="", encoding="utf-8-sig") as f:
@@ -224,6 +240,17 @@ def apply(args):
     cleared_emails = []
 
     blanked, replaced = [], []
+    unmapped_dropdowns = Counter()
+    for r in contacts:
+        for col, (_, options) in DROPDOWNS.items():
+            value = (r.get(col) or "").strip()
+            if not value:
+                continue
+            mapped = options.get(value.lower())
+            if mapped:
+                r[col] = mapped
+            else:
+                unmapped_dropdowns[(col, value)] += 1
     for r in contacts:
         r["First Name"] = normalize_name(r["First Name"])
         r["Last Name"] = normalize_name(r["Last Name"])
@@ -274,12 +301,17 @@ def apply(args):
     write_rows(out / "contacts_upload.csv", CONTACT_COLUMNS, contacts)
     write_rows(out / "companies_upload.csv", COMPANY_COLUMNS, out_companies)
     report = {"linkedin_blanked": blanked, "linkedin_replaced": replaced,
-              "emails_cleared": cleared_emails, "companies_missing_from_company_export": missing,
+              "emails_cleared": cleared_emails,
+              "dropdown_values_not_matching": [
+                  {"column": col, "value": v, "rows": n, "hubspot_property": DROPDOWNS[col][0],
+                   "allowed": sorted(set(DROPDOWNS[col][1].values()))}
+                  for (col, v), n in unmapped_dropdowns.items()], "companies_missing_from_company_export": missing,
               "companies_dropped_not_in_list": dropped}
     (out / "report_step2.json").write_text(json.dumps(report, indent=2))
     print(f"wrote {out / 'contacts_upload.csv'} ({len(contacts)} rows, {len(CONTACT_COLUMNS)} cols) and "
           f"{out / 'companies_upload.csv'} ({len(out_companies)} rows, {len(COMPANY_COLUMNS)} cols); "
-          f"{len(blanked)} LinkedIn URLs blanked, {len(replaced)} replaced, {len(cleared_emails)} emails cleared")
+          f"{len(blanked)} LinkedIn URLs blanked, {len(replaced)} replaced, {len(cleared_emails)} emails cleared, "
+          f"{sum(unmapped_dropdowns.values())} dropdown values with no matching HubSpot option")
     if missing:
         print("contacts' companies missing from the company export:", missing)
     if dropped:

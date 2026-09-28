@@ -41,11 +41,7 @@ on unclear rows through multiple-choice prompts in chat.
 
 ## Open questions
 
-- Contact `Management Level`: HubSpot has `Seniority` (`seniority`) and
-  `Employment Seniority` (`hs_seniority`) — currently mapped to `Seniority`.
-- Record IDs: mapped to HubSpot's built-in `Record ID`; there is no custom
-  "HubSpot Company/Contact Record ID" property. "Not in HubSpot" is blanked
-  in the import copy.
+- None right now.
 
 ## Decision log
 
@@ -78,6 +74,11 @@ on unclear rows through multiple-choice prompts in chat.
   first; Claude shows a mapping table in chat with "Don't overwrite"
   suggestions; Type defaults to Prospect (ask if the list doesn't look like
   prospects); ZoomInfo IDs not imported; Fax dropped; Website → Website URL.
+
+- 2026-09-28 — Management Level → Employment Seniority (dropdown); step 2
+  converts ZoomInfo values (VP-Level → VP, C-Level → Executive, …). Record IDs
+  → HubSpot's built-in Record ID only. User imports; on errors they fix the
+  file and re-import or edit in HubSpot.
 
 ## Using this in Cowork
 
