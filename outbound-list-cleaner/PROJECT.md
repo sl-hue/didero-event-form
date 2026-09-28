@@ -31,23 +31,14 @@ on unclear rows through multiple-choice prompts in chat.
 
 ## Next up
 
-1. User answers the open questions below.
-2. User walks through the next step of the manual process; add it to
+1. User walks through the next step of the manual process; add it to
    `SPEC.md`, then build it.
-3. Once the pipeline is complete, compare its output against the hand-cleaned
+2. Once the pipeline is complete, compare its output against the hand-cleaned
    samples (files 4 and 5) column by column.
 
 ## Open questions
 
-- **Scope of "use the ultimate owner":** should operating subsidiaries with
-  their own brand also take the parent's domain as primary? E.g. Foundation
-  Building Materials was acquired by Lowe's — should FBM's `Company Domain`
-  become `lowes.com`, or does the rule only apply when contacts at the same
-  company record use both domains (like QXO/Kodiak)? Current behaviour: the
-  latter.
-- **Company file `Email Domain` column:** file 5 has a single `Email Domain`
-  column; the new format replaces it with `Company Domain` +
-  `Additional Domains`. Confirm the exact HubSpot column names.
+- None right now.
 
 ## Decision log
 
@@ -59,6 +50,10 @@ on unclear rows through multiple-choice prompts in chat.
 - 2026-09-28 — All contact domains go on the company: primary in
   `Company Domain` (ultimate owner's), others in `Additional Domains`
   (`;`-separated). Subsidiary emails are kept, not cleared.
+- 2026-09-28 — `Company Domain` = the domain most used by the company's
+  contacts (not automatically the parent's); ties go to the user. Acquired
+  companies keep their own domains (FBM is not moved to `lowes.com`).
+  `Company Domain` + `Additional Domains` replace file 5's `Email Domain`.
 
 ## Using this in Cowork
 

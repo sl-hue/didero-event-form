@@ -30,8 +30,8 @@ HubSpot associates them. The website is **never** used as the email domain.
    - Clear mismatch (a prior employer, a data-vendor placeholder such as
      `zoomhubs.com`) → `clear`.
    - Parent/child (subsidiary or acquired company, e.g. `kodiakbp.com` at
-     QXO) → `keep`, and record the ultimate owner's domain in
-     `primary_domains`.
+     QXO) → `keep`; it becomes an additional domain unless it is the most
+     used one.
    - Anything doubtful → ask the user (step 3).
    If the ZoomInfo company name looks unrelated to the domain, check what
    company the domain actually belongs to before calling it a mismatch.
@@ -59,6 +59,9 @@ HubSpot associates them. The website is **never** used as the email domain.
    }
    ```
    Every pair in review.json needs an entry; the script refuses to run otherwise.
+   `primary_domains` is only for overrides — e.g. the user's pick when
+   review.json lists a company under `primary_ties`. By default the most used
+   domain is primary.
 
 6. **Apply.** Run
    `python3 scripts/email_domain.py apply <contacts.csv> --decisions <run_dir>/decisions.json --out-dir <run_dir>`.
@@ -66,7 +69,7 @@ HubSpot associates them. The website is **never** used as the email domain.
    - `contacts_step1.csv` — the input columns with `Email Address` and
      `Email Domain` cleaned, plus audit columns `Original Email`,
      `ZoomInfo Email Domain`, `Email Domain Source`, `Step 1 Notes`.
-   - `company_domains_step1.csv` — per company: `Company Domain` (primary),
+   - `company_domains_step1.csv` — per company: `Company Domain` (most used),
      `Additional Domains` (`;`-separated), `Domain Source`.
 
 7. **Report** counts (own email / backfilled / web / cleared / fixed) and any

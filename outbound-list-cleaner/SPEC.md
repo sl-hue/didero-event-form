@@ -56,18 +56,22 @@ Sub-steps, in order:
    evidence of the domain (confirmed by user on the CBM M&A run).
 7. **Build company domains.** Every domain used by the company's contacts
    goes on the company record:
-   - `Company Domain` — the primary domain: the **ultimate owner's** domain
-     when there is a parent/child relationship, otherwise the most common.
+   - `Company Domain` — the primary domain: the one **most used** by the
+     company's contacts. Ties go to the user.
    - `Additional Domains` — all other domains, separated by `;`.
    Contacts without an email are backfilled with the primary domain.
 
 ### Decision rules (confirmed by user)
 
 - Subsidiary / acquired-company emails (e.g. `kodiakbp.com` at QXO) are
-  **kept**; the subsidiary domain goes in `Additional Domains` and the parent's
-  domain is `Company Domain`.
-- Always use the ultimate owner and the email domain it uses
+  **kept**; whichever domain is most used becomes `Company Domain`, the rest
+  go in `Additional Domains`.
+- Web backfill: use the ultimate owner and the email domain it actually uses
   (e.g. Threaded Fasteners → `tfmfg.com`, the domain its public inboxes use).
+- Acquisitions don't change a company's domain by themselves: FBM stays on
+  its own domains even though Lowe's owns it.
+- Company file: `Company Domain` + `Additional Domains` replace file 5's
+  single `Email Domain` column (confirmed).
 - ZoomInfo placeholder domains (e.g. `zoomhubs.com`) are cleared automatically.
 - Doubled TLDs (`.com.com`) are fixed, not cleared.
 - A ZoomInfo company name that doesn't resemble the domain is not by itself a

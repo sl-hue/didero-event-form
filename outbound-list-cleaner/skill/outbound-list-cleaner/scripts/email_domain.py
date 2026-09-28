@@ -18,9 +18,11 @@ decisions.json:
   }
 
 Company file: every domain the company's contacts use is kept. The primary
-goes in "Company Domain" (the ultimate owner's domain when set in
-primary_domains, otherwise the most common one); the rest go in
-"Additional Domains", separated by ";".
+goes in "Company Domain" (the domain most used by its contacts, unless
+overridden in primary_domains); the rest go in "Additional Domains",
+separated by ";". Ties for most used are listed in review.json under
+"primary_ties" so Claude can ask the user and record the answer in
+primary_domains.
 """
 import argparse
 import csv
@@ -100,16 +102,26 @@ def prepare(args):
             p["email_domain"] for p in pairs.values()
             if p["company_id"] == pair["company_id"] and p["key"] != pair["key"])
 
+    ties = []
+    for key, company in companies.items():
+        counts = sorted((p["contacts"] for p in pairs.values() if p["company_id"] == key), reverse=True)
+        if len(counts) > 1 and counts[0] == counts[1]:
+            ties.append({"company_id": key, "company": company["company"],
+                         "domains": {p["email_domain"]: p["contacts"] for p in pairs.values()
+                                     if p["company_id"] == key}})
+
     review = {
         "source": str(args.contacts),
         "pairs": list(pairs.values()),
         "companies_without_email": [c for c in companies.values() if not c["with_email"]],
+        "primary_ties": ties,
     }
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "review.json").write_text(json.dumps(review, indent=2))
     print(f"{len(rows)} contacts, {len(companies)} companies, {len(pairs)} company/domain pairs, "
-          f"{len(review['companies_without_email'])} companies with no email -> {out / 'review.json'}")
+          f"{len(review['companies_without_email'])} companies with no email, "
+          f"{len(ties)} primary-domain ties -> {out / 'review.json'}")
 
 
 def apply(args):
@@ -194,7 +206,7 @@ def apply(args):
         if key in web_domains and not any(r[EMAIL] for r in rows if company_key(r) == key):
             source = "web: " + web_domains[key]["source"]
         elif key in primary_domains:
-            source = "ultimate owner: " + primary_domains[key].get("reason", "")
+            source = "primary chosen by user: " + primary_domains[key].get("reason", "")
         else:
             source = "contacts"
         summary.append({COMPANY_ID: key, COMPANY: row[COMPANY], "Website": row.get("Website", ""),
