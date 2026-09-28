@@ -5,7 +5,18 @@ HubSpot connector, saves each raw response as a JSON file in a folder, and the
 script scores the results. Companies first (they are the anchor records), then
 contacts.
 
-  check-token       Confirm HUBSPOT_PRIVATE_APP_TOKEN works (never prints it).
+  setup-token       Authorize the HubSpot private app on this device. Three ways:
+                      (no flags)       interactive, in the user's own terminal:
+                                       consent prompt + hidden token input
+                      --open-terminal  open a new terminal window on the user's
+                                       computer running the interactive setup
+                      --from-file F    for Cowork / no terminal: the user saved
+                                       the token in file F; with --authorized
+                                       (the user said yes in chat) it is
+                                       checked, moved to the private token
+                                       file, and F is deleted
+                    Claude never reads or prints the token.
+  check-token       Confirm the saved token works (never prints it).
   run-plan          Run a search plan directly against the HubSpot API with the
                     private app token, saving responses in the same format the
                     connector returns. Much faster than running the plan
@@ -27,6 +38,11 @@ when it is not in HubSpot:
 """
 import argparse
 import csv
+import getpass
+import platform
+import shlex
+import shutil
+import subprocess
 import json
 import os
 import re
@@ -175,11 +191,25 @@ OBJECT_PATHS = {"COMPANY": "companies", "CONTACT": "contacts"}
 OBJECT_TYPE_IDS = {"COMPANY": "0-2", "CONTACT": "0-1"}
 
 
-def api(method, path, body=None):
-    token = os.environ.get(TOKEN_VAR)
+TOKEN_FILE = Path(os.environ.get("HUBSPOT_TOKEN_FILE",
+                                  Path.home() / ".config" / "outbound-list-cleaner" / "hubspot_token"))
+SCOPES = ["crm.objects.companies.read", "crm.objects.contacts.read"]
+SETUP_COMMAND = "python3 scripts/hubspot_match.py setup-token"
+
+
+def load_token():
+    """Environment variable first, then the private token file from setup-token."""
+    token = os.environ.get(TOKEN_VAR, "").strip()
+    if not token and TOKEN_FILE.exists():
+        token = TOKEN_FILE.read_text().strip()
+    return token
+
+
+def api(method, path, body=None, token=None):
+    token = token or load_token()
     if not token:
-        raise SystemExit(f"{TOKEN_VAR} is not set; see the skill's setup section, or run the plan "
-                         "through the HubSpot connector instead")
+        raise SystemExit(f"No HubSpot private app token on this device. Run `{SETUP_COMMAND}` in your "
+                         f"own terminal to authorize it, or set {TOKEN_VAR}.")
     data = json.dumps(body).encode() if body is not None else None
     for attempt in range(6):
         req = urllib.request.Request(API + path, data=data, method=method, headers={
@@ -191,15 +221,99 @@ def api(method, path, body=None):
             if e.code == 429 or e.code >= 500:  # rate limit / transient: back off
                 time.sleep(2 ** attempt)
                 continue
+            if e.code in (401, 403):
+                raise SystemExit("HubSpot rejected the private app token (wrong or expired token, or "
+                                 f"missing scopes: {', '.join(SCOPES)}). Nothing was saved; "
+                                 f"re-run `{SETUP_COMMAND}` with the right token.")
             raise SystemExit(f"HubSpot API {method} {path} failed: {e.code} {e.read()[:300]!r}")
     raise SystemExit(f"HubSpot API {method} {path}: still rate-limited after retries")
 
 
+def verify(token=None):
+    info = api("GET", "/account-info/v3/details", token=token)
+    api("POST", "/crm/v3/objects/companies/search", {"limit": 1}, token=token)
+    api("POST", "/crm/v3/objects/contacts/search", {"limit": 1}, token=token)
+    return info.get("portalId")
+
+
 def check_token(args):
-    info = api("GET", "/account-info/v3/details")
-    api("POST", "/crm/v3/objects/companies/search", {"limit": 1})
-    api("POST", "/crm/v3/objects/contacts/search", {"limit": 1})
-    print(f"token OK for HubSpot portal {info.get('portalId')}: can read companies and contacts")
+    source = "environment variable" if os.environ.get(TOKEN_VAR) else f"token file {TOKEN_FILE}"
+    portal = verify()
+    print(f"token OK ({source}) for HubSpot portal {portal}: can read companies and contacts")
+
+
+def save_token(token):
+    portal = verify(token)
+    TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    TOKEN_FILE.touch(mode=0o600)
+    TOKEN_FILE.chmod(0o600)
+    TOKEN_FILE.write_text(token)
+    print(f"Authorized for HubSpot portal {portal}; token saved to {TOKEN_FILE} (only you can read it). "
+          f"To revoke, delete that file or rotate the token in HubSpot.")
+
+
+def open_terminal():
+    """Open a terminal window on the user's computer running the interactive setup."""
+    script = Path(__file__).resolve()
+    cmd = f"cd {shlex.quote(str(script.parent.parent))} && python3 {shlex.quote(str(script))} setup-token"
+    system = platform.system()
+    if system == "Darwin":
+        apple = cmd.replace("\\", "\\\\").replace('"', '\\"')
+        subprocess.run(["osascript", "-e", f'tell application "Terminal" to do script "{apple}"',
+                        "-e", 'tell application "Terminal" to activate'], check=True)
+    elif system == "Windows":
+        subprocess.run(["cmd", "/c", "start", "cmd", "/k",
+                        f'python "{script}" setup-token'], check=True)
+    else:
+        for term in ("x-terminal-emulator", "gnome-terminal", "konsole", "xterm"):
+            if shutil.which(term):
+                args = [term, "--", "bash", "-c", cmd + "; exec bash"] if term == "gnome-terminal" \
+                    else [term, "-e", f"bash -c {shlex.quote(cmd + '; exec bash')}"]
+                subprocess.Popen(args)
+                break
+        else:
+            raise SystemExit(f"No terminal app found. Open a terminal yourself and run: {SETUP_COMMAND}")
+    print("Opened a terminal window with the HubSpot setup. Finish it there, then tell Claude you're done.")
+
+
+def setup_token(args):
+    if args.open_terminal:
+        return open_terminal()
+    if args.from_file:
+        if not args.authorized:
+            raise SystemExit("Ask the user to authorize reading HubSpot companies and contacts with the "
+                             "private app, then re-run with --authorized.")
+        src = Path(args.from_file).expanduser()
+        if not src.exists():
+            raise SystemExit(f"{src} not found. Ask the user to save the token there (the file should "
+                             "contain only the token).")
+        token = src.read_text().strip()
+        save_token(token)
+        src.unlink()
+        print(f"Removed {src} so the token doesn't sit in the project folder.")
+        return
+    if not os.isatty(0):
+        raise SystemExit(f"setup-token needs your own terminal (it reads the token as hidden input). "
+                         f"Open a terminal in the skill folder and run: {SETUP_COMMAND}")
+    print(__doc__.split("\n")[0])
+    print(f"""
+This script searches HubSpot directly with a private app token. The token
+stays on this device, in {TOKEN_FILE} (readable only by you). It is never
+sent anywhere except HubSpot, and never shown in the chat.
+
+1. In HubSpot, open Settings and find Private Apps (under Integrations; in
+   newer portals it can sit under Development). Create a private app, or open
+   the one your team already uses.
+2. Give it these read-only scopes: {", ".join(SCOPES)}
+3. Copy its access token.
+""")
+    if input("Authorize this script to read your HubSpot companies and contacts with that "
+             "private app? [y/N] ").strip().lower() not in ("y", "yes"):
+        raise SystemExit("Not authorized; nothing saved. Step 3 will fall back to the HubSpot connector.")
+    token = getpass.getpass("Paste the access token (input is hidden): ").strip()
+    if not token:
+        raise SystemExit("No token entered; nothing saved.")
+    save_token(token)
 
 
 def run_plan(args):
@@ -500,6 +614,11 @@ def main():
             p.add_argument(f"--{o}", required=True)
         p.set_defaults(func=func)
 
+    st = sub.add_parser("setup-token")
+    st.add_argument("--open-terminal", action="store_true")
+    st.add_argument("--from-file")
+    st.add_argument("--authorized", action="store_true")
+    st.set_defaults(func=setup_token)
     add("check-token", check_token)
     add("run-plan", run_plan, "plan", "raw-dir")
     add("plan-companies", plan_companies, "companies", "out-dir")

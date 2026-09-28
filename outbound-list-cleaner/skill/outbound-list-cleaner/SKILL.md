@@ -21,15 +21,35 @@ only that list's companies. A sublist gets its own company file.
 2. **HubSpot setup on this device.** Confirm both:
    - The **HubSpot connector** is connected (used to verify merges and look
      up properties).
-   - The **HubSpot private app token** is available to the script as the
-     environment variable `HUBSPOT_PRIVATE_APP_TOKEN` (read scopes:
-     `crm.objects.companies.read`, `crm.objects.contacts.read`). Run
-     `python3 scripts/hubspot_match.py check-token`. If it fails, tell the
-     user to set the token up on their device (in Claude Code on the web:
-     the environment's settings, as an environment variable) before running
-     step 3 — never ask them to paste it into the chat. Without it, step 3
-     falls back to the connector, which is many times slower (roughly 10–15
-     minutes per 60 companies instead of seconds).
+   - The **HubSpot private app is authorized on this device.** Run
+     `python3 scripts/hubspot_match.py check-token`. If it fails, get the
+     user to authorize it before step 3:
+     1. Explain: the script reads HubSpot companies and contacts directly
+        with their team's private app (read scopes
+        `crm.objects.companies.read`, `crm.objects.contacts.read`); the token
+        is stored only on their device and never shown in chat.
+     2. Ask with the multiple-choice tool whether they authorize this.
+     3. Then, depending on where you're running:
+        - **Claude Code on their computer:** run
+          `python3 scripts/hubspot_match.py setup-token --open-terminal`. A
+          terminal window opens where they confirm and paste the token
+          (hidden input). Wait for them to say they're done.
+        - **Cowork, or no terminal:** ask them to create a text file named
+          `hubspot_token.txt` in the folder they've given Cowork access to,
+          containing only the token, and tell you when it's saved. Then run
+          `python3 scripts/hubspot_match.py setup-token --from-file <that path> --authorized`,
+          which checks the token, moves it to the private token file and
+          deletes `hubspot_token.txt`.
+        - **Claude Code on the web:** they can instead add
+          `HUBSPOT_PRIVATE_APP_TOKEN` as an environment variable in the
+          environment's settings (picked up by a new session).
+     4. Re-run `check-token`.
+     **Never** ask for the token in chat, and never read, print or open the
+     token file yourself. If the user pastes a token into the chat anyway,
+     don't use it; tell them to rotate it in HubSpot and use the steps above.
+     If they decline, step 3 falls back to the connector, which is many
+     times slower (roughly 10–15 minutes per 60 companies instead of
+     seconds).
 
 ## Step 1 — Email domain cleaning
 
