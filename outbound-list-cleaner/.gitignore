@@ -1,0 +1,6 @@
+# Sample lists contain personal contact data and this repo is public.
+# Keep data files local; only READMEs/manifests are committed.
+samples/**/*.csv
+samples/**/*.xlsx
+samples/**/*.xls
+samples/**/*.tsv
