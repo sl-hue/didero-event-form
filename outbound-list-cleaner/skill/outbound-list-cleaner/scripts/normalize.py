@@ -13,12 +13,12 @@ files. Two stages, with Claude (the skill) in between:
            report_step2.json.
 
 decisions_step2.json:
-  {"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep" | "blank" | "flag", "reason": "..."}}}
+  {"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep" | "blank" | "replace",
+                                          "url": "<new URL, for replace>", "reason": "..."}}}
 
-  keep   plausible match (nickname, initials, credentials, typo)
-  blank  clearly the wrong person: URL removed, reported in chat
-  flag   last name differs (maybe a married/maiden name): URL left untouched,
-         reported in chat for the user to check and edit themselves
+  keep     plausible match, or the user chose to keep it
+  blank    wrong person (Claude's call for clear cases, the user's otherwise)
+  replace  the user supplied the correct URL
 """
 import argparse
 import csv
@@ -197,7 +197,7 @@ def apply(args):
     decisions = json.loads(Path(args.decisions).read_text()) if args.decisions else {}
     linkedin_decisions = decisions.get("linkedin", {})
 
-    blanked, flagged = [], []
+    blanked, replaced = [], []
     for r in contacts:
         r["First Name"] = normalize_name(r["First Name"])
         r["Last Name"] = normalize_name(r["Last Name"])
@@ -207,10 +207,10 @@ def apply(args):
                             "company": r["Company Name"], "removed_url": r[LINKEDIN],
                             "reason": d.get("reason", "")})
             r[LINKEDIN] = ""
-        elif d and d["action"] == "flag":
-            flagged.append({CONTACT_ID: r[CONTACT_ID], "name": f"{r['First Name']} {r['Last Name']}",
-                            "company": r["Company Name"], "url": r[LINKEDIN],
-                            "reason": d.get("reason", "")})
+        elif d and d["action"] == "replace":
+            replaced.append({CONTACT_ID: r[CONTACT_ID], "name": f"{r['First Name']} {r['Last Name']}",
+                             "company": r["Company Name"], "from": r[LINKEDIN], "to": d["url"]})
+            r[LINKEDIN] = d["url"]
 
     # Company file: only the companies of this list's contacts (two-file rule).
     in_list = OrderedDict((r[COMPANY_ID], None) for r in contacts)
@@ -240,12 +240,12 @@ def apply(args):
     out.mkdir(parents=True, exist_ok=True)
     write_rows(out / "contacts_upload.csv", CONTACT_COLUMNS, contacts)
     write_rows(out / "companies_upload.csv", COMPANY_COLUMNS, out_companies)
-    report = {"linkedin_blanked": blanked, "linkedin_flagged": flagged, "companies_missing_from_company_export": missing,
+    report = {"linkedin_blanked": blanked, "linkedin_replaced": replaced, "companies_missing_from_company_export": missing,
               "companies_dropped_not_in_list": dropped}
     (out / "report_step2.json").write_text(json.dumps(report, indent=2))
     print(f"wrote {out / 'contacts_upload.csv'} ({len(contacts)} rows, {len(CONTACT_COLUMNS)} cols) and "
           f"{out / 'companies_upload.csv'} ({len(out_companies)} rows, {len(COMPANY_COLUMNS)} cols); "
-          f"{len(blanked)} LinkedIn URLs blanked, {len(flagged)} flagged")
+          f"{len(blanked)} LinkedIn URLs blanked, {len(replaced)} replaced")
     if missing:
         print("contacts' companies missing from the company export:", missing)
     if dropped:

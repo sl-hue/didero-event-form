@@ -62,8 +62,8 @@ on unclear rows through multiple-choice prompts in chat.
 
 - 2026-09-28 — Step 2 rules: fix bad casing + strip credentials; no LinkedIn
   live check; wrong-person LinkedIn URLs blanked and reported in chat;
-  last-name mismatches left untouched and reported in chat (user edits
-  themselves, no decision box); output files carry no audit/notes columns;
+  last-name mismatches go to the user as a decision box (keep / blank /
+  corrected URL; the user checks LinkedIn themselves); output files carry no audit/notes columns;
   ZoomInfo values (e.g. revenue) passed through without outlier checks;
   company file syncs website/domains from contacts; industry joined with
   "- "; contact file's first column is `ZoomInfo Contact ID`.

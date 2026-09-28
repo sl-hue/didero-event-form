@@ -106,8 +106,8 @@ review is reported in chat.
    - Nickname, initials, credentials in the slug, or a typo → keep.
    - Clearly a different person → **blank the URL**, then list it in chat.
    - First name matches but last name differs (maybe married/maiden name) →
-     **leave the data untouched** and list it in chat; the user checks online
-     and edits the file themselves. Don't put this to the user as a decision box.
+     **ask the user** in a decision box (keep / blank / paste the correct URL).
+     The user checks LinkedIn themselves before answering.
 
 **Company file** (from the ZoomInfo company export)
 3. **Only this list's companies** (two-file rule).

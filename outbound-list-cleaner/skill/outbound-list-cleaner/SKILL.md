@@ -90,11 +90,14 @@ Everything the user needs to review goes in the chat.
    - Nickname (Bill/William, Pat/Patrick), initials (`jbsunderbruch`),
      credentials in the slug, or an obvious typo → `keep`.
    - Clearly a different person (both names differ) → `blank`.
-   - First name matches, last name differs → `flag`. Don't ask the user to
-     decide; the data stays as is and you list it in chat.
+   - First name matches, last name differs (possibly a married/maiden name)
+     → ask the user with the multiple-choice tool: show name, company, job
+     title and the URL, and offer Keep / Blank (they can type a corrected URL
+     under "Other" → `replace`). The user checks LinkedIn themselves; you
+     don't need to.
 
 3. **Write `<run_dir>/decisions_step2.json`:**
-   `{"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep|blank|flag", "reason": "..."}}}`
+   `{"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep|blank|replace", "url": "...", "reason": "..."}}}`
 
 4. **Apply.** Run
    `python3 scripts/normalize.py apply --contacts <run_dir>/contacts_step1.csv --companies <zoominfo_company_export.csv> --company-domains <run_dir>/company_domains_step1.csv --decisions <run_dir>/decisions_step2.json --out-dir <run_dir>`.
@@ -103,8 +106,8 @@ Everything the user needs to review goes in the chat.
    website and domains synced from contacts), and `report_step2.json`.
 
 5. **Report in chat:** name fixes, blanked LinkedIn URLs (name, company,
-   removed URL, reason), flagged last-name mismatches for the user to check
-   online, and any companies dropped or missing.
+   removed URL, reason), the user's last-name decisions, and any companies
+   dropped or missing.
 
 ## Data handling
 
