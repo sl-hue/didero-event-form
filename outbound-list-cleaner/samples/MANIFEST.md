@@ -21,7 +21,7 @@ each sample is so the test setup is reproducible.
 | 2 | 2 | `type2_zoominfo_personalized/cbm_mna_2026-09-28/raw/companies_zi_raw.csv` | Company file, straight from ZoomInfo, unedited | Present (59 rows) |
 | 3 | 2 | `type2_zoominfo_personalized/cbm_mna_2026-09-28/raw/contacts_zi_raw.csv` | Contact file, straight from ZoomInfo, unedited | Present |
 | 4 | 2 | `type2_zoominfo_personalized/cbm_mna_2026-09-28/final/contacts_final.csv` | Contact file after manual cleanup (target output) | Present |
-| 5 | 2 | `type2_zoominfo_personalized/cbm_mna_2026-09-28/final/companies_final.csv` | Company file after manual cleanup (target output) | **Not yet uploaded** |
+| 5 | 2 | `type2_zoominfo_personalized/cbm_mna_2026-09-28/final/companies_final.csv` | Company file after manual cleanup (target output) | Present (59 rows) |
 
 ## Notes
 
