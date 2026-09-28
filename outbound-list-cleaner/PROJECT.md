@@ -28,7 +28,7 @@ on unclear rows through multiple-choice prompts in chat.
 | Sample files (5) collected | Done (local only; the repo is public) |
 | Step 1 — Email domain cleaning | **Built and tested** on the CBM M&A raw contact file: 170/170 contacts got a domain; 4 review questions put to the user; rules from the answers folded into SPEC.md |
 | Step 2 — Normalization (names, LinkedIn, company fields, column pruning) | **Built and tested** on CBM M&A: output matches hand-cleaned files 4/5 except where confirmed rules differ |
-| Step 3 — HubSpot duplicate check | Built; company searches run on CBM M&A, review with user pending |
+| Step 3 — HubSpot duplicate check | Companies done on CBM M&A (47/59 match the hand file; the rest explained by today's import and 3 merges). Contacts next |
 | Step 4 — HubSpot import prep (mapping table, Type, record IDs) | Built; dry-run OK |
 | Later steps (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
 
@@ -79,6 +79,10 @@ on unclear rows through multiple-choice prompts in chat.
   converts ZoomInfo values (VP-Level → VP, C-Level → Executive, …). Record IDs
   → HubSpot's built-in Record ID only. User imports; on errors they fix the
   file and re-import or edit in HubSpot.
+
+- 2026-09-28 — HubSpot merges create a new record ID; the user supplies it and
+  Claude verifies via `hs_merged_object_ids`, then checks the survivor's
+  name/domain (SRS merge kept "Superior Distribution").
 
 ## Using this in Cowork
 

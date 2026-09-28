@@ -144,10 +144,20 @@ you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
    - Tell the user to open them and merge the duplicates in HubSpot
      themselves, one by one, into the record they want to keep.
    - Then ask with the multiple-choice tool: "After merging, which record
-     survived?" — one option per candidate ID, plus "Not a duplicate / keep
+     survived?" Merging in HubSpot usually creates a **new record ID**, so the
+     user typically types it under "Other"; offer "Not a duplicate / keep
      separate" where relevant. Up to 4 companies per call.
-   - Re-search the merged-away IDs (`hs_object_id IN [...]`); if they still
-     exist, the merge isn't done — tell the user and ask again.
+   - **Verify:** search `hs_object_id IN [new ID + old IDs]` with
+     `hs_merged_object_ids`. The survivor must exist and list the merged-away
+     IDs; if the old IDs still come back on their own, the merge isn't done —
+     tell the user and ask again.
+   - **Check the survivor's values:** HubSpot may keep the other record's
+     name or domain (e.g. SRS Distribution merged into a record still named
+     "Superior Distribution"). If the survivor's name or primary domain
+     doesn't match the list, tell the user to fix it in HubSpot or to leave
+     "Don't overwrite" unticked for those columns on import.
+   - Dismiss name-only hits that are clearly other companies (different
+     place and size, e.g. "EMSI" for EMS) without asking.
 6. Write `<run_dir>/company_decisions.json`
    (`{"<ZoomInfo Company ID>": {"record_id": "..." | null, "note": "..."}}`) and run
    `python3 $S apply-companies --companies <run_dir>/companies_upload.csv --contacts <run_dir>/contacts_upload.csv --contacts-step1 <run_dir>/contacts_step1.csv --decisions <run_dir>/company_decisions.json`.

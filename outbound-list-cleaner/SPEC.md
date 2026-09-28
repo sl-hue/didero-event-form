@@ -167,8 +167,10 @@ scores the results.
    HubSpot**, one by one, into one survivor (records that turn out not to be
    duplicates stay separate).
 3. Only after merging, the user tells Claude the survivor record ID (via the
-   decision box). Claude re-checks HubSpot that the merged-away records are
-   gone before recording it.
+   decision box). A merge usually creates a **new** record ID. Claude verifies
+   the survivor through `hs_merged_object_ids`, and checks its name and
+   primary domain still match the list (HubSpot may keep the other record's
+   values).
 4. A single strong match with no other candidates needs no question.
 5. Output: `HubSpot Company Record ID` column on the company file and
    `HubSpot Contact Record ID` on the contact file; `Not in HubSpot` when
