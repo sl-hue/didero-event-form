@@ -48,7 +48,7 @@ on unclear rows through multiple-choice prompts in chat.
   validity; doubtful rows go to the user; web backfill uses general inboxes,
   falling back to public staff addresses.
 - 2026-09-28 — All contact domains go on the company: primary in
-  `Company Domain` (ultimate owner's), others in `Additional Domains`
+  `Company Domain` (superseded below), others in `Additional Domains`
   (`;`-separated). Subsidiary emails are kept, not cleared.
 - 2026-09-28 — `Company Domain` = the domain most used by the company's
   contacts (not automatically the parent's); ties go to the user. Acquired
