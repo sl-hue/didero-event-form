@@ -41,7 +41,7 @@ CONTACT_COLUMNS = [
 ]
 
 COMPANY_COLUMNS = [
-    COMPANY_ID, "Company Name", "Website", "Founded Year", "Company HQ Phone", "Fax",
+    COMPANY_ID, "Company Name", "Website", "Founded Year", "Company HQ Phone",
     "Revenue (in USD)", "Revenue Range (in USD)", "Employees", "Employee Range",
     "SIC Code 1", "SIC Code 2", "NAICS Code 1", "NAICS Code 2", "Primary Industry",
     "ZoomInfo Company Profile URL", "LinkedIn Company Profile URL",
