@@ -27,7 +27,7 @@ on unclear rows through multiple-choice prompts in chat.
 |------|-------|
 | Sample files (5) collected | Done (local only; the repo is public) |
 | Step 1 — Email domain cleaning | **Built and tested** on the CBM M&A raw contact file: 170/170 contacts got a domain; 4 review questions put to the user; rules from the answers folded into SPEC.md |
-| Step 2 — Normalization (names, LinkedIn, company fields, column pruning) | Specified (draft in SPEC.md); questions out to user |
+| Step 2 — Normalization (names, LinkedIn, company fields, column pruning) | **Built and tested** on CBM M&A: output matches hand-cleaned files 4/5 except where confirmed rules differ |
 | Later steps (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
 
 ## Next up
@@ -39,7 +39,11 @@ on unclear rows through multiple-choice prompts in chat.
 
 ## Open questions
 
-- Step 2: name casing edge cases, LinkedIn liveness method and action, website changes, column list, industry separator (see chat of 2026-09-28).
+- **Email belongs to a different person:** Jordan Esco (Franklin Building
+  Supply) has email `jwiggins@…` and LinkedIn `joshua-wiggins` — both appear
+  to be someone else's, which is why the email was cleared in file 4. Should
+  the pipeline also check the email's local part against the contact's name
+  and clear/flag mismatches?
 
 ## Decision log
 
@@ -55,6 +59,14 @@ on unclear rows through multiple-choice prompts in chat.
   contacts (not automatically the parent's); ties go to the user. Acquired
   companies keep their own domains (FBM is not moved to `lowes.com`).
   `Company Domain` + `Additional Domains` replace file 5's `Email Domain`.
+
+- 2026-09-28 — Step 2 rules: fix bad casing + strip credentials; no LinkedIn
+  live check; wrong-person LinkedIn URLs blanked and reported in chat;
+  last-name mismatches left untouched and reported in chat (user edits
+  themselves, no decision box); output files carry no audit/notes columns;
+  ZoomInfo values (e.g. revenue) passed through without outlier checks;
+  company file syncs website/domains from contacts; industry joined with
+  "- "; contact file's first column is `ZoomInfo Contact ID`.
 
 ## Using this in Cowork
 

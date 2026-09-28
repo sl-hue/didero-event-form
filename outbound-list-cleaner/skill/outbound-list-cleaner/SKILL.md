@@ -5,7 +5,7 @@ description: Clean and standardize outbound prospecting lists (ZoomInfo, Clay, H
 
 # Outbound list cleaner
 
-Status: **step 1 (email domain cleaning) only.** Later steps are being
+Status: **steps 1 (email domain cleaning) and 2 (normalization).** Later steps are being
 specified; see `PROJECT.md` and `SPEC.md` in the project repo for the full plan.
 
 Every list produces two files: a contact file and a company file containing
@@ -74,6 +74,37 @@ HubSpot associates them. The website is **never** used as the email domain.
 
 7. **Report** counts (own email / backfilled / web / cleared / fixed) and any
    company still without a domain.
+
+## Step 2 — Normalization
+
+Output files contain only upload columns: never add notes or flag columns.
+Everything the user needs to review goes in the chat.
+
+1. **Prepare.** Run
+   `python3 scripts/normalize.py prepare --contacts <run_dir>/contacts_step1.csv --companies <zoominfo_company_export.csv> --out-dir <run_dir>`.
+   It fixes name casing and strips credentials, and writes
+   `review_step2.json` listing LinkedIn URLs whose slug doesn't contain the
+   contact's first and last name.
+
+2. **Judge each LinkedIn slug** (no live check):
+   - Nickname (Bill/William, Pat/Patrick), initials (`jbsunderbruch`),
+     credentials in the slug, or an obvious typo → `keep`.
+   - Clearly a different person (both names differ) → `blank`.
+   - First name matches, last name differs → `flag`. Don't ask the user to
+     decide; the data stays as is and you list it in chat.
+
+3. **Write `<run_dir>/decisions_step2.json`:**
+   `{"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep|blank|flag", "reason": "..."}}}`
+
+4. **Apply.** Run
+   `python3 scripts/normalize.py apply --contacts <run_dir>/contacts_step1.csv --companies <zoominfo_company_export.csv> --company-domains <run_dir>/company_domains_step1.csv --decisions <run_dir>/decisions_step2.json --out-dir <run_dir>`.
+   Outputs `contacts_upload.csv`, `companies_upload.csv` (only the list's
+   companies; revenue ×1000, `Employees.` prefix stripped, industry combined,
+   website and domains synced from contacts), and `report_step2.json`.
+
+5. **Report in chat:** name fixes, blanked LinkedIn URLs (name, company,
+   removed URL, reason), flagged last-name mismatches for the user to check
+   online, and any companies dropped or missing.
 
 ## Data handling
 

@@ -90,25 +90,37 @@ Sub-steps, in order:
   emails (e.g. The Gund Company, Threaded Fasteners); under sub-step 6 the
   script should fill these, so differences there are expected when testing.
 
-### Step 2 — Normalization (draft, pending answers in PROJECT.md)
+### Step 2 — Normalization
+
+Runs on step 1's output. Produces the upload files. **Output files contain only
+upload columns** — no notes, flags or audit columns. Everything the user must
+review is reported in chat.
 
 **Contact file**
-1. **Names.** First and last names properly capitalized.
-2. **LinkedIn URL.** Check that the slug matches the first and last name,
-   allowing plausible variants (nicknames, abbreviations, initials,
-   credentials in the slug), and that the link is live.
+1. **Names.** Fix first/last names that are all lowercase or all caps
+   (handling Mc, O', hyphens, Jr/Sr/II/III). Leave correctly mixed-case names
+   alone (McKee, DeBose). Strip credentials (", CPA", " PE", "CSCP"…);
+   generational suffixes stay.
+2. **LinkedIn URL.** No live check. Compare the slug with the name:
+   - Slug contains first and last name → keep.
+   - Nickname, initials, credentials in the slug, or a typo → keep.
+   - Clearly a different person → **blank the URL**, then list it in chat.
+   - First name matches but last name differs (maybe married/maiden name) →
+     **leave the data untouched** and list it in chat; the user checks online
+     and edits the file themselves. Don't put this to the user as a decision box.
 
-**Company file** (built from the ZoomInfo company export)
-3. **Port from contacts.** `Company Domain` and `Additional Domains` from
-   step 1, and any website changes, so both files agree.
-4. **Revenue.** Multiply `Revenue (in 000s USD)` by 1,000 and rename it
-   `Revenue (in USD)`.
-5. **Employee range.** Strip the `Employees.` prefix
-   (`Employees.10000plus` → `10000plus`).
-6. **Industry.** Combine into `Primary Industry` as
-   `<Primary Industry>- <Primary Sub-Industry>`
-   (e.g. `Retail- Home Improvement & Hardware Retail`); drop
-   `Primary Sub-Industry`.
+**Company file** (from the ZoomInfo company export)
+3. **Only this list's companies** (two-file rule).
+4. **Sync with contacts.** `Website` taken from the contact file;
+   `Company Domain` and `Additional Domains` from step 1.
+5. **Revenue.** `Revenue (in 000s USD)` × 1,000 → `Revenue (in USD)`.
+   All ZoomInfo values pass through as given — no outlier flagging.
+6. **Employee range.** Strip the `Employees.` prefix.
+7. **Industry.** `<Primary Industry>- <Primary Sub-Industry>` in
+   `Primary Industry` (no space before the hyphen).
 
 **Both files**
-7. **Prune columns** to the upload set shown in sample files 4 and 5.
+8. **Prune columns** to the upload set (see `CONTACT_COLUMNS` and
+   `COMPANY_COLUMNS` in `scripts/normalize.py`). The contact file's first column
+   is `ZoomInfo Contact ID`. Later-step columns (HubSpot record IDs,
+   personalization, `Type`) are added by those steps.
