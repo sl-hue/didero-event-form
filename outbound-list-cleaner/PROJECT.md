@@ -27,7 +27,8 @@ on unclear rows through multiple-choice prompts in chat.
 |------|-------|
 | Sample files (5) collected | Done (local only; the repo is public) |
 | Step 1 — Email domain cleaning | **Built and tested** on the CBM M&A raw contact file: 170/170 contacts got a domain; 4 review questions put to the user; rules from the answers folded into SPEC.md |
-| Later steps (column mapping/formatting, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
+| Step 2 — Normalization (names, LinkedIn, company fields, column pruning) | Specified (draft in SPEC.md); questions out to user |
+| Later steps (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
 
 ## Next up
 
@@ -38,7 +39,7 @@ on unclear rows through multiple-choice prompts in chat.
 
 ## Open questions
 
-- None right now.
+- Step 2: name casing edge cases, LinkedIn liveness method and action, website changes, column list, industry separator (see chat of 2026-09-28).
 
 ## Decision log
 

@@ -89,3 +89,26 @@ Sub-steps, in order:
 - Sample file 5 leaves `Email Domain` blank for companies with no contact
   emails (e.g. The Gund Company, Threaded Fasteners); under sub-step 6 the
   script should fill these, so differences there are expected when testing.
+
+### Step 2 — Normalization (draft, pending answers in PROJECT.md)
+
+**Contact file**
+1. **Names.** First and last names properly capitalized.
+2. **LinkedIn URL.** Check that the slug matches the first and last name,
+   allowing plausible variants (nicknames, abbreviations, initials,
+   credentials in the slug), and that the link is live.
+
+**Company file** (built from the ZoomInfo company export)
+3. **Port from contacts.** `Company Domain` and `Additional Domains` from
+   step 1, and any website changes, so both files agree.
+4. **Revenue.** Multiply `Revenue (in 000s USD)` by 1,000 and rename it
+   `Revenue (in USD)`.
+5. **Employee range.** Strip the `Employees.` prefix
+   (`Employees.10000plus` → `10000plus`).
+6. **Industry.** Combine into `Primary Industry` as
+   `<Primary Industry>- <Primary Sub-Industry>`
+   (e.g. `Retail- Home Improvement & Hardware Retail`); drop
+   `Primary Sub-Industry`.
+
+**Both files**
+7. **Prune columns** to the upload set shown in sample files 4 and 5.
