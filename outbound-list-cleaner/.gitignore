@@ -4,3 +4,4 @@ samples/**/*.csv
 samples/**/*.xlsx
 samples/**/*.xls
 samples/**/*.tsv
+runs/

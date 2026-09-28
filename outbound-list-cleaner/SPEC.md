@@ -51,9 +51,28 @@ Sub-steps, in order:
 6. **Backfill from the web.** If no contact at a company has an email, Claude
    searches the web for publicly listed general inboxes (info@, support@,
    help@, general@, sales@, marketing@, inquiry@, and variants) and takes the
-   domain from those. Applied to the company and all its contacts.
-7. **Feed the company file.** The company list's `Email Domain` is taken from
-   its contacts' email domains.
+   domain from those. Applied to the company and all its contacts. If no
+   general inbox exists, publicly listed staff addresses are acceptable
+   evidence of the domain (confirmed by user on the CBM M&A run).
+7. **Build company domains.** Every domain used by the company's contacts
+   goes on the company record:
+   - `Company Domain` — the primary domain: the **ultimate owner's** domain
+     when there is a parent/child relationship, otherwise the most common.
+   - `Additional Domains` — all other domains, separated by `;`.
+   Contacts without an email are backfilled with the primary domain.
+
+### Decision rules (confirmed by user)
+
+- Subsidiary / acquired-company emails (e.g. `kodiakbp.com` at QXO) are
+  **kept**; the subsidiary domain goes in `Additional Domains` and the parent's
+  domain is `Company Domain`.
+- Always use the ultimate owner and the email domain it uses
+  (e.g. Threaded Fasteners → `tfmfg.com`, the domain its public inboxes use).
+- ZoomInfo placeholder domains (e.g. `zoomhubs.com`) are cleared automatically.
+- Doubled TLDs (`.com.com`) are fixed, not cleared.
+- A ZoomInfo company name that doesn't resemble the domain is not by itself a
+  mismatch — check what company the domain actually belongs to
+  (Sign & Awning Services → `arch-fab.com`, Architectural Fabrication: keep).
 
 ### Observed in the CBM M&A sample (raw → final)
 
