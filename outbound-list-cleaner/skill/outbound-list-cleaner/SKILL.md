@@ -5,7 +5,7 @@ description: Clean and standardize outbound prospecting lists (ZoomInfo, Clay, H
 
 # Outbound list cleaner
 
-Status: **steps 1 (email domain cleaning), 2 (normalization) and 3 (HubSpot duplicate check).** Later steps are being
+Status: **steps 1 (email domain cleaning), 2 (normalization), 3 (HubSpot duplicate check) and 4 (HubSpot import prep).** Later steps are being
 specified; see `PROJECT.md` and `SPEC.md` in the project repo for the full plan.
 
 Every list produces two files: a contact file and a company file containing
@@ -162,6 +162,30 @@ you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
    `contact_decisions.json`, then
    `python3 $S apply-contacts --contacts <run_dir>/contacts_upload.csv --decisions <run_dir>/contact_decisions.json`
    to add `HubSpot Contact Record ID`.
+
+## Step 4 — HubSpot import
+
+The user runs the import in HubSpot; you prepare it and walk them through it.
+
+1. **Choose Type.** Default `Prospect`. Look at the list: if the companies
+   don't look like prospects (partners, vendors, existing customers), ask the
+   user which Type fits before continuing.
+2. Run
+   `python3 scripts/hubspot_import.py prepare --companies <run_dir>/companies_upload.csv --contacts <run_dir>/contacts_upload.csv --raw-dir <run_dir>/hs_companies --type Prospect --out-dir <run_dir>`.
+   It adds the Type column, writes `companies_import.csv` / `contacts_import.csv`
+   (record IDs blanked where "Not in HubSpot"), `import_mapping.md` and
+   `report_step4.json`.
+3. **In chat**, paste both tables from `import_mapping.md` and tell the user:
+   - import the company file first, then the contact file;
+   - map each column to the HubSpot property shown and set "Don't import
+     column" where indicated;
+   - tick "Don't overwrite" on any column where they want to keep what's
+     already in HubSpot (the table suggests some);
+   - how many rows will update vs. create, and any existing records whose
+     Type differs (from `report_step4.json`) — suggest "Don't overwrite" on
+     Type for those.
+4. After the company import, the user can run the contact import; contacts
+   associate to companies through the company domain.
 
 ## Data handling
 

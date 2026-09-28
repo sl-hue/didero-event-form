@@ -168,3 +168,25 @@ scores the results.
    there's no record.
 6. After companies, the contact file's company fields (Company Name,
    Website, Company HQ Phone) are synced to match the company file.
+
+### Step 4 — HubSpot import
+
+The user imports through HubSpot's import screen: **companies first** (anchors),
+then contacts. Claude doesn't write the records; it prepares the files and
+shows the field mapping in chat as a table so the user picks the same fields.
+
+- **Type:** every company in a list is `Prospect` unless the user says
+  otherwise. If the list looks like it isn't prospects (e.g. partners,
+  vendors, customers), ask whether another Type fits. Flag existing HubSpot
+  records whose Type differs (e.g. Customer).
+- **Don't overwrite:** the table suggests which columns to tick "Don't
+  overwrite" for (company name, domain and Type on companies; email and
+  company name on contacts); the user decides.
+- **Record IDs** map to HubSpot's `Record ID`: a number updates that record;
+  "Not in HubSpot" is blanked in the import copy (HubSpot rejects text IDs), so
+  those rows create new records.
+- **Not imported:** ZoomInfo Company ID and ZoomInfo Contact ID (they confuse a
+  calling tool). Fax is removed from the company file in step 2.
+- **Website** maps to `Website URL`, not "Website URL (Cleaned)".
+- Full column → property mapping: `COMPANY_MAPPING` / `CONTACT_MAPPING` in
+  `scripts/hubspot_import.py`.

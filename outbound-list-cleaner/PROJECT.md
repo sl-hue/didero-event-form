@@ -28,6 +28,8 @@ on unclear rows through multiple-choice prompts in chat.
 | Sample files (5) collected | Done (local only; the repo is public) |
 | Step 1 — Email domain cleaning | **Built and tested** on the CBM M&A raw contact file: 170/170 contacts got a domain; 4 review questions put to the user; rules from the answers folded into SPEC.md |
 | Step 2 — Normalization (names, LinkedIn, company fields, column pruning) | **Built and tested** on CBM M&A: output matches hand-cleaned files 4/5 except where confirmed rules differ |
+| Step 3 — HubSpot duplicate check | Built; company searches run on CBM M&A, review with user pending |
+| Step 4 — HubSpot import prep (mapping table, Type, record IDs) | Built; dry-run OK |
 | Later steps (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
 
 ## Next up
@@ -39,11 +41,11 @@ on unclear rows through multiple-choice prompts in chat.
 
 ## Open questions
 
-- **Email belongs to a different person:** Jordan Esco (Franklin Building
-  Supply) has email `jwiggins@…` and LinkedIn `joshua-wiggins` — both appear
-  to be someone else's, which is why the email was cleared in file 4. Should
-  the pipeline also check the email's local part against the contact's name
-  and clear/flag mismatches?
+- Contact `Management Level`: HubSpot has `Seniority` (`seniority`) and
+  `Employment Seniority` (`hs_seniority`) — currently mapped to `Seniority`.
+- Record IDs: mapped to HubSpot's built-in `Record ID`; there is no custom
+  "HubSpot Company/Contact Record ID" property. "Not in HubSpot" is blanked
+  in the import copy.
 
 ## Decision log
 
@@ -67,6 +69,15 @@ on unclear rows through multiple-choice prompts in chat.
   ZoomInfo values (e.g. revenue) passed through without outlier checks;
   company file syncs website/domains from contacts; industry joined with
   "- "; contact file's first column is `ZoomInfo Contact ID`.
+
+- 2026-09-28 — Step 3: companies first (domain, website, ZoomInfo ID,
+  LinkedIn page, name + location, firmographics), then contacts (LinkedIn on
+  `lgm_linkedinurl`, email, name + location, short names, same title at same
+  company). User merges manually in HubSpot before giving the survivor ID.
+- 2026-09-28 — Step 4: user imports via HubSpot's import screen, companies
+  first; Claude shows a mapping table in chat with "Don't overwrite"
+  suggestions; Type defaults to Prospect (ask if the list doesn't look like
+  prospects); ZoomInfo IDs not imported; Fax dropped; Website → Website URL.
 
 ## Using this in Cowork
 
