@@ -14,7 +14,8 @@ files. Two stages, with Claude (the skill) in between:
 
 decisions_step2.json:
   {"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep" | "blank" | "replace",
-                                          "url": "<new URL, for replace>", "reason": "..."}}}
+                                          "url": "<new URL, for replace>", "reason": "..."}},
+   "email":    {"<ZoomInfo Contact ID>": {"action": "keep" | "clear", "reason": "..."}}}
 
   keep     plausible match, or the user chose to keep it
   blank    wrong person (Claude's call for clear cases, the user's otherwise)
@@ -132,6 +133,21 @@ def slug_matches(slug, first, last):
     return bool(f and l and f in s and l in s)
 
 
+def email_matches(email, first, last):
+    """True if the email's local part plausibly belongs to this person.
+
+    Accepts the first or last name (or a 3+ letter prefix of the first name,
+    for nicknames), and initials patterns like jdoe, johnd, jd.
+    """
+    local = ascii_letters((email or "").split("@")[0])
+    f, l = ascii_letters(first), ascii_letters(last.split(",")[0].split(" ")[-1] if last else "")
+    if not local or not (f and l):
+        return True
+    if l in local or f in local or f[:3] in local and len(local) > 3:
+        return True
+    return local in {f[0] + l[0], f[0] + l, f + l[0], l + f[0]} or local.startswith(f[0] + l[:3])
+
+
 def most_common_website(contacts):
     by_company = {}
     for r in contacts:
@@ -141,7 +157,7 @@ def most_common_website(contacts):
 
 def prepare(args):
     _, contacts = read_rows(args.contacts)
-    name_changes, linkedin_review = [], []
+    name_changes, linkedin_review, email_review = [], [], []
     for r in contacts:
         for col in ("First Name", "Last Name"):
             new = normalize_name(r[col])
@@ -160,6 +176,13 @@ def prepare(args):
                                     "job_title": r.get("Job Title", ""), "url": url, "slug": slug,
                                     "issue": "slug does not contain first and last name"})
 
+        email = r.get("Email Address", "")
+        if email and not email_matches(email, r["First Name"], r["Last Name"]):
+            email_review.append({CONTACT_ID: r[CONTACT_ID], "first": r["First Name"],
+                                 "last": r["Last Name"], "company": r["Company Name"],
+                                 "job_title": r.get("Job Title", ""), "email": email,
+                                 "linkedin_slug": slug})
+
     _, companies = read_rows(args.companies)
     contact_sites = most_common_website(contacts)
     website_conflicts = [
@@ -172,10 +195,11 @@ def prepare(args):
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     review = {"name_changes": name_changes, "linkedin_review": linkedin_review,
+              "email_review": email_review,
               "website_conflicts": website_conflicts}
     (out / "review_step2.json").write_text(json.dumps(review, indent=2))
     print(f"{len(contacts)} contacts: {len(name_changes)} name fixes, "
-          f"{len(linkedin_review)} LinkedIn URLs to judge; "
+          f"{len(linkedin_review)} LinkedIn URLs and {len(email_review)} emails to judge; "
           f"{len(website_conflicts)} website conflicts -> {out / 'review_step2.json'}")
 
 
@@ -196,11 +220,20 @@ def apply(args):
     _, domains = read_rows(args.company_domains)
     decisions = json.loads(Path(args.decisions).read_text()) if args.decisions else {}
     linkedin_decisions = decisions.get("linkedin", {})
+    email_decisions = decisions.get("email", {})
+    cleared_emails = []
 
     blanked, replaced = [], []
     for r in contacts:
         r["First Name"] = normalize_name(r["First Name"])
         r["Last Name"] = normalize_name(r["Last Name"])
+        e = email_decisions.get(r[CONTACT_ID])
+        if e and e["action"] == "clear":
+            # The domain stays: it is still the company's domain.
+            cleared_emails.append({CONTACT_ID: r[CONTACT_ID], "name": f"{r['First Name']} {r['Last Name']}",
+                                   "company": r["Company Name"], "removed_email": r["Email Address"],
+                                   "reason": e.get("reason", "")})
+            r["Email Address"] = ""
         d = linkedin_decisions.get(r[CONTACT_ID])
         if d and d["action"] == "blank":
             blanked.append({CONTACT_ID: r[CONTACT_ID], "name": f"{r['First Name']} {r['Last Name']}",
@@ -240,12 +273,13 @@ def apply(args):
     out.mkdir(parents=True, exist_ok=True)
     write_rows(out / "contacts_upload.csv", CONTACT_COLUMNS, contacts)
     write_rows(out / "companies_upload.csv", COMPANY_COLUMNS, out_companies)
-    report = {"linkedin_blanked": blanked, "linkedin_replaced": replaced, "companies_missing_from_company_export": missing,
+    report = {"linkedin_blanked": blanked, "linkedin_replaced": replaced,
+              "emails_cleared": cleared_emails, "companies_missing_from_company_export": missing,
               "companies_dropped_not_in_list": dropped}
     (out / "report_step2.json").write_text(json.dumps(report, indent=2))
     print(f"wrote {out / 'contacts_upload.csv'} ({len(contacts)} rows, {len(CONTACT_COLUMNS)} cols) and "
           f"{out / 'companies_upload.csv'} ({len(out_companies)} rows, {len(COMPANY_COLUMNS)} cols); "
-          f"{len(blanked)} LinkedIn URLs blanked, {len(replaced)} replaced")
+          f"{len(blanked)} LinkedIn URLs blanked, {len(replaced)} replaced, {len(cleared_emails)} emails cleared")
     if missing:
         print("contacts' companies missing from the company export:", missing)
     if dropped:

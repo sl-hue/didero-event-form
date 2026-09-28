@@ -5,7 +5,7 @@ description: Clean and standardize outbound prospecting lists (ZoomInfo, Clay, H
 
 # Outbound list cleaner
 
-Status: **steps 1 (email domain cleaning) and 2 (normalization).** Later steps are being
+Status: **steps 1 (email domain cleaning), 2 (normalization) and 3 (HubSpot duplicate check).** Later steps are being
 specified; see `PROJECT.md` and `SPEC.md` in the project repo for the full plan.
 
 Every list produces two files: a contact file and a company file containing
@@ -96,8 +96,13 @@ Everything the user needs to review goes in the chat.
      under "Other" → `replace`). The user checks LinkedIn themselves; you
      don't need to.
 
+   Judge `email_review` the same way on the email's local part: nickname or
+   initials → `keep`; clearly someone else's email → `clear` (the domain
+   stays); last name differs → ask the user.
+
 3. **Write `<run_dir>/decisions_step2.json`:**
-   `{"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep|blank|replace", "url": "...", "reason": "..."}}}`
+   `{"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep|blank|replace", "url": "...", "reason": "..."}},
+     "email": {"<ZoomInfo Contact ID>": {"action": "keep|clear", "reason": "..."}}}`
 
 4. **Apply.** Run
    `python3 scripts/normalize.py apply --contacts <run_dir>/contacts_step1.csv --companies <zoominfo_company_export.csv> --company-domains <run_dir>/company_domains_step1.csv --decisions <run_dir>/decisions_step2.json --out-dir <run_dir>`.
@@ -108,6 +113,55 @@ Everything the user needs to review goes in the chat.
 5. **Report in chat:** name fixes, blanked LinkedIn URLs (name, company,
    removed URL, reason), the user's last-name decisions, and any companies
    dropped or missing.
+
+## Step 3 — HubSpot duplicate check
+
+Claude cannot merge HubSpot records; the user merges manually and then tells
+you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
+
+**Companies**
+1. `python3 $S plan-companies --companies <run_dir>/companies_upload.csv --out-dir <run_dir>`
+   writes `company_search_plan.json`.
+2. Run every search in the plan with the HubSpot connector's
+   `search_crm_objects` (objectType, properties, limit, filterGroups or
+   query as given; page with `offset` when `total` exceeds the results) and
+   save each raw JSON response to `<run_dir>/hs_companies/NNN.json`. For large
+   plans, hand this to a subagent so raw results don't flood the chat.
+3. `python3 $S match-companies --companies <run_dir>/companies_upload.csv --raw-dir <run_dir>/hs_companies --out-dir <run_dir>`
+   writes `company_matches.json` (per company: candidates with HubSpot URL,
+   strength, reasons, domain, location, employees, revenue, contacts).
+4. Judge the candidates. Drop obvious false positives from free-text name
+   hits (different company, different place and size). Use firmographics for
+   unclear cases.
+   - No candidates → `null` (Not in HubSpot).
+   - Exactly one strong candidate → record it, no question.
+   - Two or more real candidates, or only a possible match → review with the user.
+5. **Review with the user**, one company at a time:
+   - In a chat message, list each candidate: HubSpot link, name, domain,
+     location, contacts, created date, and why it matches.
+   - Tell the user to open them and merge the duplicates in HubSpot
+     themselves, one by one, into the record they want to keep.
+   - Then ask with the multiple-choice tool: "After merging, which record
+     survived?" — one option per candidate ID, plus "Not a duplicate / keep
+     separate" where relevant. Up to 4 companies per call.
+   - Re-search the merged-away IDs (`hs_object_id IN [...]`); if they still
+     exist, the merge isn't done — tell the user and ask again.
+6. Write `<run_dir>/company_decisions.json`
+   (`{"<ZoomInfo Company ID>": {"record_id": "..." | null, "note": "..."}}`) and run
+   `python3 $S apply-companies --companies <run_dir>/companies_upload.csv --contacts <run_dir>/contacts_upload.csv --contacts-step1 <run_dir>/contacts_step1.csv --decisions <run_dir>/company_decisions.json`.
+   This adds `HubSpot Company Record ID` and syncs Company Name / Website /
+   Company HQ Phone into the contact file.
+
+**Contacts** — same loop:
+1. `python3 $S plan-contacts --contacts <run_dir>/contacts_upload.csv --companies <run_dir>/companies_upload.csv --out-dir <run_dir>`
+   (LinkedIn URL on `lgm_linkedinurl`, email, last name, and everyone
+   associated with the list's HubSpot companies).
+2. Run the searches, saving to `<run_dir>/hs_contacts/`.
+3. `python3 $S match-contacts --contacts <run_dir>/contacts_upload.csv --companies <run_dir>/companies_upload.csv --contacts-step1 <run_dir>/contacts_step1.csv --raw-dir <run_dir>/hs_contacts --out-dir <run_dir>`
+4. Judge, review with the user (same merge-first flow), write
+   `contact_decisions.json`, then
+   `python3 $S apply-contacts --contacts <run_dir>/contacts_upload.csv --decisions <run_dir>/contact_decisions.json`
+   to add `HubSpot Contact Record ID`.
 
 ## Data handling
 

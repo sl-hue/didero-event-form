@@ -109,6 +109,11 @@ review is reported in chat.
      **ask the user** in a decision box (keep / blank / paste the correct URL).
      The user checks LinkedIn themselves before answering.
 
+2b. **Email vs. person.** Same logic as LinkedIn, on the email's local part:
+   nicknames, initials (`jdoe`, `mike.n`) are fine; an email that clearly
+   belongs to someone else (Jordan Esco → `jwiggins@…`) is cleared (the
+   domain stays); last name differs → ask the user.
+
 **Company file** (from the ZoomInfo company export)
 3. **Only this list's companies** (two-file rule).
 4. **Sync with contacts.** `Website` taken from the contact file;
@@ -124,3 +129,42 @@ review is reported in chat.
    `COMPANY_COLUMNS` in `scripts/normalize.py`). The contact file's first column
    is `ZoomInfo Contact ID`. Later-step columns (HubSpot record IDs,
    personalization, `Type`) are added by those steps.
+
+### Step 3 — HubSpot duplicate check
+
+Companies first (they are the anchor records contacts associate to), then
+contacts. Claude runs the HubSpot searches through the connector; the script
+scores the results.
+
+**Company matching signals**
+- Strong: `domain` equals the Company Domain or an Additional Domain (domain is
+  unique in HubSpot); same website; same ZoomInfo Company ID
+  (`zoominfo_company_id`); same LinkedIn company page
+  (`linkedin_company_page`).
+- Possible: similar company name, especially with the same city / state /
+  country. Use firmographics (employees, revenue, industry) to judge unclear
+  cases.
+
+**Contact matching signals**
+- Strong: same LinkedIn URL (HubSpot property `lgm_linkedinurl`,
+  "Linkedin Url (Default)") — the most reliable, survives job changes; same
+  email (often stale when people change jobs).
+- Possible: same first + last name (with state / country) — may have moved
+  companies; short/alternate first name with the same last name; same job
+  title at the same company under a different name.
+
+**Review and merge flow (both object types)**
+1. Show the user every possible match for a record, each with its HubSpot
+   link, plus why it matches, so they can open them one by one.
+2. Claude cannot merge records. The user merges the duplicates **manually in
+   HubSpot**, one by one, into one survivor (records that turn out not to be
+   duplicates stay separate).
+3. Only after merging, the user tells Claude the survivor record ID (via the
+   decision box). Claude re-checks HubSpot that the merged-away records are
+   gone before recording it.
+4. A single strong match with no other candidates needs no question.
+5. Output: `HubSpot Company Record ID` column on the company file and
+   `HubSpot Contact Record ID` on the contact file; `Not in HubSpot` when
+   there's no record.
+6. After companies, the contact file's company fields (Company Name,
+   Website, Company HQ Phone) are synced to match the company file.
