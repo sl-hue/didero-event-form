@@ -1,12 +1,26 @@
 ---
 name: outbound-list-cleaner
-description: Clean and standardize outbound prospecting lists (ZoomInfo, Clay, HubSpot, lemlist exports) into Didero's two-file HubSpot upload format — a contact file and a matching company file per list. Use whenever someone gives you a raw contact or company export to clean, enrich, or prepare for a HubSpot/lemlist upload, or asks to fix email domains so contacts associate with the right company.
+description: Didero's outbound list workflow, end to end — clean and standardize a raw prospect list (ZoomInfo, LinkedIn, Clay, HubSpot exports) into a contact file and a matching company file, fix email domains, check HubSpot for duplicate companies and contacts, prepare the HubSpot import, fix associations and leftover duplicates after import, guide the Clay enrichment, and assign BDR owners. Use whenever someone gives you a raw contact or company export to clean or prepare for HubSpot, asks to dedupe a list against HubSpot, prepare or check an import, run the Clay enrichment step, or assign a new list to BDRs.
 ---
 
 # Outbound list cleaner
 
-Status: **steps 1 (email domain cleaning), 2 (normalization), 3 (HubSpot duplicate check), 4 (HubSpot import and post-import checks), 5 (Clay enrichment, guided) and 6 (BDR assignment).** Later steps are being
-specified; see `PROJECT.md` and `SPEC.md` in the project repo for the full plan.
+Steps: 1 email domain cleaning · 2 normalization · 3 HubSpot duplicate
+check · 4 HubSpot import and post-import checks · 5 Clay enrichment (guided)
+· 6 BDR assignment. Ask the user which step to start from if it isn't clear
+(e.g. a list that is already imported starts at step 4's post-import part).
+
+## Paths
+
+- **Scripts** live in this skill's own `scripts/` folder, and `config.json`
+  next to this file. Commands below say `scripts/…`: run them with the
+  absolute path of this skill's folder (find it once, e.g. the directory
+  containing this SKILL.md) — don't copy the scripts elsewhere.
+- **Run folder** (`<run_dir>`): create one per list in the user's working
+  folder (in Cowork, the folder they've shared), named like the list, e.g.
+  `<list>_<date>/`. All intermediate and output files go there.
+- The user's input files contain personal data: keep them and the run folder
+  on the user's device. Never commit or publish them.
 
 Every list produces two files: a contact file and a company file containing
 only that list's companies. A sublist gets its own company file.
