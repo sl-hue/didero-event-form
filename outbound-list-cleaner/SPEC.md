@@ -225,5 +225,8 @@ After the import the files are done; the user works in HubSpot.
 3. Claude checks the segment's companies against all of HubSpot for
    duplicates the pre-import check missed: domain variants (other TLD,
    subdomain, hyphen), same LinkedIn page or phone, similar name in a similar
-   location (city may differ; state as code or name, e.g. TX = Texas). It
+   location (city may differ; state as code or name, e.g. TX = Texas).
+   Location uses City, State/Region and Country/Region first; HubSpot's
+   `location` field ("Salinas, CA, USA") only fills whichever of those is
+   empty — many older records have only `location` set. It
    reports how many, lists each group in chat, and the user merges them.

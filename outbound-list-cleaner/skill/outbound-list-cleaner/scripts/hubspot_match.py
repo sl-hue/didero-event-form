@@ -62,7 +62,7 @@ HUBSPOT_LINKEDIN = "lgm_linkedinurl"  # "Linkedin Url (Default)"
 CHUNK = 100
 
 COMPANY_PROPERTIES = [
-    "name", "domain", "website", "city", "state", "country", "zoominfo_company_id",
+    "name", "domain", "website", "city", "state", "country", "location", "zoominfo_company_id",
     "linkedin_company_page", "numberofemployees", "annualrevenue", "industry",
     "num_associated_contacts", "type", "createdate",
 ]
@@ -187,9 +187,31 @@ def norm_country(value):
     return COUNTRIES.get(v, v)
 
 
+def parse_location(value):
+    """HubSpot's `location`: "Salinas, CA, USA" / "Frankfurt, Germany" -> city/state/country."""
+    parts = [p.strip() for p in (value or "").split(",") if p.strip()]
+    if len(parts) >= 3:
+        return {"city": parts[0], "state": parts[-2], "country": parts[-1]}
+    if len(parts) == 2:
+        return {"city": parts[0], "country": parts[1]}
+    return {}
+
+
+def with_location(record):
+    """City/state/country are the main source; `location` only fills gaps."""
+    parsed = parse_location(record.get("location"))
+    if not parsed:
+        return record
+    filled = dict(record)
+    for k, v in parsed.items():
+        filled[k] = record.get(k) or v
+    return filled
+
+
 def same_location(a, b, keys=(("city", "city"), ("state", "state"), ("country", "country"))):
     """Which of city/state/country two records share, tolerant of state codes
     ("TX" = "Texas") and country spellings. Returns e.g. "state/country"."""
+    a, b = with_location(a), with_location(b)
     shared = []
     for ka, kb in keys:
         va, vb = a.get(ka), b.get(kb)
@@ -491,7 +513,7 @@ def match_companies(args):
             strong = any(r.startswith(("domain", "same website", "website on", "same ZoomInfo", "same LinkedIn")) for r in reasons)
             cands.append({"record_id": rid, "url": record_url(template, rid), "strength": "strong" if strong else "possible",
                           "reasons": reasons, "name": p.get("name"), "domain": p.get("domain"),
-                          "website": p.get("website"), "location": ", ".join(x for x in (p.get("city"), p.get("state"), p.get("country")) if x),
+                          "website": p.get("website"), "location": ", ".join(x for x in (p.get("city"), p.get("state"), p.get("country")) if x) or p.get("location") or "",
                           "employees": p.get("numberofemployees"), "revenue": p.get("annualrevenue"),
                           "contacts": p.get("num_associated_contacts"), "type": p.get("type"),
                           "created": (p.get("createdate") or "")[:10]})

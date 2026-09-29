@@ -28,7 +28,7 @@ import hubspot_match as hm  # noqa: E402  (shared HubSpot API + matching helpers
 
 CONTACT_PROPS = ["firstname", "lastname", "email", "jobtitle", "company", "company_domain",
                  "hs_email_domain", "associatedcompanyid"]
-COMPANY_PROPS = ["name", "domain", "hs_additional_domains", "website", "city", "state", "country",
+COMPANY_PROPS = ["name", "domain", "hs_additional_domains", "website", "city", "state", "country", "location",
                  "phone", "linkedin_company_page", "numberofemployees", "annualrevenue",
                  "num_associated_contacts", "type", "createdate"]
 PRIMARY_TYPE_ID = 1  # HubSpot-defined contact -> company "Primary" association
@@ -251,12 +251,12 @@ def find_dupes(args):
             if not reasons:
                 continue
             cands.append({"record_id": rid, "url": url(portal, "0-2", rid), "name": q.get("name"),
-                          "domain": q.get("domain"), "location": ", ".join(x for x in (q.get("city"), q.get("state"), q.get("country")) if x),
+                          "domain": q.get("domain"), "location": ", ".join(x for x in (q.get("city"), q.get("state"), q.get("country")) if x) or q.get("location") or "",
                           "employees": q.get("numberofemployees"), "contacts": q.get("num_associated_contacts"),
                           "type": q.get("type"), "created": (q.get("createdate") or "")[:10], "reasons": reasons})
         if cands:
             groups.append({"company_id": cid, "url": url(portal, "0-2", cid), "name": p.get("name"),
-                           "domain": p.get("domain"), "location": ", ".join(x for x in (p.get("city"), p.get("state"), p.get("country")) if x),
+                           "domain": p.get("domain"), "location": ", ".join(x for x in (p.get("city"), p.get("state"), p.get("country")) if x) or p.get("location") or "",
                            "employees": p.get("numberofemployees"), "contacts": p.get("num_associated_contacts"),
                            "candidates": cands})
     # A pair found from both sides is one group.
