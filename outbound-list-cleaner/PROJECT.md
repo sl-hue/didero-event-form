@@ -44,12 +44,10 @@ on unclear rows through multiple-choice prompts in chat.
 
 ## Open questions
 
-- Step 6: an in-segment contact already owned by BDR A at a company where BDR
-  B has the majority → moved to B (company rule wins)? Currently yes.
 - Step 6: may a company whose other contacts are already BDR-owned be moved
-  to another BDR for balance? Currently no.
-- Step 6: skip the base skill's separate conflicts file (folded into the
-  Reason column + chat summary)? Currently yes.
+  to another BDR for balance? Proposed: no by default, but if the split is
+  more than ~20% uneven, list candidate companies in chat and let the user
+  decide one by one. Awaiting answer.
 
 ## Decision log
 
@@ -112,6 +110,10 @@ on unclear rows through multiple-choice prompts in chat.
   picks one, duplicates it and names the copy `name_segment_date`. No HubSpot
   check afterwards; step 6 waits for the user's confirmation. Not turning
   tabs into Clay Functions.
+
+- 2026-09-29 — Step 6: the company rule wins over an existing BDR contact
+  owner (moved to the company's majority BDR); no separate conflicts file
+  (Reason column + chat summary instead).
 
 ## Using this in Cowork
 
