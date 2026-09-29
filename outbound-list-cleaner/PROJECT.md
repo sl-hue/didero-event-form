@@ -31,6 +31,7 @@ on unclear rows through multiple-choice prompts in chat.
 | Step 3 — HubSpot duplicate check | Companies done on CBM M&A (47/59 match the hand file; the rest explained by today's import and 3 merges). Contacts next |
 | Step 4 — HubSpot import prep (mapping table, Type, record IDs) | Built; dry-run OK |
 | Step 4 (after import) — segment + exclusions, association fixes, leftover duplicates | Built; untested against HubSpot (needs the token) |
+| Step 5 — Clay enrichment (guided checklist + before/after coverage check) | Built; coverage check untested (needs token) |
 | Later steps (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
 
 ## Next up
@@ -97,6 +98,12 @@ on unclear rows through multiple-choice prompts in chat.
   approval; then checks the segment's companies for leftover duplicates
   (domain variants, LinkedIn, phone, similar name + location with state
   codes = names). Files are not updated after import.
+
+- 2026-09-29 — Step 5 in Clay is user-run: the Clay connector can't reach
+  workbooks (it is also pinned to a personal workspace, not the team one).
+  Claude guides tab by tab (ZoomInfo only for non-ZoomInfo lists; PDL, then
+  Import Objects from HubSpot) and checks HubSpot fill rates before/after.
+  Future option: rebuild tabs as Clay Functions the connector can run.
 
 ## Using this in Cowork
 

@@ -230,3 +230,21 @@ After the import the files are done; the user works in HubSpot.
    `location` field ("Salinas, CA, USA") only fills whichever of those is
    empty — many older records have only `location` set. It
    reports how many, lists each group in chat, and the user merges them.
+
+### Step 5 — Enrichment in Clay
+
+Assumes: segment created, duplicates merged, contacts associated. Happens in
+Clay (team workspace); Clay writes results back to HubSpot. The Clay
+connector can't open/duplicate/run workbooks, so the user runs it and Claude
+guides, then measures the before/after fill rate of key contact fields.
+
+- **Workbook:** Europe template for European contacts (poor ZoomInfo
+  coverage); Americas/global template otherwise (`config.json`).
+- **Tabs:** 1 ZoomInfo — only when the list wasn't built in ZoomInfo;
+  2 PDL — always, first (most reliable); 3 Import Objects from HubSpot —
+  always, after PDL (other providers, less reliable).
+- **Import** (first column of each tab): import objects → Contacts → the
+  segment → schedule Manual / one-time only.
+- **Buttons:** ZoomInfo: Enrich Contact → Update Object. PDL: import again →
+  Verify Email → Work Email → Enrich Person → LinkedIn URL → Update Object.
+  Import Objects from HubSpot: Import Object → Mobile Phone → Update Object.

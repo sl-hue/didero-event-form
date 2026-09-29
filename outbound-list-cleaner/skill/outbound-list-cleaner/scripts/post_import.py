@@ -15,6 +15,10 @@ HubSpot private app token (see hubspot_match.py setup-token).
   find-dupes          Search HubSpot for duplicates of the segment's companies
                       (domain variants, name + location, LinkedIn page, phone)
                       -> company_dupes.json
+  coverage            Step 5: how many of the segment's contacts have each
+                      enrichment field filled (config.json enrichment_fields).
+                      Run with --label before and --label after the Clay run;
+                      the second run prints the change.
 """
 import argparse
 import json
@@ -271,6 +275,31 @@ def find_dupes(args):
     print(f"{len(seg)} segment companies checked; {len(unique)} have possible duplicates -> {out / 'company_dupes.json'}")
 
 
+def coverage(args):
+    config = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text())
+    fields = config["enrichment_fields"]
+    list_id, name = find_list(args.segment)
+    ids, after = [], None
+    while True:
+        resp = hm.api("GET", f"/crm/v3/lists/{list_id}/memberships?limit=250" + (f"&after={after}" if after else ""))
+        ids += [str(r["recordId"]) for r in resp.get("results", [])]
+        after = (resp.get("paging") or {}).get("next", {}).get("after")
+        if not after:
+            break
+    contacts = batch_read("contacts", ids, fields)
+    counts = {f: sum(1 for p in contacts.values() if (p.get(f) or "").strip()) for f in fields}
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"coverage_{args.label}.json"
+    path.write_text(json.dumps({"segment": name, "contacts": len(contacts), "filled": counts}, indent=2))
+    before = out / "coverage_before.json"
+    base = json.loads(before.read_text())["filled"] if args.label != "before" and before.exists() else None
+    print(f"segment {name!r}: {len(contacts)} contacts")
+    for f in fields:
+        change = f" ({counts[f] - base.get(f, 0):+d})" if base is not None else ""
+        print(f"  {f}: {counts[f]}/{len(contacts)}{change}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -278,6 +307,11 @@ def main():
     p.add_argument("--segment", required=True, help="segment name or list ID")
     p.add_argument("--out-dir", required=True)
     p.set_defaults(func=pull_segment)
+    c = sub.add_parser("coverage")
+    c.add_argument("--segment", required=True)
+    c.add_argument("--label", required=True, help="before | after")
+    c.add_argument("--out-dir", required=True)
+    c.set_defaults(func=coverage)
     for name, func in (("review-associations", review_associations), ("find-dupes", find_dupes)):
         s = sub.add_parser(name)
         s.add_argument("--snapshot", required=True)

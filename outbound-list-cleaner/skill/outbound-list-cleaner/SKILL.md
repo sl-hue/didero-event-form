@@ -5,7 +5,7 @@ description: Clean and standardize outbound prospecting lists (ZoomInfo, Clay, H
 
 # Outbound list cleaner
 
-Status: **steps 1 (email domain cleaning), 2 (normalization), 3 (HubSpot duplicate check) and 4 (HubSpot import prep).** Later steps are being
+Status: **steps 1 (email domain cleaning), 2 (normalization), 3 (HubSpot duplicate check), 4 (HubSpot import and post-import checks) and 5 (Clay enrichment, guided).** Later steps are being
 specified; see `PROJECT.md` and `SPEC.md` in the project repo for the full plan.
 
 Every list produces two files: a contact file and a company file containing
@@ -293,6 +293,47 @@ on the work happens in HubSpot and the files are not updated again.
    Dismiss obvious false positives yourself. The user merges in HubSpot and
    gives the survivor ID (usually a new ID); verify via
    `hs_merged_object_ids` and check the survivor's name/domain, as in step 3.
+
+## Step 5 — Enrichment in Clay (user-run, guided)
+
+Assumes the segment exists, duplicates are merged and every contact is
+associated with its company. This step happens in Clay, not HubSpot. The
+Clay connector can't open, duplicate or run workbooks, so the user does it;
+you walk them through it one tab at a time and check the result in HubSpot.
+Clay writes results back to HubSpot itself — no files are imported or
+exported.
+
+1. **Baseline.** `python3 scripts/post_import.py coverage --segment "<segment>" --label before --out-dir <run_dir>`
+   (how many contacts have email, work direct phone, mobile, LinkedIn URL,
+   job title).
+2. **Pick the workbook** (team workspace; links in `config.json`
+   `clay_workbooks`):
+   - European contacts → the Europe template (they're often missing from
+     ZoomInfo).
+   - American and other global contacts → the Americas/global template.
+   Remind the user that each button run spends Clay credits.
+3. **Pick the tabs:**
+   - **Tab 1 "ZoomInfo"** — only if the list was *not* built in ZoomInfo
+     (e.g. pulled from LinkedIn). Skip it for ZoomInfo lists.
+   - **Tab 2 "PDL"** — always; the most reliable provider, so it runs first.
+   - **Tab 3 "Import Objects from HubSpot"** — always, after PDL; a mix of
+     other providers for what PDL didn't find.
+4. **Importing into a tab** (first column of each tab): import objects →
+   select **Contacts** → select the segment → schedule **Manual / one-time
+   import only**, so the list doesn't keep updating in the background.
+5. **Walk the user through the buttons, one at a time.** Wait for each
+   column to finish before the next; ask them to confirm, and to tell you
+   about errors.
+   - **ZoomInfo tab** (only when used): import the segment → **Enrich
+     Contact** → **Update Object**.
+   - **PDL tab:** import the segment again → **Verify Email** → **Work
+     Email** → **Enrich Person** → **LinkedIn URL** → **Update Object**.
+   - **Import Objects from HubSpot tab:** **Import Object** → **Mobile Phone**
+     enrichment → **Update Object**.
+6. **Check the write-back.** After the last **Update Object**, run
+   `python3 scripts/post_import.py coverage --segment "<segment>" --label after --out-dir <run_dir>`
+   and report the change per field. If nothing changed, the Update Object
+   step likely didn't run or failed — ask the user to check that column.
 
 ## Data handling
 
