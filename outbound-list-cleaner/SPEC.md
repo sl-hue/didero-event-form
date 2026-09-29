@@ -252,3 +252,25 @@ guides. No HubSpot check afterwards.
   Verify Email → Work Email → Enrich Person → LinkedIn URL → Update Object.
   Import Objects from HubSpot: Import Object → Mobile Phone → Update Object.
 - **Gate:** step 6 starts only after the user confirms the enrichments are done.
+
+### Step 6 — BDR assignment
+
+Uses the `hubspot-bdr-list-assignment` skill on the segment, with these rules
+taking precedence:
+- BDRs only; the user names the pool each round (default Noah, Davis, Bart —
+  must be HubSpot users). Anyone else → out of scope.
+- Read-only until the user approves the CSV.
+- Per company: count BDR-owned contacts in the segment **plus** the company's
+  other contacts (pool BDRs only). The BDR with the most gets all the
+  segment's contacts on that company and the company record (priority rule:
+  one BDR per company).
+- Segment contacts already owned by a pool BDR start with that BDR, but the
+  company rule wins.
+- Remaining companies are spread so each BDR gets a roughly equal number of
+  contacts, then companies; new contacts may be moved between BDRs for
+  balance, a company never split.
+- CSV: Company, Company Record ID, Old Company Owner, New Company Owner,
+  Contact Name, Contact Record ID, Old Contact Owner, New Contact Owner,
+  Reason; sorted by company A→Z, contacts adjacent and A→Z.
+- After approval (or changes and re-approval), Claude writes contact then
+  company owners to HubSpot and verifies.

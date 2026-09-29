@@ -32,6 +32,7 @@ on unclear rows through multiple-choice prompts in chat.
 | Step 4 — HubSpot import prep (mapping table, Type, record IDs) | Built; dry-run OK |
 | Step 4 (after import) — segment + exclusions, association fixes, leftover duplicates | Built; untested against HubSpot (needs the token) |
 | Step 5 — Clay enrichment (guided checklist, user confirms before step 6) | Built |
+| Step 6 — BDR assignment (via hubspot-bdr-list-assignment with our rules) | Specified; open questions below |
 | Later steps (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
 
 ## Next up
@@ -43,7 +44,12 @@ on unclear rows through multiple-choice prompts in chat.
 
 ## Open questions
 
-- None right now.
+- Step 6: an in-segment contact already owned by BDR A at a company where BDR
+  B has the majority → moved to B (company rule wins)? Currently yes.
+- Step 6: may a company whose other contacts are already BDR-owned be moved
+  to another BDR for balance? Currently no.
+- Step 6: skip the base skill's separate conflicts file (folded into the
+  Reason column + chat summary)? Currently yes.
 
 ## Decision log
 

@@ -5,7 +5,7 @@ description: Clean and standardize outbound prospecting lists (ZoomInfo, Clay, H
 
 # Outbound list cleaner
 
-Status: **steps 1 (email domain cleaning), 2 (normalization), 3 (HubSpot duplicate check), 4 (HubSpot import and post-import checks) and 5 (Clay enrichment, guided).** Later steps are being
+Status: **steps 1 (email domain cleaning), 2 (normalization), 3 (HubSpot duplicate check), 4 (HubSpot import and post-import checks), 5 (Clay enrichment, guided) and 6 (BDR assignment).** Later steps are being
 specified; see `PROJECT.md` and `SPEC.md` in the project repo for the full plan.
 
 Every list produces two files: a contact file and a company file containing
@@ -336,6 +336,61 @@ check HubSpot afterwards.
    enrichments are done (Update Object has run on every tab used). Do not
    start step 6 until the user confirms. If some contacts didn't change,
    that's fine — the user ran it.
+
+## Step 6 — Assign BDRs (contact and company owners)
+
+Starts only after the user confirmed step 5. Use the
+**`hubspot-bdr-list-assignment`** skill on the step 4 segment, with the
+rules below. Where this section and that skill differ, **this section wins**.
+
+**Only for BDRs.** This step assigns BDRs only. If the user wants to assign
+anyone else (AEs, managers, …), say this workflow doesn't cover it and stop.
+
+1. **Ask who the BDRs are** for this round. Default pool: `bdr_pool` in
+   `config.json` (currently Noah, Davis, Bart). Everyone must already be a
+   HubSpot user; resolve each to an owner ID (`search_owners`) and confirm
+   any first name that matches more than one user.
+2. **No HubSpot changes until approval.** Everything up to the approval
+   is read-only; results go to the user as a CSV file in chat.
+3. **Read the current owners:** contact owner of every contact in the
+   segment, and company owner of every company associated with them.
+4. **Count the whole account.** For each of those companies, count all the
+   contacts associated with it in HubSpot and who owns them.
+5. **Contacts in the segment:** if a contact is already owned by one of the
+   selected BDRs, that BDR is its starting owner. Any other owner (a
+   non-BDR, or nobody) → it needs a BDR.
+6. **Combine the counts per company:** (a) BDR owners of the segment's
+   contacts on that company **plus** (b) BDR owners of the company's other
+   contacts. Only owners in the selected pool count; contacts owned by
+   anyone else don't. (This differs from the base skill, which subtracts the
+   in-list contacts: here they count.)
+7. **One BDR per company — the priority rule.** The BDR with the most
+   contacts on the company (from 6) gets **all** of the segment's contacts
+   on it **and** the company record. Example: Bart already owns 2 contacts
+   at a company; the 3 new contacts would have gone 2 to Bart and 1 to Noah
+   → all 3 go to Bart, and so does the company. Ties: lightest load, as in
+   the base skill. The company owner is what tells future imports who
+   should get that company's new contacts.
+8. **Companies with no BDR contacts yet:** keep the company with a pool BDR
+   who already owns the company record; otherwise distribute them so that,
+   across this list, each BDR ends up with a roughly equal number of
+   **contacts**, and then of **companies**. To balance, you may move the
+   segment's new contacts on such companies between BDRs (the whole company
+   moves together), but never split a company.
+9. **The CSV** (one row per segment contact), columns in this order:
+   `Company, Company Record ID, Old Company Owner, New Company Owner,
+   Contact Name, Contact Record ID, Old Contact Owner, New Contact Owner,
+   Reason` — Reason is the audit trail for the new contact owner (e.g.
+   "kept: already Bart's", "Bart holds 4 of 5 BDR contacts on this company",
+   "balance: new company, lightest load"). Sort by company A→Z, with all
+   contacts of a company in adjacent rows, A→Z by name. Blank owners stay
+   blank. Deliver the file with `SendUserFile`; in chat give only the
+   per-BDR totals (contacts, companies), how many companies change hands and
+   from whom, companies moving between BDRs, ties, and open deals on these
+   companies (as the base skill does).
+10. **Ask for approval or changes.** On changes, re-deliver the CSV.
+11. **On approval, update HubSpot** as the base skill describes: contacts
+   first, then companies, owner only, 10 per call, then verify every record.
 
 ## Data handling
 
