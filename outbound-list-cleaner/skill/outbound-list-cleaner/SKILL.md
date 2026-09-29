@@ -298,34 +298,32 @@ on the work happens in HubSpot and the files are not updated again.
 
 Assumes the segment exists, duplicates are merged and every contact is
 associated with its company. This step happens in Clay, not HubSpot. The
-Clay connector can't open, duplicate or run workbooks, so the user does it;
-you walk them through it one tab at a time and check the result in HubSpot.
-Clay writes results back to HubSpot itself — no files are imported or
-exported.
+Clay connector can't open, duplicate or run workbooks, so the user does it
+and you walk them through it one tab at a time. Clay writes results back to
+HubSpot itself — no files are imported or exported, and you don't need to
+check HubSpot afterwards.
 
-1. **Baseline.** `python3 scripts/post_import.py coverage --segment "<segment>" --label before --out-dir <run_dir>`
-   (how many contacts have email, work direct phone, mobile, LinkedIn URL,
-   job title).
-2. **Pick the workbook** (team workspace; links in `config.json`
-   `clay_workbooks`):
-   - European contacts → the Europe template (they're often missing from
-     ZoomInfo).
-   - American and other global contacts → the Americas/global template.
-   The links are the live templates: give the user the right link, and
-   have them **duplicate it and rename the copy** for this list (e.g. the
-   list name and date). All work happens in the copy — never run buttons in
-   the template itself. Whenever the user gets lost, send the template link
-   again. Remind them that each button run spends Clay credits.
-3. **Pick the tabs:**
+1. **Workbook.** Give the user **both** template links from `config.json`
+   (`clay_workbooks`) with what each is for, and let them decide which to
+   open:
+   - Europe template — European contacts (often missing from ZoomInfo).
+   - Americas/global template — American and other global contacts
+     (providers proven for those regions).
+   The links are the live templates: the user **duplicates** the one they
+   chose and **renames the copy** as `name_segment_date`. If you're unsure
+   what the name should be, let the user name it. All work happens in the
+   copy — never run buttons in the template. Whenever the user gets lost,
+   send both links again. Remind them each button run spends Clay credits.
+2. **Tabs:**
    - **Tab 1 "ZoomInfo"** — only if the list was *not* built in ZoomInfo
      (e.g. pulled from LinkedIn). Skip it for ZoomInfo lists.
    - **Tab 2 "PDL"** — always; the most reliable provider, so it runs first.
    - **Tab 3 "Import Objects from HubSpot"** — always, after PDL; a mix of
      other providers for what PDL didn't find.
-4. **Importing into a tab** (first column of each tab): import objects →
+3. **Importing into a tab** (first column of each tab): import objects →
    select **Contacts** → select the segment → schedule **Manual / one-time
    import only**, so the list doesn't keep updating in the background.
-5. **Walk the user through the buttons, one at a time.** Wait for each
+4. **Walk the user through the buttons, one at a time.** Wait for each
    column to finish before the next; ask them to confirm, and to tell you
    about errors.
    - **ZoomInfo tab** (only when used): import the segment → **Enrich
@@ -334,10 +332,10 @@ exported.
      Email** → **Enrich Person** → **LinkedIn URL** → **Update Object**.
    - **Import Objects from HubSpot tab:** **Import Object** → **Mobile Phone**
      enrichment → **Update Object**.
-6. **Check the write-back.** After the last **Update Object**, run
-   `python3 scripts/post_import.py coverage --segment "<segment>" --label after --out-dir <run_dir>`
-   and report the change per field. If nothing changed, the Update Object
-   step likely didn't run or failed — ask the user to check that column.
+5. **Gate before step 6.** Ask with the multiple-choice tool whether all the
+   enrichments are done (Update Object has run on every tab used). Do not
+   start step 6 until the user confirms. If some contacts didn't change,
+   that's fine — the user ran it.
 
 ## Data handling
 

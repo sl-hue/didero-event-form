@@ -16,12 +16,5 @@
       "url": "https://app.clay.com/workspaces/335212/workbooks/wb_0tm51n2tsmYgWNj6Gui",
       "use_for": "American and other global contacts (providers proven for these regions)"
     }
-  },
-  "enrichment_fields": [
-    "email",
-    "work_direct_phone",
-    "mobilephone",
-    "lgm_linkedinurl",
-    "jobtitle"
-  ]
+  }
 }

@@ -236,12 +236,13 @@ After the import the files are done; the user works in HubSpot.
 Assumes: segment created, duplicates merged, contacts associated. Happens in
 Clay (team workspace); Clay writes results back to HubSpot. The Clay
 connector can't open/duplicate/run workbooks, so the user runs it and Claude
-guides, then measures the before/after fill rate of key contact fields.
+guides. No HubSpot check afterwards.
 
-- **Workbook:** Europe template for European contacts (poor ZoomInfo
-  coverage); Americas/global template otherwise (`config.json`). The links
-  are the live templates: the user duplicates the right one and renames the
-  copy for the list; nothing is run in the template itself.
+- **Workbook:** Claude gives both template links (`config.json`) and the user
+  chooses: Europe template for European contacts (poor ZoomInfo coverage);
+  Americas/global template otherwise. The links are the live templates: the
+  user duplicates one and renames the copy `name_segment_date` (the user
+  names it if unclear); nothing is run in the template itself.
 - **Tabs:** 1 ZoomInfo — only when the list wasn't built in ZoomInfo;
   2 PDL — always, first (most reliable); 3 Import Objects from HubSpot —
   always, after PDL (other providers, less reliable).
@@ -250,3 +251,4 @@ guides, then measures the before/after fill rate of key contact fields.
 - **Buttons:** ZoomInfo: Enrich Contact → Update Object. PDL: import again →
   Verify Email → Work Email → Enrich Person → LinkedIn URL → Update Object.
   Import Objects from HubSpot: Import Object → Mobile Phone → Update Object.
+- **Gate:** step 6 starts only after the user confirms the enrichments are done.
