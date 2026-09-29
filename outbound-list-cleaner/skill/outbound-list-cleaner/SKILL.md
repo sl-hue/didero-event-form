@@ -377,6 +377,16 @@ anyone else (AEs, managers, …), say this workflow doesn't cover it and stop.
    **contacts**, and then of **companies**. To balance, you may move the
    segment's new contacts on such companies between BDRs (the whole company
    moves together), but never split a company.
+   **Companies already worked by a BDR stay locked** (their other contacts
+   are BDR-owned) — that's the priority. Only if, after balancing, the gap
+   between the most- and least-loaded BDR is **more than 10% of the average
+   contacts per BDR and more than 3 contacts** (`bdr_balance_flag` in
+   `config.json`), point it out in chat and suggest specific locked
+   companies that could move to even it out: company, contacts in the
+   segment, how many other contacts the current BDR owns there, and who'd
+   take it. Moving one means its other BDR-owned contacts move too, so the
+   company stays with one BDR. The user decides company by company; apply
+   only the ones they approve, then re-deliver the CSV.
 9. **The CSV** (one row per segment contact), columns in this order:
    `Company, Company Record ID, Old Company Owner, New Company Owner,
    Contact Name, Contact Record ID, Old Contact Owner, New Contact Owner,

@@ -269,6 +269,10 @@ taking precedence:
 - Remaining companies are spread so each BDR gets a roughly equal number of
   contacts, then companies; new contacts may be moved between BDRs for
   balance, a company never split.
+- Companies already worked by a BDR stay locked (priority). If the contact
+  gap between BDRs is still > 10% of the average and > 3 contacts, Claude
+  suggests specific locked companies to move and the user decides one by
+  one (a moved company takes its other BDR-owned contacts with it).
 - CSV: Company, Company Record ID, Old Company Owner, New Company Owner,
   Contact Name, Contact Record ID, Old Contact Owner, New Contact Owner,
   Reason; sorted by company A→Z, contacts adjacent and A→Z.

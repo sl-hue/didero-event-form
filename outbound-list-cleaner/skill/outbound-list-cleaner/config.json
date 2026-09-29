@@ -21,5 +21,9 @@
     "Noah",
     "Davis",
     "Bart"
-  ]
+  ],
+  "bdr_balance_flag": {
+    "percent_of_average": 10,
+    "min_contacts": 3
+  }
 }

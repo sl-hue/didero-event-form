@@ -32,7 +32,7 @@ on unclear rows through multiple-choice prompts in chat.
 | Step 4 — HubSpot import prep (mapping table, Type, record IDs) | Built; dry-run OK |
 | Step 4 (after import) — segment + exclusions, association fixes, leftover duplicates | Built; untested against HubSpot (needs the token) |
 | Step 5 — Clay enrichment (guided checklist, user confirms before step 6) | Built |
-| Step 6 — BDR assignment (via hubspot-bdr-list-assignment with our rules) | Specified; open questions below |
+| Step 6 — BDR assignment (via hubspot-bdr-list-assignment with our rules) | Specified |
 | Later steps (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
 
 ## Next up
@@ -44,10 +44,7 @@ on unclear rows through multiple-choice prompts in chat.
 
 ## Open questions
 
-- Step 6: may a company whose other contacts are already BDR-owned be moved
-  to another BDR for balance? Proposed: no by default, but if the split is
-  more than ~20% uneven, list candidate companies in chat and let the user
-  decide one by one. Awaiting answer.
+- None right now.
 
 ## Decision log
 
@@ -114,6 +111,10 @@ on unclear rows through multiple-choice prompts in chat.
 - 2026-09-29 — Step 6: the company rule wins over an existing BDR contact
   owner (moved to the company's majority BDR); no separate conflicts file
   (Reason column + chat summary instead).
+
+- 2026-09-29 — Step 6 balance: worked companies stay locked; if the contact
+  gap is > 10% of the average and > 3 contacts, Claude suggests locked
+  companies to move and the user decides one by one.
 
 ## Using this in Cowork
 
