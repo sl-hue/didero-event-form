@@ -156,6 +156,52 @@ def name_similarity(a, b):
     return ratio
 
 
+STATES = {
+    "al": "alabama", "ak": "alaska", "az": "arizona", "ar": "arkansas", "ca": "california",
+    "co": "colorado", "ct": "connecticut", "de": "delaware", "fl": "florida", "ga": "georgia",
+    "hi": "hawaii", "id": "idaho", "il": "illinois", "in": "indiana", "ia": "iowa", "ks": "kansas",
+    "ky": "kentucky", "la": "louisiana", "me": "maine", "md": "maryland", "ma": "massachusetts",
+    "mi": "michigan", "mn": "minnesota", "ms": "mississippi", "mo": "missouri", "mt": "montana",
+    "ne": "nebraska", "nv": "nevada", "nh": "new hampshire", "nj": "new jersey", "nm": "new mexico",
+    "ny": "new york", "nc": "north carolina", "nd": "north dakota", "oh": "ohio", "ok": "oklahoma",
+    "or": "oregon", "pa": "pennsylvania", "ri": "rhode island", "sc": "south carolina",
+    "sd": "south dakota", "tn": "tennessee", "tx": "texas", "ut": "utah", "vt": "vermont",
+    "va": "virginia", "wa": "washington", "wv": "west virginia", "wi": "wisconsin", "wy": "wyoming",
+    "dc": "district of columbia", "pr": "puerto rico",
+    # Canada
+    "ab": "alberta", "bc": "british columbia", "mb": "manitoba", "nb": "new brunswick",
+    "nl": "newfoundland and labrador", "ns": "nova scotia", "on": "ontario", "pe": "prince edward island",
+    "qc": "quebec", "sk": "saskatchewan", "nt": "northwest territories", "nu": "nunavut", "yt": "yukon",
+}
+COUNTRIES = {"us": "united states", "usa": "united states", "united states of america": "united states",
+             "ca": "canada", "uk": "united kingdom", "gb": "united kingdom", "great britain": "united kingdom"}
+
+
+def norm_state(value):
+    v = re.sub(r"[^a-z ]", "", unicodedata.normalize("NFKD", value or "").encode("ascii", "ignore").decode().lower()).strip()
+    return STATES.get(v, v)
+
+
+def norm_country(value):
+    v = re.sub(r"[^a-z ]", "", (value or "").lower()).strip()
+    return COUNTRIES.get(v, v)
+
+
+def same_location(a, b, keys=(("city", "city"), ("state", "state"), ("country", "country"))):
+    """Which of city/state/country two records share, tolerant of state codes
+    ("TX" = "Texas") and country spellings. Returns e.g. "state/country"."""
+    shared = []
+    for ka, kb in keys:
+        va, vb = a.get(ka), b.get(kb)
+        if not va or not vb:
+            continue
+        norm = norm_state if "state" in ka.lower() else norm_country if "country" in ka.lower() else \
+            (lambda s: re.sub(r"[^a-z]", "", s.lower()))
+        if norm(va) == norm(vb):
+            shared.append(kb if kb in ("city", "state", "country") else ka.split()[-1].lower())
+    return "/".join(shared)
+
+
 def load_records(raw_dir):
     """Every record in every saved HubSpot response, de-duplicated by id."""
     records, url_template = {}, ""
@@ -193,7 +239,7 @@ OBJECT_TYPE_IDS = {"COMPANY": "0-2", "CONTACT": "0-1"}
 
 TOKEN_FILE = Path(os.environ.get("HUBSPOT_TOKEN_FILE",
                                   Path.home() / ".config" / "outbound-list-cleaner" / "hubspot_token"))
-SCOPES = ["crm.objects.companies.read", "crm.objects.contacts.read"]
+SCOPES = ["crm.objects.companies.read", "crm.objects.contacts.read", "crm.lists.read"]
 SETUP_COMMAND = "python3 scripts/hubspot_match.py setup-token"
 
 
@@ -434,13 +480,12 @@ def match_companies(args):
             if li and linkedin_slug(p.get("linkedin_company_page"), "company") == li:
                 reasons.append("same LinkedIn company page")
             sim = name_similarity(c["Company Name"], p.get("name"))
-            same_place = [f for f, h in (("Company City", "city"), ("Company State", "state"),
-                                         ("Company Country", "country"))
-                          if c.get(f) and (p.get(h) or "").strip().lower() == c[f].strip().lower()]
+            place = same_location(c, p, (("Company City", "city"), ("Company State", "state"),
+                                         ("Company Country", "country")))
             if sim >= 0.85:
-                reasons.append(f"similar name ({p.get('name')})" + (f", same {'/'.join(h.split()[-1].lower() for h in same_place)}" if same_place else ""))
-            elif sim >= 0.7 and len(same_place) >= 2:
-                reasons.append(f"partly similar name ({p.get('name')}) in same {'/'.join(h.split()[-1].lower() for h in same_place)}")
+                reasons.append(f"similar name ({p.get('name')})" + (f", same {place}" if place else ""))
+            elif sim >= 0.7 and place.count("/") >= 1:
+                reasons.append(f"partly similar name ({p.get('name')}) in same {place}")
             if not reasons:
                 continue
             strong = any(r.startswith(("domain", "same website", "website on", "same ZoomInfo", "same LinkedIn")) for r in reasons)

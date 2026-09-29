@@ -208,3 +208,22 @@ shows the field mapping in chat as a table so the user picks the same fields.
   mismatches should be added to step 2's dropdown conversion.
 - Full column → property mapping: `COMPANY_MAPPING` / `CONTACT_MAPPING` in
   `scripts/hubspot_import.py`.
+
+### Step 4 (after the import) — associations and leftover duplicates
+
+After the import the files are done; the user works in HubSpot.
+1. The user builds a contact segment of the imported contacts, excluding
+   "Exclusion List A" … "Exclusion List F" (`config.json`), and gives Claude
+   its name.
+2. Claude pulls the segment's contacts and their company associations:
+   - No association → associate with the company owning the contact's
+     domain, as primary.
+   - Several associations → the list's company (owning the contact's domain)
+     becomes primary; others stay secondary.
+   Claude proposes the fixes, the user approves, Claude applies them with the
+   connector; unclear cases go to the user.
+3. Claude checks the segment's companies against all of HubSpot for
+   duplicates the pre-import check missed: domain variants (other TLD,
+   subdomain, hyphen), same LinkedIn page or phone, similar name in a similar
+   location (city may differ; state as code or name, e.g. TX = Texas). It
+   reports how many, lists each group in chat, and the user merges them.

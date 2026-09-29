@@ -30,6 +30,7 @@ on unclear rows through multiple-choice prompts in chat.
 | Step 2 — Normalization (names, LinkedIn, company fields, column pruning) | **Built and tested** on CBM M&A: output matches hand-cleaned files 4/5 except where confirmed rules differ |
 | Step 3 — HubSpot duplicate check | Companies done on CBM M&A (47/59 match the hand file; the rest explained by today's import and 3 merges). Contacts next |
 | Step 4 — HubSpot import prep (mapping table, Type, record IDs) | Built; dry-run OK |
+| Step 4 (after import) — segment + exclusions, association fixes, leftover duplicates | Built; untested against HubSpot (needs the token) |
 | Later steps (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
 
 ## Next up
@@ -89,6 +90,13 @@ on unclear rows through multiple-choice prompts in chat.
   (`HUBSPOT_PRIVATE_APP_TOKEN`) via `hubspot_match.py run-plan`; each user sets
   it up on their own device first. The connector is the slow fallback
   (Claude has to re-type every result).
+
+- 2026-09-29 — After the import: the user builds a segment excluding
+  Exclusion List A–F; Claude proposes association fixes (no company →
+  associate; several → list's company primary) and applies them after
+  approval; then checks the segment's companies for leftover duplicates
+  (domain variants, LinkedIn, phone, similar name + location with state
+  codes = names). Files are not updated after import.
 
 ## Using this in Cowork
 

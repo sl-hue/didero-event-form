@@ -26,7 +26,8 @@ only that list's companies. A sublist gets its own company file.
      user to authorize it before step 3:
      1. Explain: the script reads HubSpot companies and contacts directly
         with their team's private app (read scopes
-        `crm.objects.companies.read`, `crm.objects.contacts.read`); the token
+        `crm.objects.companies.read`, `crm.objects.contacts.read`,
+        `crm.lists.read`); the token
         is stored only on their device and never shown in chat.
      2. Ask with the multiple-choice tool whether they authorize this.
      3. Then, depending on where you're running:
@@ -247,6 +248,51 @@ The user runs the import in HubSpot; you prepare it and walk them through it.
    current options with the HubSpot connector (`get_properties`) and add the
    conversion to `DROPDOWNS` in `scripts/normalize.py` so step 2 fixes it
    next time.
+
+## Step 4 (after the import) — segment, associations, leftover duplicates
+
+Once the user has imported both files, the files are finished: from here
+on the work happens in HubSpot and the files are not updated again.
+`P=scripts/post_import.py`.
+
+1. **Build the segment.** Prompt the user to create a contact segment of the
+   contacts they just imported, and to exclude every list in `config.json`
+   (`exclusion_lists`: "Exclusion List A" … "Exclusion List F"; they can
+   search for each by name in HubSpot). Ask for the segment's name when it's
+   done. (You may offer to create it with the connector's `manage_segment`
+   — e.g. `IN_LIST(import = '<id>') AND NOT IN_LIST(list = <id>) …`, ids
+   looked up, never guessed — only with their approval.)
+2. **Pull it.** `python3 $P pull-segment --segment "<name or list ID>" --out-dir <run_dir>`
+   reads every contact in the segment, its company associations (with the
+   primary flag) and those companies → `segment_snapshot.json`.
+3. **Fix associations** (Claude proposes, user approves, Claude applies):
+   `python3 $P review-associations --snapshot <run_dir>/segment_snapshot.json --out-dir <run_dir>`
+   → `association_fixes.json`:
+   - **No company** → associate with the company that owns the contact's
+     domain, as primary.
+   - **Several companies** (usually an existing contact that got another
+     company) → make the company owning the contact's domain (the list's
+     company) primary; the others stay as secondary.
+   - `ask_user`: cases the script can't decide (no company with that domain,
+     several candidates). Ask the user with the multiple-choice tool, one
+     contact per question, with contact and company links.
+   Show the proposed fixes as a table (contact, email, current companies,
+   action, company, reason) and get approval, then send `connector_batches`
+   with the connector's `manage_crm_objects` (`updateRequest`, 10 per call).
+   Afterwards re-run `pull-segment` + `review-associations` to confirm
+   nothing is left; if the "Primary" label is rejected, tell the user to set
+   primary on those contacts in HubSpot and list them.
+4. **Leftover company duplicates.**
+   `python3 $P find-dupes --snapshot <run_dir>/segment_snapshot.json --out-dir <run_dir>`
+   checks every company associated with the segment's contacts against all
+   of HubSpot: same or variant domain (other TLD, subdomain, hyphen), same
+   LinkedIn page, same phone, similar name in the same location (state codes
+   and names treated as equal, e.g. TX = Texas) → `company_dupes.json`.
+   Tell the user how many companies have possible duplicates, then list each
+   group in chat with HubSpot links, location, size, contacts and reasons.
+   Dismiss obvious false positives yourself. The user merges in HubSpot and
+   gives the survivor ID (usually a new ID); verify via
+   `hs_merged_object_ids` and check the survivor's name/domain, as in step 3.
 
 ## Data handling
 
