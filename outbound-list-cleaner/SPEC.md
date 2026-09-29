@@ -239,7 +239,9 @@ connector can't open/duplicate/run workbooks, so the user runs it and Claude
 guides, then measures the before/after fill rate of key contact fields.
 
 - **Workbook:** Europe template for European contacts (poor ZoomInfo
-  coverage); Americas/global template otherwise (`config.json`).
+  coverage); Americas/global template otherwise (`config.json`). The links
+  are the live templates: the user duplicates the right one and renames the
+  copy for the list; nothing is run in the template itself.
 - **Tabs:** 1 ZoomInfo — only when the list wasn't built in ZoomInfo;
   2 PDL — always, first (most reliable); 3 Import Objects from HubSpot —
   always, after PDL (other providers, less reliable).

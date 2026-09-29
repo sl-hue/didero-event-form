@@ -311,7 +311,11 @@ exported.
    - European contacts → the Europe template (they're often missing from
      ZoomInfo).
    - American and other global contacts → the Americas/global template.
-   Remind the user that each button run spends Clay credits.
+   The links are the live templates: give the user the right link, and
+   have them **duplicate it and rename the copy** for this list (e.g. the
+   list name and date). All work happens in the copy — never run buttons in
+   the template itself. Whenever the user gets lost, send the template link
+   again. Remind them that each button run spends Clay credits.
 3. **Pick the tabs:**
    - **Tab 1 "ZoomInfo"** — only if the list was *not* built in ZoomInfo
      (e.g. pulled from LinkedIn). Skip it for ZoomInfo lists.
