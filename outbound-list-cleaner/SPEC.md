@@ -306,3 +306,21 @@ The workflow ends after step 6.
 - **Same person, different company:** a strong contact match whose HubSpot
   company differs from the list goes to review (list current / HubSpot
   current → drop / unsure → drop).
+
+### One working file (2026-09-30)
+
+- The run keeps **one data file**, `working.csv` (one row per contact, company
+  columns on the row). Every step updates it in place through the scripts;
+  company values are written to all rows of that company. A company export is
+  optional (its values win); otherwise disagreeing company values across a
+  company's rows are harmonized to the most common value and reported.
+- **No manual CSV edits.** Rows needing judgment are **flagged**, never
+  dropped: Claude shows the row in the chat, the user says what to change,
+  Claude applies it (`worksheet.py set / resolve / remove`), shows the
+  before → after, and waits for the user's OK before the next step. Rows are
+  removed only when the user says so, and removals are listed at export for
+  the list's owner.
+- The two upload files are generated at step 4 into `upload/` (import-ready:
+  blank Record ID = create) and never edited; export is blocked while flags
+  are open. Read-only copies per step go to `history/`; all changes are logged
+  in `changes.jsonl`.

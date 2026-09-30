@@ -23,6 +23,13 @@ into the build chat so the skill can be fixed.
 - [ ] A wrong token is rejected with nothing saved.
 - [ ] `check-token` then passes.
 
+## 2b. One working file
+- [ ] The run folder has one data file (`working.csv`), plus `history/` copies and, after step 4, `upload/`.
+- [ ] Init reports any company values it harmonized across a company's rows.
+- [ ] A flagged row is shown in the chat as a table; you say the change; Claude applies it and shows before → after, and waits for your OK before the next step.
+- [ ] Nothing is removed unless you say so; removals are listed at export.
+- [ ] Export/import prep refuses while a row is flagged.
+
 ## 3. Step 1 — email domain cleaning (CBM M&A raw contacts)
 - [ ] Decision boxes for the doubtful rows (QXO/Kodiak, Sign & Awning → arch-fab.com).
 - [ ] Web lookup for the 4 companies with no emails (Threaded Fasteners → tfmfg.com; Wagner; Bliffert; Gund).
@@ -44,11 +51,12 @@ into the build chat so the skill can be fixed.
 - [ ] Review message lists candidates with HubSpot links; decision box asks for the survivor ID *after* you merge; it verifies via merged IDs and checks the survivor's name/domain.
 - [ ] HubSpot Company Record ID column added; contact file company fields synced.
 - [ ] Contacts: same flow → HubSpot Contact Record ID column.
+- [ ] A contact HubSpot has at a different company is flagged (not dropped) and shown to you with both jobs and links.
 
 ## 6. Step 4 — import prep and after-import checks
 - [ ] Mapping tables in chat (company, contact) with "Don't overwrite" suggestions; ZoomInfo IDs "Don't import"; Management Level → Employment Seniority; record IDs → Record ID.
 - [ ] Type defaults to Prospect; it asks if the list doesn't look like prospects.
-- [ ] "Not in HubSpot" blanked in the import copies.
+- [ ] Only two upload files, in `upload/`; "Not in HubSpot" companies have a blank Record ID (= create).
 - [ ] After you import: prompts you to build a segment excluding Exclusion List A–F.
 - [ ] `pull-segment` reads the segment; association fixes proposed in a table; after approval applied via connector; re-check shows none left. (Primary label already confirmed working.)
 - [ ] Shared-domain case (e.g. Roche/Genentech on roche.com) goes to you as a question.

@@ -1,13 +1,16 @@
 """Step 1 — email domain cleaning.
 
-Two stages, with Claude (the skill) in between:
+Works on the run's working.csv (see worksheet.py). Two stages, with Claude
+(the skill) in between:
 
-  prepare  Read a contact file, normalize email domains, and write
-           review.json: one entry per (company, email domain) pair for Claude
-           to judge, plus companies that have no email domain at all.
-  apply    Read the contact file and a decisions.json (Claude's judgments,
-           the user's answers on doubtful rows, and web-sourced domains), and
-           write the cleaned contact file plus a company -> domain summary.
+  prepare  Normalize email domains and write review.json: one entry per
+           (company, email domain) pair for Claude to judge, plus companies
+           that have no email domain at all.
+  apply    Apply decisions.json (Claude's judgments, the user's answers on
+           doubtful rows, and web-sourced domains) to working.csv in place:
+           Email Address, Email Domain, and the company-level Company Domain
+           and Additional Domains on every row of each company. What changed
+           and why goes to step1_report.json, not into the file.
 
 decisions.json:
   {
@@ -25,11 +28,14 @@ separated by ";". Ties for most used are listed in review.json under
 primary_domains.
 """
 import argparse
-import csv
 import json
 import re
+import sys
 from collections import Counter, OrderedDict, defaultdict
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import worksheet as ws  # noqa: E402
 
 EMAIL = "Email Address"
 DOMAIN = "Email Domain"
@@ -44,19 +50,6 @@ FREE_MAIL = {"gmail.com", "googlemail.com", "hotmail.com", "outlook.com", "live.
 
 # Doubled TLDs like "acme.com.com" are typos, not a different domain.
 DOUBLED_TLD = re.compile(r"(\.[a-z]{2,})\1+$")
-
-
-def read_rows(path):
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        return reader.fieldnames, list(reader)
-
-
-def write_rows(path, fieldnames, rows):
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 def normalize_email(email):
@@ -76,7 +69,7 @@ def company_key(row):
 
 
 def prepare(args):
-    _, rows = read_rows(args.contacts)
+    _, rows = ws.load(args.run_dir)
     pairs = OrderedDict()
     companies = OrderedDict()
     for row in rows:
@@ -117,13 +110,12 @@ def prepare(args):
                                      if p["company_id"] == key}})
 
     review = {
-        "source": str(args.contacts),
+        "source": "working.csv",
         "pairs": list(pairs.values()),
         "companies_without_email": [c for c in companies.values() if not c["with_email"]],
         "primary_ties": ties,
     }
-    out = Path(args.out_dir)
-    out.mkdir(parents=True, exist_ok=True)
+    out = Path(args.run_dir)
     (out / "review.json").write_text(json.dumps(review, indent=2))
     print(f"{len(rows)} contacts, {len(companies)} companies, {len(pairs)} company/domain pairs, "
           f"{len(review['companies_without_email'])} companies with no email, "
@@ -131,16 +123,17 @@ def prepare(args):
 
 
 def apply(args):
-    fieldnames, rows = read_rows(args.contacts)
+    fieldnames, rows = ws.load(args.run_dir)
     decisions = json.loads(Path(args.decisions).read_text())
     pair_decisions = decisions.get("pairs", {})
     web_domains = decisions.get("web_domains", {})
     primary_domains = decisions.get("primary_domains", {})
 
     missing = set()
+    report = {}
     for row in rows:
-        row["ZoomInfo Email Domain"] = row.get(DOMAIN, "")
-        row["Original Email"] = row[EMAIL]
+        zoominfo_domain = row.get(DOMAIN, "")
+        original = row[EMAIL]
         email, fix = normalize_email(row[EMAIL])
         notes = [fix] if fix else []
         domain = ""
@@ -163,10 +156,12 @@ def apply(args):
                 email, domain = "", decision["map_to"]
         row[EMAIL] = email
         row[DOMAIN] = domain
-        row["Email Domain Source"] = "email" if domain and email else ("mapped to parent" if domain else "")
-        if domain and domain != (row["ZoomInfo Email Domain"] or "").lower():
-            notes.append(f"differs from ZoomInfo ({row['ZoomInfo Email Domain'] or 'blank'}); extracted wins")
-        row["Step 1 Notes"] = "; ".join(notes)
+        if domain and domain != (zoominfo_domain or "").lower():
+            notes.append(f"differs from ZoomInfo ({zoominfo_domain or 'blank'}); extracted wins")
+        report[row[ws.CONTACT_ID]] = {"name": f"{row.get('First Name', '')} {row.get('Last Name', '')}".strip(),
+                                      "company": row[COMPANY], "original_email": original,
+                                      "source": "email" if domain and email else ("mapped to parent" if domain else ""),
+                                      "notes": notes}
 
     if missing:
         raise SystemExit(f"decisions.json has no judgment for: {sorted(missing)}")
@@ -194,15 +189,9 @@ def apply(args):
         key = company_key(row)
         if key in by_company:
             row[DOMAIN] = domains_for(key)[0]
-            if key in web_domains and row[DOMAIN] == web_domains[key]["domain"]:
-                row["Email Domain Source"] = f"web: {web_domains[key]['source']}"
-            else:
-                row["Email Domain Source"] = "backfilled from colleague"
-
-    out = Path(args.out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    extra = ["Original Email", "ZoomInfo Email Domain", "Email Domain Source", "Step 1 Notes"]
-    write_rows(out / "contacts_step1.csv", fieldnames + extra, rows)
+            report[row[ws.CONTACT_ID]]["source"] = (f"web: {web_domains[key]['source']}"
+                                                    if key in web_domains and row[DOMAIN] == web_domains[key]["domain"]
+                                                    else "backfilled from colleague")
 
     summary, seen = [], set()
     for row in rows:
@@ -221,12 +210,18 @@ def apply(args):
                         "Company Domain": domains[0] if domains else "",
                         "Additional Domains": ";".join(domains[1:]),
                         "Domain Source": source})
-    write_rows(out / "company_domains_step1.csv", list(summary[0].keys()), summary)
+        ws.set_company_field(rows, key, "Company Domain", domains[0] if domains else "")
+        ws.set_company_field(rows, key, "Additional Domains", ";".join(domains[1:]))
 
+    ws.save(args.run_dir, fieldnames, rows)
+    changed = {k: v for k, v in report.items() if v["notes"] or v["source"] != "email"}
+    (Path(args.run_dir) / "step1_report.json").write_text(json.dumps(
+        {"contacts_changed": changed, "companies": summary}, indent=2, ensure_ascii=False))
+    ws.log(args.run_dir, {"action": "step1", "contacts_changed": len(changed), "companies": len(summary)})
+    ws.snapshot_copy(args.run_dir, "01_email_domains")
     unresolved = [s[COMPANY] for s in summary if not s["Company Domain"]]
-    changed = sum(1 for r in rows if r["Step 1 Notes"] or r["Email Domain Source"] != "email")
-    print(f"wrote {out / 'contacts_step1.csv'} ({len(rows)} rows, {changed} changed) and "
-          f"{out / 'company_domains_step1.csv'} ({len(summary)} companies)")
+    print(f"working.csv updated: {len(rows)} contacts ({len(changed)} changed), {len(summary)} companies; "
+          f"details in step1_report.json")
     if unresolved:
         print("companies still without a domain:", ", ".join(unresolved))
 
@@ -235,13 +230,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("prepare")
-    p.add_argument("contacts")
-    p.add_argument("--out-dir", required=True)
+    p.add_argument("--run-dir", required=True)
     p.set_defaults(func=prepare)
     a = sub.add_parser("apply")
-    a.add_argument("contacts")
+    a.add_argument("--run-dir", required=True)
     a.add_argument("--decisions", required=True)
-    a.add_argument("--out-dir", required=True)
     a.set_defaults(func=apply)
     args = parser.parse_args()
     args.func(args)

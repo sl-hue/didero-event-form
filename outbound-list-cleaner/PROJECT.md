@@ -44,7 +44,6 @@ on unclear rows through multiple-choice prompts in chat.
 
 ## Open questions
 
-- Cowork review 2.3: add a `drop` command (currently a manual instruction).
 - Cowork review 2.4–2.13 (LinkedIn global pages, noisy phone matches, stale
   renamed companies, non-ZoomInfo inputs, nickname overwrites, skip path for
   Clay, etc.) — not yet decided.
@@ -133,6 +132,12 @@ on unclear rows through multiple-choice prompts in chat.
   plan/match-dupes); first-time connector check (manual, in Claude
   settings); same-person-different-company contacts go to review.
   Open: Cowork review items 2.3 (drop command) and 2.4–2.13.
+
+- 2026-09-30 — Replaced the multi-CSV design with one working file
+  (`worksheet.py`): flags instead of drops, all edits done by Claude in the
+  chat (no manual CSV edits), before → after shown and confirmed before the
+  next step, upload files generated only at export. Cowork review 2.3
+  (drop command) is superseded by this.
 
 ## Using this in Cowork
 

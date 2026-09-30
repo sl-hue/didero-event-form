@@ -3,22 +3,28 @@
 The user imports the files through HubSpot's import screen (companies first,
 so they exist as anchors for the contacts). This script:
 
-  prepare   Adds the Type column to the company file (default "Prospect"),
+  prepare   Sets Type on the working file (default "Prospect"), exports the
+            two upload files from it (worksheet.py export — refuses while
+            rows are flagged),
             checks the Type already on matched HubSpot records, and writes
             import_mapping.md: for each file, every column -> HubSpot property
             (label + internal name), how many rows have a value, and whether to
             tick "Don't overwrite" for it. Claude shows these tables in chat so
             the user can pick the same fields in the import screen.
 
-Record IDs: rows marked "Not in HubSpot" are blanked in the Record ID column
-of the import copy, because HubSpot rejects non-numeric Record IDs; blank
-means "create", a number means "update that record".
+Record IDs: the upload files are import-ready — "Not in HubSpot" is written
+as a blank Record ID (HubSpot rejects text there); blank means "create", a
+number means "update that record".
 """
 import argparse
 import csv
 import json
+import sys
 from collections import Counter
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import worksheet as ws  # noqa: E402
 
 COMPANY_RECORD = "HubSpot Company Record ID"
 CONTACT_RECORD = "HubSpot Contact Record ID"
@@ -138,15 +144,17 @@ def mapping_table(kind, fields, rows, mapping):
 
 
 def prepare(args):
-    out = Path(args.out_dir)
+    out = Path(args.out_dir or Path(args.run_dir) / "upload")
     out.mkdir(parents=True, exist_ok=True)
+    # Type is company data: set it on the working file, then export from it.
+    fields, rows = ws.load(args.run_dir)
+    fields = ws.ensure_columns(fields, ["Type"])
+    for r in rows:
+        r["Type"] = r.get("Type") or args.type
+    ws.save(args.run_dir, fields, rows)
+    ws.export_files(args.run_dir, str(out))
+    args.companies, args.contacts = str(out / "companies_upload.csv"), str(out / "contacts_upload.csv")
     cfields, companies = read_rows(args.companies)
-    if "Type" not in cfields:
-        at = cfields.index("Outbound Personalization Token") if "Outbound Personalization Token" in cfields else len(cfields)
-        cfields = cfields[:at] + ["Type"] + cfields[at:]
-    for c in companies:
-        c["Type"] = c.get("Type") or args.type
-    write_rows(args.companies, cfields, companies)
 
     # Existing HubSpot records whose Type differs from the file's.
     types = hubspot_types(args.raw_dir)
@@ -172,18 +180,14 @@ def prepare(args):
         lines += table + [""]
         if unknown:
             notes.append(f"{kind}: columns with no agreed mapping (don't import): {', '.join(unknown)}")
-        # Import copy: HubSpot rejects "Not in HubSpot" as a Record ID.
-        for r in rows:
-            if r.get(record) == NOT_IN_HUBSPOT:
-                r[record] = ""
-        write_rows(out / f"{kind}_import.csv", fields, rows)
         new = sum(1 for r in rows if not r.get(record))
         notes.append(f"{kind}: {len(rows) - new} update existing records, {new} create new records")
     type_counts = Counter(c["Type"] for c in companies)
     report = {"type_counts": dict(type_counts), "type_conflicts": type_conflicts, "notes": notes}
-    (out / "import_mapping.md").write_text("\n".join(lines))
-    (out / "report_step4.json").write_text(json.dumps(report, indent=2))
-    print(f"wrote {out / 'import_mapping.md'}, {out / 'companies_import.csv'}, {out / 'contacts_import.csv'}")
+    (Path(args.run_dir) / "import_mapping.md").write_text("\n".join(lines))
+    (Path(args.run_dir) / "report_step4.json").write_text(json.dumps(report, indent=2))
+    ws.snapshot_copy(args.run_dir, "04_import_ready")
+    print(f"upload files: {out / 'companies_upload.csv'}, {out / 'contacts_upload.csv'}; mapping: import_mapping.md")
     print("Type:", dict(type_counts), f"| {len(type_conflicts)} existing records with a different Type")
     for n in notes:
         print(n)
@@ -193,11 +197,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("prepare")
-    p.add_argument("--companies", required=True, help="companies_upload.csv (after step 3)")
-    p.add_argument("--contacts", required=True, help="contacts_upload.csv (after step 3)")
+    p.add_argument("--run-dir", required=True, help="the run folder (working.csv)")
     p.add_argument("--raw-dir", help="step 3 HubSpot company search results, to check existing Type")
     p.add_argument("--type", default="Prospect", help="Type for the list's companies (default Prospect)")
-    p.add_argument("--out-dir", required=True)
+    p.add_argument("--out-dir", help="where the upload files go (default: the run folder)")
     p.set_defaults(func=prepare)
     args = parser.parse_args()
     args.func(args)

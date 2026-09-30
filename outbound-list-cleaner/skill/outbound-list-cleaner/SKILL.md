@@ -22,6 +22,9 @@ imported starts at step 4's post-import part).
 | 5 | Clay enrichment (guided) | `clay-guide` — walks the user through the workbook | — | template, button runs, "enrichment done" |
 | 6 | BDR assignment | `hubspot-bdr-list-assignment` (skill) · `bdr-assigner` — applies this workflow's rules | `bdr_assign.py` | BDR pool, approval of the CSV |
 
+All steps read and update the one working file through `worksheet.py`
+(see "One working file").
+
 Sub-agents are roles. Where the host supports subagents (Cowork, Claude
 Code), run the heavy ones — `web-domain-finder`, `hubspot-searcher`,
 `leftover-duplicate-finder` — as subagents so raw results stay out of the
@@ -54,12 +57,50 @@ report; use it.
   containing this SKILL.md) — don't copy the scripts elsewhere.
 - **Run folder** (`<run_dir>`): create one per list in the user's working
   folder (in Cowork, the folder they've shared), named like the list, e.g.
-  `<list>_<date>/`. All intermediate and output files go there.
+  `<list>_<date>/`.
 - The user's input files contain personal data: keep them and the run folder
   on the user's device. Never commit or publish them.
 
-Every list produces two files: a contact file and a company file containing
-only that list's companies. A sublist gets its own company file.
+## One working file
+
+The whole run works on **one data file**: `<run_dir>/working.csv` — one row
+per contact, with the company's columns on the same row (a ZoomInfo contact
+export already carries every company column). Every step reads and updates
+it through the scripts; nothing else holds list data, so nothing can
+disagree.
+
+- **Start:** `python3 scripts/worksheet.py init --contacts <contact export> [--companies <company export>] --out-dir <run_dir>`.
+  A company export is optional — if given, its company values win. Where a
+  company's rows disagree (ZoomInfo sometimes varies per contact), the most
+  common value is used; tell the user what was harmonized
+  (`init_report.json`).
+- **Company values are company-wide:** the scripts write company fields
+  (domain, record ID, website, Type …) to every row of that company.
+- **No hand edits — ever.** The user never edits the CSV, and you never edit
+  it except through `worksheet.py` or a step's `apply` command.
+- **Flags, never silent drops.** When a row needs the user's judgment (e.g.
+  HubSpot has the person at another company), it is flagged (`Flag`,
+  `Flag Reason` columns) — never removed or changed on your own:
+  1. Pull the row out and show it in the chat window:
+     `python3 scripts/worksheet.py show --run-dir <run_dir> --row <id> --columns "<the relevant columns>"`
+     (a markdown table), with the HubSpot links of the records involved.
+  2. Ask the user what should change (multiple-choice tool where the options
+     are clear; otherwise let them say it).
+  3. Apply exactly that with `worksheet.py set --row <id> --field "Column=value" … --reason "…"`,
+     or `resolve --row <id> --note "…"` if it stays as it is, or — only if
+     the user explicitly says so — `remove --row <id> --reason "…"`.
+  4. **Show the change again** (the before → after table the command prints,
+     or `show` the row) and wait for the user's OK **before** continuing to
+     the next step.
+  `python3 scripts/worksheet.py flags --run-dir <run_dir>` lists open flags.
+- **History:** after each step a read-only copy is saved in `history/`
+  (`01_email_domains.csv`, `02_normalize.csv`, …); every change is logged in
+  `changes.jsonl`. Never read the history copies back as input.
+- **Output:** the two upload files — a contact file and a company file with
+  only the list's companies (a sublist gets its own pair) — are generated at
+  step 4 into `upload/` by `worksheet.py export`, and never edited. Export
+  refuses while any row is still flagged, and lists any rows the user chose
+  to remove so the list's owner can be told.
 
 ## Before you start (do this first, every run)
 
@@ -129,7 +170,7 @@ Goal: every contact has an email domain matching its company's domain so
 HubSpot associates them. The website is **never** used as the email domain.
 
 1. **Prepare.** Run
-   `python3 scripts/email_domain.py prepare <contacts.csv> --out-dir <run_dir>`.
+   `python3 scripts/email_domain.py prepare --run-dir <run_dir>` (after `worksheet.py init`).
    It normalizes emails (lowercase domain, fixes doubled TLDs like `.com.com`)
    and writes `<run_dir>/review.json`: one entry per company/email-domain pair,
    plus companies where no contact has an email.
@@ -179,13 +220,10 @@ HubSpot associates them. The website is **never** used as the email domain.
    domain is primary.
 
 6. **Apply.** Run
-   `python3 scripts/email_domain.py apply <contacts.csv> --decisions <run_dir>/decisions.json --out-dir <run_dir>`.
-   Outputs:
-   - `contacts_step1.csv` — the input columns with `Email Address` and
-     `Email Domain` cleaned, plus audit columns `Original Email`,
-     `ZoomInfo Email Domain`, `Email Domain Source`, `Step 1 Notes`.
-   - `company_domains_step1.csv` — per company: `Company Domain` (most used),
-     `Additional Domains` (`;`-separated), `Domain Source`.
+   `python3 scripts/email_domain.py apply --run-dir <run_dir> --decisions <run_dir>/decisions.json`.
+   It updates `working.csv`: `Email Address`, `Email Domain`, and on every
+   row of each company `Company Domain` (most used) and `Additional Domains`
+   (`;`-separated). What changed and why is in `step1_report.json`.
 
 7. **Report** counts (own email / backfilled / web / cleared / fixed) and any
    company still without a domain.
@@ -196,7 +234,7 @@ Output files contain only upload columns: never add notes or flag columns.
 Everything the user needs to review goes in the chat.
 
 1. **Prepare.** Run
-   `python3 scripts/normalize.py prepare --contacts <run_dir>/contacts_step1.csv --companies <zoominfo_company_export.csv> --out-dir <run_dir>`.
+   `python3 scripts/normalize.py prepare --run-dir <run_dir>`.
    It fixes name casing and strips credentials, and writes
    `review_step2.json` listing LinkedIn URLs whose slug doesn't contain the
    contact's first and last name.
@@ -220,16 +258,16 @@ Everything the user needs to review goes in the chat.
      "email": {"<ZoomInfo Contact ID>": {"action": "keep|clear", "reason": "..."}}}`
 
 4. **Apply.** Run
-   `python3 scripts/normalize.py apply --contacts <run_dir>/contacts_step1.csv --companies <zoominfo_company_export.csv> --company-domains <run_dir>/company_domains_step1.csv --decisions <run_dir>/decisions_step2.json --out-dir <run_dir>`.
-   Outputs `contacts_upload.csv`, `companies_upload.csv` (only the list's
-   companies; revenue ×1000, `Employees.` prefix stripped, industry combined,
-   website and domains synced from contacts), and `report_step2.json`.
+   `python3 scripts/normalize.py apply --run-dir <run_dir> --decisions <run_dir>/decisions_step2.json`.
+   It updates `working.csv` (names, LinkedIn, emails, dropdown values,
+   revenue ×1000 as `Revenue (in USD)`, `Employees.` prefix stripped,
+   industry combined, one website per company) and writes
+   `report_step2.json`. Upload columns are chosen only at export.
 
 5. **Report in chat:** dropdown values with no matching HubSpot option
    (`dropdown_values_not_matching`, e.g. a Management Level or Department
    value HubSpot's dropdown doesn't have), name fixes, blanked LinkedIn URLs (name, company,
-   removed URL, reason), the user's last-name decisions, and any companies
-   dropped or missing.
+   removed URL, reason), and the user's last-name decisions.
 
 ## Step 3 — HubSpot duplicate check
 
@@ -237,13 +275,13 @@ Claude cannot merge HubSpot records; the user merges manually and then tells
 you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
 
 **Companies**
-1. `python3 $S plan-companies --companies <run_dir>/companies_upload.csv --out-dir <run_dir>`
+1. `python3 $S plan-companies --run-dir <run_dir>`
    writes `company_search_plan.json`.
 2. **`hubspot-searcher`:** run the plan into `<run_dir>/hs_companies`.
    Connector mode: run each search with the connector and `ingest` each
    result (see "Connector mode" above). Token mode:
    `python3 $S run-plan --plan <run_dir>/company_search_plan.json --raw-dir <run_dir>/hs_companies`.
-3. `python3 $S match-companies --companies <run_dir>/companies_upload.csv --raw-dir <run_dir>/hs_companies --out-dir <run_dir>`
+3. `python3 $S match-companies --run-dir <run_dir> --raw-dir <run_dir>/hs_companies`
    writes `company_matches.json` (per company: candidates with HubSpot URL,
    strength, reasons, domain, location, employees, revenue, contacts).
 4. **`duplicate-reviewer`:** judge the candidates. Drop obvious false positives from free-text name
@@ -274,12 +312,11 @@ you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
      place and size, e.g. "EMSI" for EMS) without asking.
 6. Write `<run_dir>/company_decisions.json`
    (`{"<ZoomInfo Company ID>": {"record_id": "..." | null, "note": "..."}}`) and run
-   `python3 $S apply-companies --companies <run_dir>/companies_upload.csv --contacts <run_dir>/contacts_upload.csv --contacts-step1 <run_dir>/contacts_step1.csv --decisions <run_dir>/company_decisions.json`.
-   This adds `HubSpot Company Record ID` and syncs Company Name / Website /
-   Company HQ Phone into the contact file.
+   `python3 $S apply-companies --run-dir <run_dir> --decisions <run_dir>/company_decisions.json`.
+   This writes `HubSpot Company Record ID` on every row of each company.
 
 **Contacts** — same loop:
-1. `python3 $S plan-contacts --contacts <run_dir>/contacts_upload.csv --companies <run_dir>/companies_upload.csv --out-dir <run_dir>`
+1. `python3 $S plan-contacts --run-dir <run_dir>`
    (LinkedIn URL on `lgm_linkedinurl`, email, last name, and everyone
    associated with the list's HubSpot companies).
 2. **`hubspot-searcher`:** run `contact_search_plan.json` into
@@ -287,25 +324,24 @@ you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
    In connector mode, skip the last-name searches for contacts that already
    matched on LinkedIn URL or email — common surnames return hundreds of
    unrelated contacts.
-3. `python3 $S match-contacts --contacts <run_dir>/contacts_upload.csv --companies <run_dir>/companies_upload.csv --contacts-step1 <run_dir>/contacts_step1.csv --raw-dir <run_dir>/hs_contacts --out-dir <run_dir>`
-4. **Same person, different company → review.** A candidate with strength
+3. `python3 $S match-contacts --run-dir <run_dir> --raw-dir <run_dir>/hs_contacts`
+4. **Same person, different company → flag.** A candidate with strength
    `review` matched on LinkedIn URL or email, but HubSpot has the person at a
-   different company than the list (`company_mismatch`). Show both side by
-   side — list: company, job title; HubSpot: company (linked), job title,
-   location, contact link — and ask with the multiple-choice tool:
-   - **List is current** → keep the row; the import updates the contact.
-   - **HubSpot is current** → drop the row (they've moved on or the list is
-     stale); drop its company too if no other contact in the list uses it.
-   - **Unsure** → drop the row.
-   To drop a row, remove that contact from every run-folder file that has it
-   (`contacts_step1.csv`, `contacts_upload.csv`), and — if no other contact
-   uses its company — the company from `companies_upload.csv` and
-   `company_domains_step1.csv`. Tell the user in chat what was dropped and
-   why (with the HubSpot contact link).
+   different company than the list (`company_mismatch`). Don't drop it: give
+   the row `"flag": "<reason>"` in `contact_decisions.json` (with its
+   `record_id`), then handle it with the flag workflow ("One working file"):
+   show the row next to the HubSpot contact (company linked, job title,
+   location) and ask what should change —
+   - **List is current** → `resolve` (the import updates the contact);
+   - **HubSpot is current** → the user says what to change (e.g. set the
+     row's company to the HubSpot one) and you `set` it, or — only if they
+     say so — `remove` the row;
+   - **Unsure** → leave it flagged and move on; export will stop until it's
+     settled.
 5. Judge the rest, review with the user (same merge-first flow), write
    `contact_decisions.json`, then
-   `python3 $S apply-contacts --contacts <run_dir>/contacts_upload.csv --decisions <run_dir>/contact_decisions.json`
-   to add `HubSpot Contact Record ID`.
+   `python3 $S apply-contacts --run-dir <run_dir> --decisions <run_dir>/contact_decisions.json`
+   to write `HubSpot Contact Record ID` (and any flags) on the rows.
 
 ## Step 4 — HubSpot import
 
@@ -316,11 +352,13 @@ The user runs the import in HubSpot; you prepare it and walk them through it.
 1. **Choose Type.** Default `Prospect`. Look at the list: if the companies
    don't look like prospects (partners, vendors, existing customers), ask the
    user which Type fits before continuing.
-2. Run
-   `python3 scripts/hubspot_import.py prepare --companies <run_dir>/companies_upload.csv --contacts <run_dir>/contacts_upload.csv --raw-dir <run_dir>/hs_companies --type Prospect --out-dir <run_dir>`.
-   It adds the Type column, writes `companies_import.csv` / `contacts_import.csv`
-   (record IDs blanked where "Not in HubSpot"), `import_mapping.md` and
-   `report_step4.json`.
+2. **Settle open flags first** (`worksheet.py flags`) — export refuses
+   while any row is flagged. Then run
+   `python3 scripts/hubspot_import.py prepare --run-dir <run_dir> --raw-dir <run_dir>/hs_companies --type Prospect`.
+   It sets Type on the working file, exports the two import-ready upload
+   files into `<run_dir>/upload/` (blank Record ID = create a new record),
+   and writes `import_mapping.md` and `report_step4.json`. Send the user the
+   two files in `upload/` — those are what they import.
 3. **In chat**, paste both tables from `import_mapping.md` and tell the user:
    - import the company file first, then the contact file;
    - map each column to the HubSpot property shown and set "Don't import

@@ -1,16 +1,17 @@
 """Step 2 — normalization.
 
-Runs on step 1's output and produces the upload-ready contact and company
-files. Two stages, with Claude (the skill) in between:
+Works on the run's working.csv (see worksheet.py). Two stages, with Claude
+(the skill) in between:
 
   prepare  Normalize names, check LinkedIn slugs against names, and write
            review_step2.json: LinkedIn URLs whose slug doesn't contain the
            contact's first and last name (for Claude to judge), plus name
            changes and website conflicts to report in chat.
-  apply    Read decisions_step2.json and write contacts_upload.csv and
-           companies_upload.csv. The files hold only upload columns — no notes
-           or audit columns; everything to review is reported in chat from
-           report_step2.json.
+  apply    Apply decisions_step2.json and the formatting rules to working.csv
+           in place (names, LinkedIn, emails, dropdown values, revenue x1000,
+           employee range, industry, one website per company). Column pruning
+           happens only at export (worksheet.py export). What changed goes to
+           report_step2.json for the chat.
 
 decisions_step2.json:
   {"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep" | "blank" | "replace",
@@ -22,33 +23,19 @@ decisions_step2.json:
   replace  the user supplied the correct URL
 """
 import argparse
-import csv
 import json
 import re
 import unicodedata
-from collections import Counter, OrderedDict
+import sys
+from collections import Counter
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import worksheet as ws  # noqa: E402
 
 CONTACT_ID = "ZoomInfo Contact ID"
 COMPANY_ID = "ZoomInfo Company ID"
 LINKEDIN = "LinkedIn Contact Profile URL"
-
-CONTACT_COLUMNS = [
-    CONTACT_ID, "First Name", "Last Name", "Job Title", "Management Level", "Job Function",
-    "Department", "Direct Phone Number", "Email Address", "Email Domain", "Mobile phone",
-    "ZoomInfo Contact Profile URL", LINKEDIN, "Person Street", "Person City", "Person State",
-    "Person Zip Code", "Country", "Company Name", "Website", "Company HQ Phone",
-]
-
-COMPANY_COLUMNS = [
-    COMPANY_ID, "Company Name", "Website", "Founded Year", "Company HQ Phone",
-    "Revenue (in USD)", "Revenue Range (in USD)", "Employees", "Employee Range",
-    "SIC Code 1", "SIC Code 2", "NAICS Code 1", "NAICS Code 2", "Primary Industry",
-    "ZoomInfo Company Profile URL", "LinkedIn Company Profile URL",
-    "Facebook Company Profile URL", "Twitter Company Profile URL", "Company City",
-    "Company State", "Company Zip Code", "Company Country", "Full Address",
-    "Company Domain", "Additional Domains",
-]
 
 # Professional credentials stripped from names. Generational suffixes
 # (Jr, Sr, II, III) are part of the name and are kept.
@@ -74,19 +61,6 @@ DROPDOWNS = {
                                "Information Technology", "Human Resources", "Sales", "Marketing")
     }),
 }
-
-
-def read_rows(path):
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        return reader.fieldnames, list(reader)
-
-
-def write_rows(path, fieldnames, rows):
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 def ascii_letters(s):
@@ -164,15 +138,8 @@ def email_matches(email, first, last):
     return local in {f[0] + l[0], f[0] + l, f + l[0], l + f[0]} or local.startswith(f[0] + l[:3])
 
 
-def most_common_website(contacts):
-    by_company = {}
-    for r in contacts:
-        by_company.setdefault(r[COMPANY_ID], Counter())[r.get("Website", "")] += 1
-    return {k: v.most_common(1)[0][0] for k, v in by_company.items()}
-
-
 def prepare(args):
-    _, contacts = read_rows(args.contacts)
+    _, contacts = ws.load(args.run_dir)
     name_changes, linkedin_review, email_review = [], [], []
     for r in contacts:
         for col in ("First Name", "Last Name"):
@@ -199,20 +166,15 @@ def prepare(args):
                                  "job_title": r.get("Job Title", ""), "email": email,
                                  "linkedin_slug": slug})
 
-    _, companies = read_rows(args.companies)
-    contact_sites = most_common_website(contacts)
-    website_conflicts = [
-        {COMPANY_ID: c[COMPANY_ID], "company": c["Company Name"], "company_file": c.get("Website", ""),
-         "contact_file": contact_sites[c[COMPANY_ID]]}
-        for c in companies
-        if c[COMPANY_ID] in contact_sites and c.get("Website", "") != contact_sites[c[COMPANY_ID]]
-    ]
+    # Rows of one company that disagree on the website (it's company data).
+    sites = {}
+    for r in contacts:
+        sites.setdefault(r[COMPANY_ID], Counter())[r.get("Website", "")] += 1
+    website_conflicts = [{COMPANY_ID: k, "websites": dict(v)} for k, v in sites.items() if len(v) > 1]
 
-    out = Path(args.out_dir)
-    out.mkdir(parents=True, exist_ok=True)
     review = {"name_changes": name_changes, "linkedin_review": linkedin_review,
-              "email_review": email_review,
-              "website_conflicts": website_conflicts}
+              "email_review": email_review, "website_conflicts": website_conflicts}
+    out = Path(args.run_dir)
     (out / "review_step2.json").write_text(json.dumps(review, indent=2))
     print(f"{len(contacts)} contacts: {len(name_changes)} name fixes, "
           f"{len(linkedin_review)} LinkedIn URLs and {len(email_review)} emails to judge; "
@@ -231,16 +193,14 @@ def times_thousand(value):
 
 
 def apply(args):
-    _, contacts = read_rows(args.contacts)
-    _, companies = read_rows(args.companies)
-    _, domains = read_rows(args.company_domains)
+    fields, contacts = ws.load(args.run_dir)
     decisions = json.loads(Path(args.decisions).read_text()) if args.decisions else {}
     linkedin_decisions = decisions.get("linkedin", {})
     email_decisions = decisions.get("email", {})
-    cleared_emails = []
-
-    blanked, replaced = [], []
+    cleared_emails, blanked, replaced = [], [], []
     unmapped_dropdowns = Counter()
+
+    # Contact fields.
     for r in contacts:
         for col, (_, options) in DROPDOWNS.items():
             value = (r.get(col) or "").strip()
@@ -251,87 +211,65 @@ def apply(args):
                 r[col] = mapped
             else:
                 unmapped_dropdowns[(col, value)] += 1
-    for r in contacts:
         r["First Name"] = normalize_name(r["First Name"])
         r["Last Name"] = normalize_name(r["Last Name"])
         e = email_decisions.get(r[CONTACT_ID])
-        if e and e["action"] == "clear":
+        if e and e["action"] == "clear" and r["Email Address"]:
             # The domain stays: it is still the company's domain.
             cleared_emails.append({CONTACT_ID: r[CONTACT_ID], "name": f"{r['First Name']} {r['Last Name']}",
                                    "company": r["Company Name"], "removed_email": r["Email Address"],
                                    "reason": e.get("reason", "")})
             r["Email Address"] = ""
         d = linkedin_decisions.get(r[CONTACT_ID])
-        if d and d["action"] == "blank":
+        if d and d["action"] == "blank" and r[LINKEDIN]:
             blanked.append({CONTACT_ID: r[CONTACT_ID], "name": f"{r['First Name']} {r['Last Name']}",
                             "company": r["Company Name"], "removed_url": r[LINKEDIN],
                             "reason": d.get("reason", "")})
             r[LINKEDIN] = ""
-        elif d and d["action"] == "replace":
+        elif d and d["action"] == "replace" and r[LINKEDIN] != d["url"]:
             replaced.append({CONTACT_ID: r[CONTACT_ID], "name": f"{r['First Name']} {r['Last Name']}",
                              "company": r["Company Name"], "from": r[LINKEDIN], "to": d["url"]})
             r[LINKEDIN] = d["url"]
 
-    # Company file: only the companies of this list's contacts (two-file rule).
-    in_list = OrderedDict((r[COMPANY_ID], None) for r in contacts)
-    by_id = {c[COMPANY_ID]: c for c in companies}
-    domain_by_id = {d[COMPANY_ID]: d for d in domains}
-    contact_sites = most_common_website(contacts)
-    missing = [k for k in in_list if k not in by_id]
-    dropped = [c["Company Name"] for c in companies if c[COMPANY_ID] not in in_list]
+    # Company fields — every step is safe to re-run.
+    fields = ws.ensure_columns(fields, ["Revenue (in USD)"], after="Revenue (in 000s USD)")
+    sites = {}
+    for r in contacts:
+        sites.setdefault(r[COMPANY_ID], Counter())[r.get("Website", "")] += 1
+    for r in contacts:
+        r["Website"] = sites[r[COMPANY_ID]].most_common(1)[0][0]
+        if not r.get("Revenue (in USD)"):
+            r["Revenue (in USD)"] = times_thousand(r.get("Revenue (in 000s USD)", ""))
+        r["Employee Range"] = re.sub(r"^Employees\.", "", r.get("Employee Range", ""))
+        sub = (r.get("Primary Sub-Industry") or "").strip()
+        industry = (r.get("Primary Industry") or "").strip()
+        if sub and not industry.endswith(f"- {sub}"):
+            r["Primary Industry"] = f"{industry}- {sub}"
 
-    out_companies = []
-    for key in in_list:
-        c = by_id.get(key)
-        if c is None:
-            continue
-        c = dict(c)
-        c["Website"] = contact_sites.get(key, c.get("Website", ""))
-        c["Revenue (in USD)"] = times_thousand(c.get("Revenue (in 000s USD)", ""))
-        c["Employee Range"] = re.sub(r"^Employees\.", "", c.get("Employee Range", ""))
-        sub = c.get("Primary Sub-Industry", "").strip()
-        c["Primary Industry"] = f"{c.get('Primary Industry', '').strip()}- {sub}" if sub else c.get("Primary Industry", "")
-        d = domain_by_id.get(key, {})
-        c["Company Domain"] = d.get("Company Domain", "")
-        c["Additional Domains"] = d.get("Additional Domains", "")
-        out_companies.append(c)
-
-    out = Path(args.out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    write_rows(out / "contacts_upload.csv", CONTACT_COLUMNS, contacts)
-    write_rows(out / "companies_upload.csv", COMPANY_COLUMNS, out_companies)
-    report = {"linkedin_blanked": blanked, "linkedin_replaced": replaced,
-              "emails_cleared": cleared_emails,
+    ws.save(args.run_dir, fields, contacts)
+    report = {"linkedin_blanked": blanked, "linkedin_replaced": replaced, "emails_cleared": cleared_emails,
               "dropdown_values_not_matching": [
                   {"column": col, "value": v, "rows": n, "hubspot_property": DROPDOWNS[col][0],
                    "allowed": sorted(set(DROPDOWNS[col][1].values()))}
-                  for (col, v), n in unmapped_dropdowns.items()], "companies_missing_from_company_export": missing,
-              "companies_dropped_not_in_list": dropped}
-    (out / "report_step2.json").write_text(json.dumps(report, indent=2))
-    print(f"wrote {out / 'contacts_upload.csv'} ({len(contacts)} rows, {len(CONTACT_COLUMNS)} cols) and "
-          f"{out / 'companies_upload.csv'} ({len(out_companies)} rows, {len(COMPANY_COLUMNS)} cols); "
-          f"{len(blanked)} LinkedIn URLs blanked, {len(replaced)} replaced, {len(cleared_emails)} emails cleared, "
+                  for (col, v), n in unmapped_dropdowns.items()]}
+    (Path(args.run_dir) / "report_step2.json").write_text(json.dumps(report, indent=2))
+    ws.log(args.run_dir, {"action": "step2", "linkedin_blanked": len(blanked), "linkedin_replaced": len(replaced),
+                          "emails_cleared": len(cleared_emails)})
+    ws.snapshot_copy(args.run_dir, "02_normalize")
+    print(f"working.csv updated: {len(contacts)} contacts; {len(blanked)} LinkedIn URLs blanked, "
+          f"{len(replaced)} replaced, {len(cleared_emails)} emails cleared, "
           f"{sum(unmapped_dropdowns.values())} dropdown values with no matching HubSpot option")
-    if missing:
-        print("contacts' companies missing from the company export:", missing)
-    if dropped:
-        print("companies dropped (no contacts in this list):", ", ".join(dropped))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("prepare")
-    p.add_argument("--contacts", required=True, help="contacts_step1.csv")
-    p.add_argument("--companies", required=True, help="ZoomInfo company export")
-    p.add_argument("--out-dir", required=True)
+    p.add_argument("--run-dir", required=True)
     p.set_defaults(func=prepare)
     a = sub.add_parser("apply")
-    a.add_argument("--contacts", required=True, help="contacts_step1.csv")
-    a.add_argument("--companies", required=True, help="ZoomInfo company export")
-    a.add_argument("--company-domains", required=True, help="company_domains_step1.csv")
+    a.add_argument("--run-dir", required=True)
     a.add_argument("--decisions", help="decisions_step2.json")
-    a.add_argument("--out-dir", required=True)
     a.set_defaults(func=apply)
     args = parser.parse_args()
     args.func(args)

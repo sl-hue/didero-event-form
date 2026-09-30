@@ -47,6 +47,7 @@ import getpass
 import platform
 import shlex
 import shutil
+import sys
 import subprocess
 import json
 import os
@@ -55,8 +56,13 @@ import time
 import unicodedata
 import urllib.error
 import urllib.request
+
+
 from difflib import SequenceMatcher
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import worksheet as ws  # noqa: E402
 
 COMPANY_ID = "ZoomInfo Company ID"
 CONTACT_ID = "ZoomInfo Contact ID"
@@ -75,8 +81,6 @@ CONTACT_PROPERTIES = [
     "firstname", "lastname", "email", "jobtitle", "company", "city", "state", "country",
     HUBSPOT_LINKEDIN, "associatedcompanyid", "zoominfo_contact_id", "createdate",
 ]
-# Company fields the contact file carries; kept identical to the company file.
-SYNCED_COMPANY_FIELDS = ["Company Name", "Website", "Company HQ Phone"]
 
 NICKNAMES = {
     "william": {"bill", "billy", "will", "willy", "liam"}, "robert": {"bob", "bobby", "rob", "robbie", "bert"},
@@ -97,19 +101,6 @@ NICKNAMES = {
     "christine": {"chris", "chrissy"}, "jacob": {"jake"}, "zachary": {"zach"}, "alexander": {"alex"},
     "frederick": {"fred"}, "phillip": {"phil"}, "philip": {"phil"}, "leonard": {"len", "lenny"},
 }
-
-
-def read_rows(path):
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        return reader.fieldnames, list(reader)
-
-
-def write_rows(path, fieldnames, rows):
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 def letters(s):
@@ -516,13 +507,22 @@ def ingest(args):
 
 # ---------------------------------------------------------------- companies
 
+def working_companies(run_dir):
+    """One row per company from working.csv (company fields agree across its rows)."""
+    _, rows = ws.load(run_dir)
+    seen = {}
+    for r in rows:
+        seen.setdefault(r[COMPANY_ID], r)
+    return list(seen.values())
+
+
 def company_domains(row):
     extra = [d.strip() for d in (row.get("Additional Domains") or "").split(";")]
     return [d for d in [row.get("Company Domain", "").strip()] + extra if d]
 
 
 def plan_companies(args):
-    _, companies = read_rows(args.companies)
+    companies = working_companies(args.run_dir)
     domains, websites, zi_ids, linkedin = [], [], [], []
     for c in companies:
         domains += company_domains(c)
@@ -542,7 +542,7 @@ def plan_companies(args):
         query = norm_company_name(c["Company Name"]) or c["Company Name"]
         searches.append({"objectType": "COMPANY", "query": query[:200], "properties": COMPANY_PROPERTIES,
                          "limit": 20, "for": c[COMPANY_ID]})
-    write_plan(args.out_dir, "company_search_plan.json", searches)
+    write_plan(args.run_dir, "company_search_plan.json", searches)
 
 
 def write_plan(out_dir, name, searches):
@@ -553,7 +553,7 @@ def write_plan(out_dir, name, searches):
 
 
 def match_companies(args):
-    _, companies = read_rows(args.companies)
+    companies = working_companies(args.run_dir)
     records, template = load_records(args.raw_dir)
     matches = []
     for c in companies:
@@ -594,7 +594,7 @@ def match_companies(args):
                         "additional_domains": c.get("Additional Domains"), "website": c.get("Website"),
                         "location": ", ".join(x for x in (c.get("Company City"), c.get("Company State"), c.get("Company Country")) if x),
                         "employees": c.get("Employees"), "revenue": c.get("Revenue (in USD)"), "candidates": cands})
-    write_matches(args.out_dir, "company_matches.json", matches)
+    write_matches(args.run_dir, "company_matches.json", matches)
 
 
 def write_matches(out_dir, name, matches):
@@ -608,35 +608,18 @@ def write_matches(out_dir, name, matches):
 
 
 def apply_companies(args):
-    fields, companies = read_rows(args.companies)
+    fields, rows = ws.load(args.run_dir)
     decisions = json.loads(Path(args.decisions).read_text())
-    missing = [c[COMPANY_ID] for c in companies if c[COMPANY_ID] not in decisions]
+    ids = {r[COMPANY_ID] for r in rows}
+    missing = sorted(ids - set(decisions))
     if missing:
         raise SystemExit(f"company_decisions.json has no decision for: {missing}")
-    for c in companies:
-        c[COMPANY_RECORD] = decisions[c[COMPANY_ID]].get("record_id") or NOT_IN_HUBSPOT
-    if COMPANY_RECORD not in fields:
-        fields = fields + [COMPANY_RECORD]
-    write_rows(args.companies, fields, companies)
-
-    # Keep the contact file's company fields identical to the company file.
-    cfields, contacts = read_rows(args.contacts)
-    _, step1 = read_rows(args.contacts_step1)
-    company_of = {r[CONTACT_ID]: r[COMPANY_ID] for r in step1}
-    by_id = {c[COMPANY_ID]: c for c in companies}
-    synced = 0
-    for r in contacts:
-        c = by_id.get(company_of.get(r[CONTACT_ID]))
-        if not c:
-            continue
-        for f in SYNCED_COMPANY_FIELDS:
-            if f in r and r[f] != c.get(f, ""):
-                r[f] = c.get(f, "")
-                synced += 1
-    write_rows(args.contacts, cfields, contacts)
-    found = sum(1 for c in companies if c[COMPANY_RECORD] != NOT_IN_HUBSPOT)
-    print(f"{args.companies}: {found} in HubSpot, {len(companies) - found} not; "
-          f"{args.contacts}: {synced} company fields synced")
+    for cid in ids:
+        ws.set_company_field(rows, cid, COMPANY_RECORD, decisions[cid].get("record_id") or NOT_IN_HUBSPOT)
+    ws.save(args.run_dir, fields, rows)
+    ws.log(args.run_dir, {"action": "step3_companies", "decisions": decisions})
+    found = sum(1 for cid in ids if decisions[cid].get("record_id"))
+    print(f"working.csv: HubSpot Company Record ID set — {found} companies in HubSpot, {len(ids) - found} not")
 
 
 # ---------------------------------------------------------------- contacts
@@ -651,8 +634,8 @@ def first_name_forms(first):
 
 
 def plan_contacts(args):
-    _, contacts = read_rows(args.contacts)
-    _, companies = read_rows(args.companies)
+    _, contacts = ws.load(args.run_dir)
+    companies = working_companies(args.run_dir)
     urls, emails, last_names = [], [], []
     for r in contacts:
         slug = linkedin_slug(r.get("LinkedIn Contact Profile URL"), "in")
@@ -674,15 +657,13 @@ def plan_contacts(args):
                          "filterGroups": [{"associatedWith": [{"objectType": "companies", "operator": "IN",
                                                                "objectIdValues": [int(i) for i in chunk]}]}],
                          "note": "page through with offset until all results are saved"})
-    write_plan(args.out_dir, "contact_search_plan.json", searches)
+    write_plan(args.run_dir, "contact_search_plan.json", searches)
 
 
 def match_contacts(args):
-    _, contacts = read_rows(args.contacts)
-    _, companies = read_rows(args.companies)
-    _, step1 = read_rows(args.contacts_step1)
-    company_of = {r[CONTACT_ID]: r[COMPANY_ID] for r in step1}
-    record_of = {c[COMPANY_ID]: c.get(COMPANY_RECORD) for c in companies}
+    _, contacts = ws.load(args.run_dir)
+    company_of = {r[CONTACT_ID]: r[COMPANY_ID] for r in contacts}
+    record_of = {r[COMPANY_ID]: r.get(COMPANY_RECORD) for r in contacts}
     records, template = load_records(args.raw_dir)
     matches = []
     for r in contacts:
@@ -740,22 +721,31 @@ def match_contacts(args):
                         "linkedin": r.get("LinkedIn Contact Profile URL"),
                         "location": ", ".join(x for x in (r.get("Person City"), r.get("Person State"), r.get("Country")) if x),
                         "candidates": cands})
-    write_matches(args.out_dir, "contact_matches.json", matches)
+    write_matches(args.run_dir, "contact_matches.json", matches)
 
 
 def apply_contacts(args):
-    fields, contacts = read_rows(args.contacts)
+    """contact_decisions.json: {"<ZoomInfo Contact ID>": {"record_id": "..." | null,
+    "flag": "<reason>" (optional: the row needs the user's review, e.g. HubSpot has
+    this person at another company)}}. Rows are flagged, never dropped."""
+    fields, contacts = ws.load(args.run_dir)
     decisions = json.loads(Path(args.decisions).read_text())
     missing = [r[CONTACT_ID] for r in contacts if r[CONTACT_ID] not in decisions]
     if missing:
         raise SystemExit(f"contact_decisions.json has no decision for: {missing}")
+    flagged = 0
     for r in contacts:
-        r[CONTACT_RECORD] = decisions[r[CONTACT_ID]].get("record_id") or NOT_IN_HUBSPOT
-    if CONTACT_RECORD not in fields:
-        fields = fields + [CONTACT_RECORD]
-    write_rows(args.contacts, fields, contacts)
+        d = decisions[r[CONTACT_ID]]
+        r[CONTACT_RECORD] = d.get("record_id") or NOT_IN_HUBSPOT
+        if d.get("flag"):
+            r[ws.FLAG], r[ws.FLAG_REASON] = "REVIEW", d["flag"]
+            flagged += 1
+    ws.save(args.run_dir, fields, contacts)
+    ws.log(args.run_dir, {"action": "step3_contacts", "flagged": flagged})
+    ws.snapshot_copy(args.run_dir, "03_hubspot_duplicates")
     found = sum(1 for r in contacts if r[CONTACT_RECORD] != NOT_IN_HUBSPOT)
-    print(f"{args.contacts}: {found} in HubSpot, {len(contacts) - found} not")
+    print(f"working.csv: HubSpot Contact Record ID set — {found} in HubSpot, {len(contacts) - found} not; "
+          f"{flagged} rows flagged for review")
 
 
 def main():
@@ -781,12 +771,12 @@ def main():
     ing.set_defaults(func=ingest)
     add("check-token", check_token)
     add("run-plan", run_plan, "plan", "raw-dir")
-    add("plan-companies", plan_companies, "companies", "out-dir")
-    add("match-companies", match_companies, "companies", "raw-dir", "out-dir")
-    add("apply-companies", apply_companies, "companies", "contacts", "contacts-step1", "decisions")
-    add("plan-contacts", plan_contacts, "contacts", "companies", "out-dir")
-    add("match-contacts", match_contacts, "contacts", "companies", "contacts-step1", "raw-dir", "out-dir")
-    add("apply-contacts", apply_contacts, "contacts", "decisions")
+    add("plan-companies", plan_companies, "run-dir")
+    add("match-companies", match_companies, "run-dir", "raw-dir")
+    add("apply-companies", apply_companies, "run-dir", "decisions")
+    add("plan-contacts", plan_contacts, "run-dir")
+    add("match-contacts", match_contacts, "run-dir", "raw-dir")
+    add("apply-contacts", apply_contacts, "run-dir", "decisions")
     args = parser.parse_args()
     args.func(args)
 
