@@ -48,6 +48,9 @@ Sub-steps, in order:
    match, and whether a parent/child relationship exists. The user picks from
    a decision box in chat: keep / clear / map to parent domain.
 3. **Extract domain.** Build `Email Domain` from each surviving email.
+   Personal mailbox domains (gmail.com, hotmail.com, 139.com, …) are never a
+   company domain: keep the email, backfill the domain (they had created
+   "Gmail"/"Hotmail"/"139.com" company records in HubSpot).
 4. **Reconcile with ZoomInfo.** If the extracted domain differs from
    ZoomInfo's `Email Domain`, the extracted domain wins.
 5. **Backfill from colleagues.** Contacts without an email get the email domain
@@ -278,3 +281,5 @@ taking precedence:
   Reason; sorted by company A→Z, contacts adjacent and A→Z.
 - After approval (or changes and re-approval), Claude writes contact then
   company owners to HubSpot and verifies.
+
+The workflow ends after step 6.

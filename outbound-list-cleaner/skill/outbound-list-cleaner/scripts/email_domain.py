@@ -36,6 +36,12 @@ DOMAIN = "Email Domain"
 COMPANY = "Company Name"
 COMPANY_ID = "ZoomInfo Company ID"
 
+# Personal mailbox providers are never a company's domain.
+FREE_MAIL = {"gmail.com", "googlemail.com", "hotmail.com", "outlook.com", "live.com", "msn.com",
+             "yahoo.com", "ymail.com", "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com",
+             "gmx.com", "gmx.de", "web.de", "mail.com", "yandex.ru", "qq.com", "139.com", "163.com",
+             "126.com", "sina.com", "naver.com"}
+
 # Doubled TLDs like "acme.com.com" are typos, not a different domain.
 DOUBLED_TLD = re.compile(r"(\.[a-z]{2,})\1+$")
 
@@ -81,7 +87,7 @@ def prepare(args):
         })
         company["contacts"] += 1
         email, fix = normalize_email(row[EMAIL])
-        if not email:
+        if not email or email.split("@")[1] in FREE_MAIL:
             continue
         company["with_email"] += 1
         domain = email.split("@")[1]
@@ -138,7 +144,9 @@ def apply(args):
         email, fix = normalize_email(row[EMAIL])
         notes = [fix] if fix else []
         domain = ""
-        if email:
+        if email and email.split("@")[1] in FREE_MAIL:
+            notes.append(f"personal email ({email.split('@')[1]}): kept, but its domain is not used")
+        elif email:
             domain = email.split("@")[1]
             key = f"{company_key(row)}|{domain}"
             decision = pair_decisions.get(key)
@@ -155,7 +163,7 @@ def apply(args):
                 email, domain = "", decision["map_to"]
         row[EMAIL] = email
         row[DOMAIN] = domain
-        row["Email Domain Source"] = "email" if email else ("mapped to parent" if domain else "")
+        row["Email Domain Source"] = "email" if domain and email else ("mapped to parent" if domain else "")
         if domain and domain != (row["ZoomInfo Email Domain"] or "").lower():
             notes.append(f"differs from ZoomInfo ({row['ZoomInfo Email Domain'] or 'blank'}); extracted wins")
         row["Step 1 Notes"] = "; ".join(notes)

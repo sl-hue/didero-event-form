@@ -32,8 +32,9 @@ on unclear rows through multiple-choice prompts in chat.
 | Step 4 — HubSpot import prep (mapping table, Type, record IDs) | Built; dry-run OK |
 | Step 4 (after import) — segment + exclusions, association fixes, leftover duplicates | Built; untested against HubSpot (needs the token) |
 | Step 5 — Clay enrichment (guided checklist, user confirms before step 6) | Built |
-| Step 6 — BDR assignment (via hubspot-bdr-list-assignment with our rules) | Specified |
-| Later steps (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
+| Step 6 — BDR assignment (hubspot-bdr-list-assignment + bdr_assign.py) | Tested up to the CSV on list 2759: 81 contacts / 72 companies, 27 contacts each |
+| **End of workflow** | No step 7 |
+| ~~Later steps~~ (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
 
 ## Next up
 
@@ -115,6 +116,13 @@ on unclear rows through multiple-choice prompts in chat.
 - 2026-09-29 — Step 6 balance: worked companies stay locked; if the contact
   gap is > 10% of the average and > 3 contacts, Claude suggests locked
   companies to move and the user decides one by one.
+
+- 2026-09-30 — Tests: setting a contact's primary company via the connector
+  works ("Primary" label; `associatedcompanyid` lags ~1 min). Step 6 dry run on
+  list 2759 produced an even 27/27/27 split. Found free-mail company records
+  (Gmail, Hotmail, 139.com) → step 1 now never uses personal mailbox domains.
+  Fast HubSpot search and post-import duplicate check still untested: need
+  `HUBSPOT_PRIVATE_APP_TOKEN` in the environment.
 
 ## Using this in Cowork
 

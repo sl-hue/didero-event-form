@@ -7,7 +7,7 @@ description: Didero's outbound list workflow, end to end — clean and standardi
 
 Steps: 1 email domain cleaning · 2 normalization · 3 HubSpot duplicate
 check · 4 HubSpot import and post-import checks · 5 Clay enrichment (guided)
-· 6 BDR assignment. Ask the user which step to start from if it isn't clear
+· 6 BDR assignment. The workflow ends after step 6. Ask the user which step to start from if it isn't clear
 (e.g. a list that is already imported starts at step 4's post-import part).
 
 ## Paths
@@ -293,9 +293,12 @@ on the work happens in HubSpot and the files are not updated again.
    Show the proposed fixes as a table (contact, email, current companies,
    action, company, reason) and get approval, then send `connector_batches`
    with the connector's `manage_crm_objects` (`updateRequest`, 10 per call).
-   Afterwards re-run `pull-segment` + `review-associations` to confirm
-   nothing is left; if the "Primary" label is rejected, tell the user to set
-   primary on those contacts in HubSpot and list them.
+   The "Primary" label works through the connector (tested). The contact's
+   `associatedcompanyid` takes about a minute to reflect it — wait before
+   re-checking. Afterwards re-run `pull-segment` + `review-associations` to
+   confirm nothing is left. Two companies can share a domain (e.g. Roche and
+   Genentech on `roche.com`); the script then asks the user rather than
+   guessing.
 4. **Leftover company duplicates.**
    `python3 $P find-dupes --snapshot <run_dir>/segment_snapshot.json --out-dir <run_dir>`
    checks every company associated with the segment's contacts against all
@@ -401,17 +404,30 @@ anyone else (AEs, managers, …), say this workflow doesn't cover it and stop.
    take it. Moving one means its other BDR-owned contacts move too, so the
    company stays with one BDR. The user decides company by company; apply
    only the ones they approve, then re-deliver the CSV.
-9. **The CSV** (one row per segment contact), columns in this order:
-   `Company, Company Record ID, Old Company Owner, New Company Owner,
-   Contact Name, Contact Record ID, Old Contact Owner, New Contact Owner,
-   Reason` — Reason is the audit trail for the new contact owner (e.g.
-   "kept: already Bart's", "Bart holds 4 of 5 BDR contacts on this company",
-   "balance: new company, lightest load"). Sort by company A→Z, with all
-   contacts of a company in adjacent rows, A→Z by name. Blank owners stay
-   blank. Deliver the file with `SendUserFile`; in chat give only the
-   per-BDR totals (contacts, companies), how many companies change hands and
-   from whom, companies moving between BDRs, ties, and open deals on these
-   companies (as the base skill does).
+9. **Build the CSV with the script.** Pull the inputs with the connector
+   (read-only), then run `scripts/bdr_assign.py`:
+   - contacts: `query_crm_data` —
+     `SELECT hs_object_id, firstname, lastname, hubspot_owner_id, associatedcompanyid, … FROM CONTACT WHERE hs_crm_search.ilsListIds = '<list id>' LIMIT 500`
+     (pad the SELECT so the result spills to a file; parse it into
+     `{id: properties}` JSON; check the count against `COUNT(*)`);
+   - companies: `get_crm_objects` on the unique `associatedcompanyid`s
+     (≤100 per call) → TSV `id, name, owner_id, domain`;
+   - incumbency: `SELECT associatedcompanyid, hubspot_owner_id, COUNT(*) FROM CONTACT WHERE associatedcompanyid IN (…) GROUP BY associatedcompanyid, hubspot_owner_id`
+     → TSV `company_id, owner_id, count` (segment contacts included);
+   - owners: `search_owners` → `{owner_id: name}` JSON;
+   - deals: `search_crm_objects` on DEAL `associatedWith` the companies;
+     resolve stage names with `SELECT dealstage, COUNT(*) FROM DEAL … GROUP BY dealstage`.
+   `python3 scripts/bdr_assign.py --contacts … --companies … --incumbency … --pool "Noah=<id>,Davis=<id>,Bart=<id>" --owners … --out-dir <run_dir>`
+   writes `bdr_assignment.csv` — columns `Company, Company Record ID, Old
+   Company Owner, New Company Owner, Contact Name, Contact Record ID, Old
+   Contact Owner, New Contact Owner, Reason`, sorted by company A→Z with each
+   company's contacts adjacent and A→Z — and `bdr_summary.json`. Deliver the
+   CSV with `SendUserFile`; in chat give only: per-BDR totals (contacts,
+   companies), how many contacts and company records change hands and from
+   whom, companies moving between BDRs, ties, imbalance suggestions, open
+   deals on these companies with stage, amount and owner (their companies
+   would move to a BDR — the user's call), and company records that are
+   really personal mailboxes (Gmail, Hotmail, 139.com …) to fix.
 10. **Ask for approval or changes.** On changes, re-deliver the CSV.
 11. **On approval, update HubSpot** as the base skill describes: contacts
    first, then companies, owner only, 10 per call, then verify every record.
