@@ -130,6 +130,7 @@ on unclear rows through multiple-choice prompts in chat.
   project instructions).
 - Set `HUBSPOT_PRIVATE_APP_TOKEN` on the device and connect the HubSpot
   connector before the first run.
+- Test plan: `COWORK_TEST_PLAN.md`.
 - Install the skill: zip `skill/outbound-list-cleaner/` and upload it as a
   skill.
 - Put sample/input files in the project's local folder, not in the repo.
