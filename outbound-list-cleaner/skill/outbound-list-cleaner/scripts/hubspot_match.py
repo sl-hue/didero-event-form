@@ -21,6 +21,11 @@ contacts.
                     private app token, saving responses in the same format the
                     connector returns. Much faster than running the plan
                     through the connector; use the connector only as fallback.
+  ingest            Connector mode: normalize a saved connector result (a
+                    search_crm_objects / get_crm_objects JSON, or a
+                    query_crm_data result with its "Dataset TSV") into the
+                    raw-dir format the match commands read. Claude never has
+                    to retype results by hand.
   plan-companies    Write the HubSpot searches to run for the company file.
   match-companies   Score saved HubSpot company results against the company
                     file -> company_matches.json.
@@ -442,6 +447,73 @@ def associated_records(assoc, properties):
     return results
 
 
+# ---------------------------------------------------------------- connector mode
+
+def parse_connector_tsv(text):
+    """Rows from a query_crm_data "Dataset TSV" block, keyed by internal name.
+
+    Headers look like "First Name [firstname]". When the same internal name
+    appears twice (a cross-object SELECT: "Contact [hs_object_id]" and
+    "Company [hs_object_id]"), the key is prefixed with the label's first word,
+    lowercased: "contact.hs_object_id", "company.hs_object_id".
+    """
+    block = text.split("Dataset TSV:", 1)[-1].strip().split("\n\nShowing")[0]
+    lines = [l for l in block.splitlines() if l.strip()]
+    if not lines:
+        return []
+    headers = lines[0].split("\t")
+    names = [re.search(r"\[([^\]]+)\]", h).group(1) if "[" in h else h.strip() for h in headers]
+    keys = []
+    for h, n in zip(headers, names):
+        keys.append(f"{h.split()[0].lower()}.{n}" if names.count(n) > 1 else n)
+    rows = []
+    for line in lines[1:]:
+        vals = line.split("\t")
+        rows.append({k: (v if v != "Unassigned" else "") for k, v in zip(keys, vals + [""] * (len(keys) - len(vals)))})
+    return rows
+
+
+def read_connector_result(path):
+    """Any saved connector result -> list of {"id", "properties"} records, plus urlTemplate."""
+    text = Path(path).read_text()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        data = None
+    records, template = [], ""
+    if isinstance(data, dict) and "results" in data and data["results"] and "content" in data["results"][0]:
+        # query_crm_data wrapper: JSON rows or a TSV dataset inside "content".
+        for r in data["results"]:
+            content = r["content"]
+            if "Dataset TSV:" in content:
+                for row in parse_connector_tsv(content):
+                    rid = row.get("hs_object_id") or row.get("contact.hs_object_id") or row.get("company.hs_object_id")
+                    records.append({"id": rid, "properties": row})
+            else:
+                props = json.loads(content).get("properties", {})
+                records.append({"id": props.get("hs_object_id"), "properties": props})
+    elif isinstance(data, dict):
+        template = data.get("urlTemplate", "")
+        for r in data.get("results", data.get("objects", [])):
+            records.append({"id": str(r.get("id")), "properties": r.get("properties", {})})
+    elif "Dataset TSV:" in text:
+        for row in parse_connector_tsv(text):
+            records.append({"id": row.get("hs_object_id"), "properties": row})
+    else:
+        raise SystemExit(f"{path}: not a recognised connector result")
+    return records, template
+
+
+def ingest(args):
+    records, template = read_connector_result(args.response)
+    out = Path(args.raw_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    name = args.name or f"{len(list(out.glob('*.json'))):03d}"
+    (out / f"{name}.json").write_text(json.dumps({"results": records, "total": len(records),
+                                                  "urlTemplate": template or args.url_template or ""}))
+    print(f"{len(records)} records -> {out / (name + '.json')}")
+
+
 # ---------------------------------------------------------------- companies
 
 def company_domains(row):
@@ -642,7 +714,22 @@ def match_contacts(args):
             if not reasons:
                 continue
             strong = any(x.startswith(("same LinkedIn", "same email")) for x in reasons)
-            cands.append({"record_id": rid, "url": record_url(template, rid), "strength": "strong" if strong else "possible",
+            # Same person, but HubSpot has them at another company? That decides
+            # whether the list row (and maybe its company) belongs in the upload,
+            # so it goes to the user instead of counting as a clean match.
+            mismatch = None
+            hs_company = str(p.get("associatedcompanyid") or "")
+            has_record = company_record and company_record != NOT_IN_HUBSPOT
+            if strong and hs_company and has_record and hs_company != str(company_record):
+                mismatch = "HubSpot's primary company for this contact is a different record"
+            elif strong and p.get("company") and (not hs_company or not has_record) \
+                    and name_similarity(r["Company Name"], p.get("company")) < 0.85:
+                mismatch = f"HubSpot has them at {p.get('company')!r}, the list at {r['Company Name']!r}"
+            cands.append({"record_id": rid, "url": record_url(template, rid),
+                          "strength": "review" if mismatch else ("strong" if strong else "possible"),
+                          "company_mismatch": mismatch, "hubspot_company_id": hs_company or None,
+                          "hubspot_company_url": record_url(template.replace("0-1", "0-2"), hs_company) if hs_company and template else None,
+                          "list_company": r["Company Name"], "list_job_title": r.get("Job Title"),
                           "reasons": reasons, "name": f"{p.get('firstname') or ''} {p.get('lastname') or ''}".strip(),
                           "email": p.get("email"), "job_title": p.get("jobtitle"), "company": p.get("company"),
                           "location": ", ".join(x for x in (p.get("city"), p.get("state"), p.get("country")) if x),
@@ -686,6 +773,12 @@ def main():
     st.add_argument("--from-file")
     st.add_argument("--authorized", action="store_true")
     st.set_defaults(func=setup_token)
+    ing = sub.add_parser("ingest")
+    ing.add_argument("--response", required=True, help="saved connector result (file)")
+    ing.add_argument("--raw-dir", required=True)
+    ing.add_argument("--name", help="file name in raw-dir (default: next number)")
+    ing.add_argument("--url-template", help="record link template if the result has none")
+    ing.set_defaults(func=ingest)
     add("check-token", check_token)
     add("run-plan", run_plan, "plan", "raw-dir")
     add("plan-companies", plan_companies, "companies", "out-dir")

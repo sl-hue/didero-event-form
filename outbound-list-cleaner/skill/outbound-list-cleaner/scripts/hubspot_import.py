@@ -155,7 +155,9 @@ def prepare(args):
         rid = c.get(COMPANY_RECORD, "")
         existing = types.get(rid, "")
         if existing and existing.lower() != c["Type"].lower():
+            portal = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text()).get("hubspot_portal_id", "")
             type_conflicts.append({"company": c["Company Name"], "record_id": rid,
+                                   "url": f"https://app.hubspot.com/contacts/{portal}/record/0-2/{rid}",
                                    "hubspot_type": existing, "file_type": c["Type"]})
 
     lines = ["# HubSpot import mapping", "",

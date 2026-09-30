@@ -5,10 +5,46 @@ description: Didero's outbound list workflow, end to end — clean and standardi
 
 # Outbound list cleaner
 
-Steps: 1 email domain cleaning · 2 normalization · 3 HubSpot duplicate
-check · 4 HubSpot import and post-import checks · 5 Clay enrichment (guided)
-· 6 BDR assignment. The workflow ends after step 6. Ask the user which step to start from if it isn't clear
-(e.g. a list that is already imported starts at step 4's post-import part).
+## Steps and sub-agents
+
+The table is the source of truth for the **order** of the workflow. When a
+step or sub-skill is added, insert it here and renumber — the step sections
+below follow this order. The workflow ends after the last step. Ask the user
+which step to start from if it isn't clear (e.g. a list that is already
+imported starts at step 4's post-import part).
+
+| # | Step | Sub-agents | Scripts | The user decides / confirms |
+|---|---|---|---|---|
+| 1 | Email domain cleaning | `domain-judge` — judges each company/email-domain pair · `web-domain-finder` — finds public inboxes for companies with no email | `email_domain.py` | doubtful domains, parent/child cases |
+| 2 | Normalization | `name-and-linkedin-checker` — judges LinkedIn slugs and emails against names | `normalize.py` | last-name mismatches |
+| 3 | HubSpot duplicate check | `hubspot-searcher` — runs the search plan · `duplicate-reviewer` — judges candidates, prepares merge questions | `hubspot_match.py` | merges (done in HubSpot) and survivor IDs |
+| 4 | HubSpot import and post-import checks | `import-mapper` — mapping table · `segment-guide` — exclusion lists and segment link · `association-fixer` — primary company fixes · `leftover-duplicate-finder` | `hubspot_import.py`, `post_import.py` | the import, the segment and its exclusion lists, association fixes, merges |
+| 5 | Clay enrichment (guided) | `clay-guide` — walks the user through the workbook | — | template, button runs, "enrichment done" |
+| 6 | BDR assignment | `hubspot-bdr-list-assignment` (skill) · `bdr-assigner` — applies this workflow's rules | `bdr_assign.py` | BDR pool, approval of the CSV |
+
+Sub-agents are roles. Where the host supports subagents (Cowork, Claude
+Code), run the heavy ones — `web-domain-finder`, `hubspot-searcher`,
+`leftover-duplicate-finder` — as subagents so raw results stay out of the
+chat; run the others inline. Name the sub-agent when you start its work
+("Step 3 · hubspot-searcher: …") so the user can follow along.
+
+## HubSpot links in chat — always
+
+Every time you mention a HubSpot record in the chat — in a question, a
+decision box, a table, a summary — link it, so the user can open it in one
+click. Put the link on the record's name. Portal ID: `hubspot_portal_id` in
+`config.json` (the connector's `urlTemplate` carries it too).
+
+| Record | Link |
+|---|---|
+| Contact | `https://app.hubspot.com/contacts/<portal>/record/0-1/<id>` |
+| Company | `https://app.hubspot.com/contacts/<portal>/record/0-2/<id>` |
+| Deal | `https://app.hubspot.com/contacts/<portal>/record/0-3/<id>` |
+| Segment / list | `https://app.hubspot.com/contacts/<portal>/objectLists/<id>` |
+
+Decision boxes can't hold links, so list the linked records in a message
+right before the question. The scripts put a `url` on every record they
+report; use it.
 
 ## Paths
 
@@ -32,39 +68,60 @@ only that list's companies. A sublist gets its own company file.
    calls. Before running any step, tell the user this, and if you are not
    running on Opus 5.x or Fable, stop and ask them to switch models (e.g.
    `/model` in Claude Code, or the model picker in Cowork) and start again.
-2. **HubSpot setup on this device.** Confirm both:
-   - The **HubSpot connector** is connected (used to verify merges and look
-     up properties).
-   - The **HubSpot private app is authorized on this device.** Run
-     `python3 scripts/hubspot_match.py check-token`. If it fails, get the
-     user to authorize it before step 3:
-     1. Explain: the script reads HubSpot companies and contacts directly
-        with their team's private app (read scopes
-        `crm.objects.companies.read`, `crm.objects.contacts.read`,
-        `crm.lists.read`); the token
-        is stored only on their device and never shown in chat.
-     2. Ask with the multiple-choice tool whether they authorize this.
-     3. Then, depending on where you're running:
-        - **Claude Code on their computer:** run
-          `python3 scripts/hubspot_match.py setup-token --open-terminal`. A
-          terminal window opens where they confirm and paste the token
-          (hidden input). Wait for them to say they're done.
-        - **Cowork, or no terminal:** ask them to create a text file named
-          `hubspot_token.txt` in the folder they've given Cowork access to,
-          containing only the token, and tell you when it's saved. Then run
-          `python3 scripts/hubspot_match.py setup-token --from-file <that path> --authorized`,
-          which checks the token, moves it to the private token file and
-          deletes `hubspot_token.txt`.
-        - **Claude Code on the web:** they can instead add
-          `HUBSPOT_PRIVATE_APP_TOKEN` as an environment variable in the
-          environment's settings (picked up by a new session).
-     4. Re-run `check-token`.
-     **Never** ask for the token in chat, and never read, print or open the
-     token file yourself. If the user pastes a token into the chat anyway,
-     don't use it; tell them to rotate it in HubSpot and use the steps above.
-     If they decline, step 3 falls back to the connector, which is many
-     times slower (roughly 10–15 minutes per 60 companies instead of
-     seconds).
+2. **First-time connector check (manual, one-time).** Check which
+   connectors this session has, by looking at your available tools:
+   - **HubSpot connector — required.** Tools like `search_crm_objects`,
+     `query_crm_data`, `manage_crm_objects`.
+   - **Web search — required** for step 1's `web-domain-finder`.
+   - Clay and ZoomInfo connectors — optional (step 5 is manual either way).
+   If a required one is missing, stop and tell the user plainly: **connectors
+   can't be added from inside Cowork or this chat — this is a real
+   limitation.** They have to open Claude's settings (Settings → Connectors),
+   connect HubSpot (and turn on web search if it's off), then start a new
+   session. It's a one-time setup: once connected, every future session has
+   it and the rest of the workflow runs without this step.
+3. **Mode: connector mode is the normal way to run.** Everything in this
+   workflow works through the HubSpot connector alone ("connector mode"):
+   the scripts plan the HubSpot searches, the `hubspot-searcher` sub-agent
+   runs them with the connector, and `hubspot_match.py ingest` turns each
+   saved result into the files the scripts read — nothing is typed out by
+   hand. Say once at the start: "Running in connector mode."
+   A **HubSpot private app token** is an optional speed-up for large lists
+   (hundreds of companies: seconds instead of minutes). Only offer it where a
+   script can read it — Claude Code on the user's computer, or Cowork with a
+   shared folder; never in claude.ai chat, where it can't work. Check with
+   `python3 scripts/hubspot_match.py check-token`; if it passes, say
+   "Running in token mode" and use the token commands. To set one up (only if
+   the user wants it):
+   1. Explain: the script reads HubSpot companies, contacts and lists with
+      their team's private app (read scopes `crm.objects.companies.read`,
+      `crm.objects.contacts.read`, `crm.lists.read`); the token stays on
+      their device and is never shown in chat. Ask for consent with the
+      multiple-choice tool.
+   2. **Claude Code on their computer:** run
+      `python3 scripts/hubspot_match.py setup-token --open-terminal`; they
+      paste the token in the terminal window (hidden input).
+      **Cowork with a shared folder:** they save the token alone in
+      `hubspot_token.txt` in that folder; then run
+      `python3 scripts/hubspot_match.py setup-token --from-file <path> --authorized`
+      (checks it, stores it privately, deletes the text file).
+      **Claude Code on the web:** an environment variable
+      `HUBSPOT_PRIVATE_APP_TOKEN` in the environment's settings.
+   **Never** ask for the token in chat, and never read, print or open the
+   token file. If a token is pasted into the chat anyway, don't use it; tell
+   the user to rotate it in HubSpot.
+
+### Connector mode: running searches and saving results
+
+Wherever a step says `run-plan` (token mode), in connector mode the
+`hubspot-searcher` sub-agent instead runs each search in the plan file with
+`search_crm_objects` (objectType, properties, limit, filterGroups or query as
+given; `chatInsights` is required; page with `offset` when `total` exceeds
+the results). For each result, save it to a file — when the host has already
+saved a large result to a file, use that path — and run
+`python3 scripts/hubspot_match.py ingest --response <file> --raw-dir <raw dir>`.
+`ingest` also accepts `query_crm_data` results (call the connector's
+`tool_guidance` for `query_crm_data` once before the first query).
 
 ## Step 1 — Email domain cleaning
 
@@ -77,7 +134,7 @@ HubSpot associates them. The website is **never** used as the email domain.
    and writes `<run_dir>/review.json`: one entry per company/email-domain pair,
    plus companies where no contact has an email.
 
-2. **Judge each pair.** Decide whether the email domain plausibly belongs to
+2. **`domain-judge`: judge each pair.** Decide whether the email domain plausibly belongs to
    the contact's current company. Matches are often not literal — acronyms,
    tickers, shortened names (UFP Industries → `ufpi.com`, Builders FirstSource
    → `bldr.com`, EMS → `easternmetal.com`). This is not an email-validity check.
@@ -94,14 +151,14 @@ HubSpot associates them. The website is **never** used as the email domain.
    If the ZoomInfo company name looks unrelated to the domain, check what
    company the domain actually belongs to before calling it a mismatch.
 
-3. **Ask the user about doubtful rows.** Use the multiple-choice question tool
+3. **Ask the user about doubtful rows** (list each company with its HubSpot link if it has one). Use the multiple-choice question tool
    (up to 4 questions per call; batch in rounds). For each row show: company,
    email domain, number of contacts, other domains at that company, why you
    think it does/doesn't match, and any parent/child relationship. Offer
    options such as keep / clear / map to parent, with your recommendation
    first. Treat free-text answers as rules to apply going forward.
 
-4. **Web backfill.** For each company with no email at all, search the web for
+4. **`web-domain-finder`: web backfill.** For each company with no email at all, search the web for
    publicly listed general inboxes (info@, sales@, support@, help@, general@,
    marketing@, inquiry@ and variants, including location inboxes such as
    `infomobile@`). Use that domain. If none exists, publicly listed staff
@@ -144,7 +201,7 @@ Everything the user needs to review goes in the chat.
    `review_step2.json` listing LinkedIn URLs whose slug doesn't contain the
    contact's first and last name.
 
-2. **Judge each LinkedIn slug** (no live check):
+2. **`name-and-linkedin-checker`: judge each LinkedIn slug** (no live check):
    - Nickname (Bill/William, Pat/Patrick), initials (`jbsunderbruch`),
      credentials in the slug, or an obvious typo → `keep`.
    - Clearly a different person (both names differ) → `blank`.
@@ -182,17 +239,14 @@ you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
 **Companies**
 1. `python3 $S plan-companies --companies <run_dir>/companies_upload.csv --out-dir <run_dir>`
    writes `company_search_plan.json`.
-2. Run the plan:
-   `python3 $S run-plan --plan <run_dir>/company_search_plan.json --raw-dir <run_dir>/hs_companies`
-   (uses the private app token; seconds). **Fallback only if no token:** run
-   every search with the HubSpot connector's `search_crm_objects`
-   (objectType, properties, limit, filterGroups or query as given; page with
-   `offset`) and save each raw JSON response to `<run_dir>/hs_companies/NNN.json`,
-   in a subagent so raw results don't flood the chat.
+2. **`hubspot-searcher`:** run the plan into `<run_dir>/hs_companies`.
+   Connector mode: run each search with the connector and `ingest` each
+   result (see "Connector mode" above). Token mode:
+   `python3 $S run-plan --plan <run_dir>/company_search_plan.json --raw-dir <run_dir>/hs_companies`.
 3. `python3 $S match-companies --companies <run_dir>/companies_upload.csv --raw-dir <run_dir>/hs_companies --out-dir <run_dir>`
    writes `company_matches.json` (per company: candidates with HubSpot URL,
    strength, reasons, domain, location, employees, revenue, contacts).
-4. Judge the candidates. Drop obvious false positives from free-text name
+4. **`duplicate-reviewer`:** judge the candidates. Drop obvious false positives from free-text name
    hits (different company, different place and size). Use firmographics for
    unclear cases.
    - No candidates → `null` (Not in HubSpot).
@@ -228,15 +282,34 @@ you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
 1. `python3 $S plan-contacts --contacts <run_dir>/contacts_upload.csv --companies <run_dir>/companies_upload.csv --out-dir <run_dir>`
    (LinkedIn URL on `lgm_linkedinurl`, email, last name, and everyone
    associated with the list's HubSpot companies).
-2. `python3 $S run-plan --plan <run_dir>/contact_search_plan.json --raw-dir <run_dir>/hs_contacts`
-   (connector fallback as above if there's no token).
+2. **`hubspot-searcher`:** run `contact_search_plan.json` into
+   `<run_dir>/hs_contacts` (connector: search + `ingest`; token: `run-plan`).
+   In connector mode, skip the last-name searches for contacts that already
+   matched on LinkedIn URL or email — common surnames return hundreds of
+   unrelated contacts.
 3. `python3 $S match-contacts --contacts <run_dir>/contacts_upload.csv --companies <run_dir>/companies_upload.csv --contacts-step1 <run_dir>/contacts_step1.csv --raw-dir <run_dir>/hs_contacts --out-dir <run_dir>`
-4. Judge, review with the user (same merge-first flow), write
+4. **Same person, different company → review.** A candidate with strength
+   `review` matched on LinkedIn URL or email, but HubSpot has the person at a
+   different company than the list (`company_mismatch`). Show both side by
+   side — list: company, job title; HubSpot: company (linked), job title,
+   location, contact link — and ask with the multiple-choice tool:
+   - **List is current** → keep the row; the import updates the contact.
+   - **HubSpot is current** → drop the row (they've moved on or the list is
+     stale); drop its company too if no other contact in the list uses it.
+   - **Unsure** → drop the row.
+   To drop a row, remove that contact from every run-folder file that has it
+   (`contacts_step1.csv`, `contacts_upload.csv`), and — if no other contact
+   uses its company — the company from `companies_upload.csv` and
+   `company_domains_step1.csv`. Tell the user in chat what was dropped and
+   why (with the HubSpot contact link).
+5. Judge the rest, review with the user (same merge-first flow), write
    `contact_decisions.json`, then
    `python3 $S apply-contacts --contacts <run_dir>/contacts_upload.csv --decisions <run_dir>/contact_decisions.json`
    to add `HubSpot Contact Record ID`.
 
 ## Step 4 — HubSpot import
+
+`import-mapper` prepares the files and the mapping table.
 
 The user runs the import in HubSpot; you prepare it and walk them through it.
 
@@ -272,17 +345,42 @@ Once the user has imported both files, the files are finished: from here
 on the work happens in HubSpot and the files are not updated again.
 `P=scripts/post_import.py`.
 
-1. **Build the segment.** Prompt the user to create a contact segment of the
-   contacts they just imported, and to exclude every list in `config.json`
-   (`exclusion_lists`: "Exclusion List A" … "Exclusion List F"; they can
-   search for each by name in HubSpot). Ask for the segment's name when it's
-   done. (You may offer to create it with the connector's `manage_segment`
-   — e.g. `IN_LIST(import = '<id>') AND NOT IN_LIST(list = <id>) …`, ids
-   looked up, never guessed — only with their approval.)
-2. **Pull it.** `python3 $P pull-segment --segment "<name or list ID>" --out-dir <run_dir>`
-   reads every contact in the segment, its company associations (with the
-   primary flag) and those companies → `segment_snapshot.json`.
-3. **Fix associations** (Claude proposes, user approves, Claude applies):
+1. **`segment-guide`: build the segment.** Ask the user to create a
+   contact segment of the contacts they just imported, excluding the six
+   exclusion lists. Show them in chat as a table, each name linked to the list
+   (`exclusion_lists` in `config.json`; link
+   `https://app.hubspot.com/contacts/<portal>/objectLists/<list_id>`):
+
+   | Exclusion list | Link |
+   |---|---|
+   | Exclusion List A — Open Deals, Closed Lost Last 6 Mths, Customers, Not Persona | list 1511 |
+   | Exclusion List B — Actively Worked On | list 1515 |
+   | Exclusion List C — Contacts, Not ICP Companies | list 2605 |
+   | Exclusion List D — Irrelevant titles (Retired, student, intern, SWE) | list 1184 |
+   | Exclusion List E — Product Research Panel, Refined List | list 1633 |
+   | Exclusion List F — Contacts, Vendor, Partners, Resellers | list 2613 |
+
+   Tell them to add each as a "not a member of" filter and to check
+   themselves that all six are applied — you don't verify membership against
+   the lists.
+2. **Get the segment link.** Ask the user to paste the segment's HubSpot link
+   (e.g. `…/objectLists/2780/filters`). Then ask with the multiple-choice
+   tool: "Are all six exclusion lists applied to this segment?" (Yes / Not
+   yet). Don't continue until they answer Yes.
+3. **Pull it** → `segment_snapshot.json` (every contact in the segment, its
+   company associations with the primary flag, and those companies).
+   - **Connector mode** — three `query_crm_data` calls, each result saved to
+     a file:
+     1. members: `SELECT hs_object_id, firstname, lastname, email, company_domain, hs_email_domain, associatedcompanyid FROM CONTACT WHERE hs_crm_search.ilsListIds = '<list id>' LIMIT 500`
+     2. associations: `SELECT hs_object_id, associatedcompanyid, COMPANY.hs_object_id, COMPANY.name, COMPANY.domain FROM CONTACT WHERE hs_object_id IN ('<id>', …)`
+        (one row per contact–company link; don't combine the list filter
+        with `COMPANY.` columns — it breaks the list filter)
+     3. companies: `SELECT hs_object_id, name, domain, website, city, state, country, location, phone, linkedin_company_page, numberofemployees, num_associated_contacts, type, createdate FROM COMPANY WHERE hs_object_id IN (…)`
+        for every associated company, plus a second query `WHERE domain IN (…)`
+        for the domains of contacts with no company.
+     Then `python3 $P build-snapshot --members <1> --associations <2> --companies <3> [<3b>] --segment "<segment link>" --portal <portal id> --out-dir <run_dir>`.
+   - **Token mode:** `python3 $P pull-segment --segment "<segment link>" --out-dir <run_dir>`.
+4. **`association-fixer`: fix associations** (Claude proposes, user approves, Claude applies):
    `python3 $P review-associations --snapshot <run_dir>/segment_snapshot.json --out-dir <run_dir>`
    → `association_fixes.json`:
    - **No company** → associate with the company that owns the contact's
@@ -302,9 +400,13 @@ on the work happens in HubSpot and the files are not updated again.
    confirm nothing is left. Two companies can share a domain (e.g. Roche and
    Genentech on `roche.com`); the script then asks the user rather than
    guessing.
-4. **Leftover company duplicates.**
-   `python3 $P find-dupes --snapshot <run_dir>/segment_snapshot.json --out-dir <run_dir>`
-   checks every company associated with the segment's contacts against all
+5. **`leftover-duplicate-finder`: leftover company duplicates.**
+   Connector mode: `python3 $P plan-dupes --snapshot <run_dir>/segment_snapshot.json --out-dir <run_dir>`,
+   run `dupes_search_plan.json` with the connector (search + `ingest` into
+   `<run_dir>/hs_dupes`), then
+   `python3 $P match-dupes --snapshot <run_dir>/segment_snapshot.json --raw-dir <run_dir>/hs_dupes --out-dir <run_dir>`.
+   Token mode: `python3 $P find-dupes --snapshot <run_dir>/segment_snapshot.json --out-dir <run_dir>`.
+   Either way it checks every company associated with the segment's contacts against all
    of HubSpot: same or variant domain (other TLD, subdomain, hyphen), same
    LinkedIn page, same phone, similar name in the same location (state codes
    and names treated as equal, e.g. TX = Texas) → `company_dupes.json`.
@@ -315,6 +417,8 @@ on the work happens in HubSpot and the files are not updated again.
    `hs_merged_object_ids` and check the survivor's name/domain, as in step 3.
 
 ## Step 5 — Enrichment in Clay (user-run, guided)
+
+Sub-agent: `clay-guide`.
 
 Assumes the segment exists, duplicates are merged and every contact is
 associated with its company. This step happens in Clay, not HubSpot. The
@@ -407,7 +511,7 @@ anyone else (AEs, managers, …), say this workflow doesn't cover it and stop.
    take it. Moving one means its other BDR-owned contacts move too, so the
    company stays with one BDR. The user decides company by company; apply
    only the ones they approve, then re-deliver the CSV.
-9. **Build the CSV with the script.** Pull the inputs with the connector
+9. **`bdr-assigner`: build the CSV with the script.** Pull the inputs with the connector
    (read-only), then run `scripts/bdr_assign.py`:
    - contacts: `query_crm_data` —
      `SELECT hs_object_id, firstname, lastname, hubspot_owner_id, associatedcompanyid, … FROM CONTACT WHERE hs_crm_search.ilsListIds = '<list id>' LIMIT 500`

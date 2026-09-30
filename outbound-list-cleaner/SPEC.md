@@ -283,3 +283,26 @@ taking precedence:
   company owners to HubSpot and verifies.
 
 The workflow ends after step 6.
+
+### Changes after the first Cowork test (2026-09-30)
+
+- **Steps and sub-agents table** at the top of the skill: numbered steps (the
+  table is the source of truth for order), with each step's sub-agents,
+  scripts and user decisions.
+- **HubSpot links always:** any contact, company, deal or segment mentioned in
+  chat is linked (portal 46366931).
+- **Segment after import:** Claude shows the six exclusion lists (names +
+  links, from config.json) and the user applies and verifies them; the user
+  pastes the segment link and confirms "all six applied" before Claude
+  continues. Claude does not check segment membership against the lists.
+- **Connector mode is a first-class path** (not a fallback): scripts plan the
+  searches, the hubspot-searcher sub-agent runs them via the connector, and
+  `hubspot_match.py ingest` normalizes saved results; `post_import.py
+  build-snapshot` / `plan-dupes` / `match-dupes` cover step 4 without a token.
+  The token is an optional speed-up where a script can read it.
+- **First-time connector check:** HubSpot connector and web search must be
+  enabled in Claude's settings — a manual, one-time step that can't be done
+  from Cowork.
+- **Same person, different company:** a strong contact match whose HubSpot
+  company differs from the list goes to review (list current / HubSpot
+  current → drop / unsure → drop).

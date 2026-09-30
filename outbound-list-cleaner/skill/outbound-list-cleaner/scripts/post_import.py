@@ -4,6 +4,11 @@ Runs after the user has imported the files and built a segment of the
 imported contacts with the exclusion lists applied (config.json). Uses the
 HubSpot private app token (see hubspot_match.py setup-token).
 
+  build-snapshot      Connector mode: the same segment_snapshot.json from saved
+                      connector results (queries in SKILL.md), no token needed.
+  plan-dupes /        Connector mode for find-dupes: write the searches, run
+  match-dupes         them with the connector (save + `hubspot_match.py
+                      ingest`), then score them.
   pull-segment        Read the segment's contacts, their company associations
                       (with the primary flag) and those companies ->
                       segment_snapshot.json
@@ -44,9 +49,18 @@ def batch_read(object_path, ids, properties):
     return {r["id"]: r.get("properties", {}) for r in out}
 
 
+def list_id_from(value):
+    """A HubSpot segment link (…/objectLists/2780/filters), a list ID, or None."""
+    m = re.search(r"objectLists/(\d+)", value or "")
+    if m:
+        return m.group(1)
+    return value if (value or "").isdigit() else None
+
+
 def find_list(segment):
-    if segment.isdigit():
-        return segment, segment
+    list_id = list_id_from(segment)
+    if list_id:
+        return list_id, list_id
     resp = hm.api("POST", "/crm/v3/lists/search", {"query": segment, "count": 20})
     lists = [l for l in resp.get("lists", []) if l.get("name", "").strip().lower() == segment.strip().lower()]
     if len(lists) != 1:
@@ -101,6 +115,46 @@ def pull_segment(args):
           f"{len(companies)} companies -> {out / 'segment_snapshot.json'}")
 
 
+def build_snapshot(args):
+    """Segment snapshot from saved connector results.
+
+    --members       query_crm_data: contacts in the segment (hs_crm_search.ilsListIds)
+    --associations  query_crm_data: the same contacts with COMPANY.hs_object_id,
+                    one row per contact-company association
+    --companies     one or more company results (query_crm_data / get_crm_objects /
+                    search_crm_objects): every associated company, plus companies
+                    owning the domains of unassociated contacts
+    """
+    members, _ = hm.read_connector_result(args.members)
+    assoc_rows, _ = hm.read_connector_result(args.associations)
+    contacts = {str(r["id"]): {k: v for k, v in r["properties"].items() if "." not in k} for r in members}
+    links = defaultdict(list)
+    for r in assoc_rows:
+        p = r["properties"]
+        kid = str(p.get("contact.hs_object_id") or p.get("hs_object_id") or r["id"])
+        company = p.get("company.hs_object_id")
+        if company and kid in contacts:
+            links[kid].append({"company_id": str(company), "primary": str(company) == str(p.get("associatedcompanyid") or "")})
+    companies = {}
+    for path in args.companies:
+        recs, _ = hm.read_connector_result(path)
+        companies.update({str(r["id"]): r["properties"] for r in recs})
+    list_id = list_id_from(args.segment) or args.segment
+    snapshot = {"segment": {"id": list_id, "name": args.segment_name or list_id}, "portal": args.portal,
+                "contacts": {cid: {"properties": p, "companies": links.get(cid, [])} for cid, p in contacts.items()},
+                "companies": companies}
+    missing = sorted({l["company_id"] for ls in links.values() for l in ls} - set(companies))
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "segment_snapshot.json").write_text(json.dumps(snapshot, indent=2, ensure_ascii=False))
+    none = sum(1 for c in snapshot["contacts"].values() if not c["companies"])
+    many = sum(1 for c in snapshot["contacts"].values() if len(c["companies"]) > 1)
+    print(f"{len(contacts)} contacts ({none} with no company, {many} with several), {len(companies)} companies "
+          f"-> {out / 'segment_snapshot.json'}")
+    if missing:
+        print("associated companies missing from --companies (fetch them too):", ", ".join(missing))
+
+
 def contact_domain(p):
     d = (p.get("company_domain") or "").strip().lower()
     if not d and "@" in (p.get("email") or ""):
@@ -151,6 +205,8 @@ def review_associations(args):
         # domain) should be primary; the others stay as secondary associations.
         owning = [l["company_id"] for l in links if dom and dom in company_domains(companies.get(l["company_id"], {}))]
         current_primary = [l["company_id"] for l in links if l["primary"]]
+        if len(owning) > 1 and current_primary and current_primary[0] in owning:
+            continue  # primary already one of the companies owning the domain (e.g. Roche/Genentech)
         if len(owning) == 1:
             if current_primary != owning:
                 fixes.append({**row, "action": "set primary", "company_id": owning[0],
@@ -189,13 +245,14 @@ def digits(phone):
     return d[-10:] if len(d) >= 10 else ""
 
 
-def find_dupes(args):
-    snap = json.loads(Path(args.snapshot).read_text())
-    portal = snap["portal"]
-    # The segment's companies: those associated with its contacts.
+def segment_companies(snap):
+    """The segment's companies: those associated with its contacts."""
     seg_ids = {l["company_id"] for c in snap["contacts"].values() for l in c["companies"]}
-    seg = {cid: snap["companies"][cid] for cid in seg_ids if cid in snap["companies"]}
+    return {cid: snap["companies"][cid] for cid in seg_ids if cid in snap["companies"]}
 
+
+def dupes_plan(seg):
+    """HubSpot company searches that can surface duplicates of the segment's companies."""
     queries, linkedin, phones = set(), set(), set()
     for p in seg.values():
         for d in company_domains(p):
@@ -210,18 +267,40 @@ def find_dupes(args):
             linkedin |= {f"{s}www.linkedin.com/company/{slug}{t}" for s in ("http://", "https://") for t in ("", "/")}
         if digits(p.get("phone")):
             phones.add(p["phone"])
-
-    found = {}
-    for q in sorted(queries):
-        resp = hm.api("POST", "/crm/v3/objects/companies/search", {"query": q, "limit": 50, "properties": COMPANY_PROPS})
-        found.update({r["id"]: r.get("properties", {}) for r in resp.get("results", [])})
+    searches = [{"objectType": "COMPANY", "query": q, "limit": 50, "properties": COMPANY_PROPS} for q in sorted(queries)]
     for prop, values in (("linkedin_company_page", linkedin), ("phone", phones)):
-        for chunk in hm.chunks(values):
-            resp = hm.api("POST", "/crm/v3/objects/companies/search", {
-                "limit": 200, "properties": COMPANY_PROPS,
-                "filterGroups": [{"filters": [{"propertyName": prop, "operator": "IN", "values": chunk}]}]})
-            found.update({r["id"]: r.get("properties", {}) for r in resp.get("results", [])})
+        searches += hm.in_searches("COMPANY", prop, values, COMPANY_PROPS)
+    return searches
 
+
+def plan_dupes(args):
+    snap = json.loads(Path(args.snapshot).read_text())
+    hm.write_plan(args.out_dir, "dupes_search_plan.json", dupes_plan(segment_companies(snap)))
+
+
+def match_dupes(args):
+    snap = json.loads(Path(args.snapshot).read_text())
+    records, _ = hm.load_records(args.raw_dir)
+    write_dupes(args.out_dir, score_dupes(segment_companies(snap), records, snap["portal"]), len(segment_companies(snap)))
+
+
+def find_dupes(args):
+    """Token mode: plan, search HubSpot directly, score."""
+    snap = json.loads(Path(args.snapshot).read_text())
+    seg = segment_companies(snap)
+    found = {}
+    for spec in dupes_plan(seg):
+        body = {"limit": spec.get("limit", 100), "properties": spec["properties"]}
+        if spec.get("query"):
+            body["query"] = spec["query"]
+        if spec.get("filterGroups"):
+            body["filterGroups"] = spec["filterGroups"]
+        resp = hm.api("POST", "/crm/v3/objects/companies/search", body)
+        found.update({r["id"]: r.get("properties", {}) for r in resp.get("results", [])})
+    write_dupes(args.out_dir, score_dupes(seg, found, snap["portal"]), len(seg))
+
+
+def score_dupes(seg, found, portal):
     groups = []
     for cid, p in seg.items():
         doms = company_domains(p)
@@ -266,19 +345,38 @@ def find_dupes(args):
         if key not in seen:
             seen.add(key)
             unique.append(g)
-    out = Path(args.out_dir)
-    (out / "company_dupes.json").write_text(json.dumps(unique, indent=2))
-    print(f"{len(seg)} segment companies checked; {len(unique)} have possible duplicates -> {out / 'company_dupes.json'}")
+    return unique
+
+
+def write_dupes(out_dir, groups, checked):
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "company_dupes.json").write_text(json.dumps(groups, indent=2, ensure_ascii=False))
+    print(f"{checked} segment companies checked; {len(groups)} have possible duplicates -> {out / 'company_dupes.json'}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("pull-segment")
-    p.add_argument("--segment", required=True, help="segment name or list ID")
+    p.add_argument("--segment", required=True, help="the segment's HubSpot link, list ID or exact name")
     p.add_argument("--out-dir", required=True)
     p.set_defaults(func=pull_segment)
-    for name, func in (("review-associations", review_associations), ("find-dupes", find_dupes)):
+    bs = sub.add_parser("build-snapshot")
+    bs.add_argument("--members", required=True)
+    bs.add_argument("--associations", required=True)
+    bs.add_argument("--companies", required=True, nargs="+")
+    bs.add_argument("--segment", required=True, help="segment link or list ID")
+    bs.add_argument("--segment-name")
+    bs.add_argument("--portal", required=True)
+    bs.add_argument("--out-dir", required=True)
+    bs.set_defaults(func=build_snapshot)
+    md = sub.add_parser("match-dupes")
+    md.add_argument("--snapshot", required=True)
+    md.add_argument("--raw-dir", required=True)
+    md.add_argument("--out-dir", required=True)
+    md.set_defaults(func=match_dupes)
+    for name, func in (("review-associations", review_associations), ("find-dupes", find_dupes), ("plan-dupes", plan_dupes)):
         s = sub.add_parser(name)
         s.add_argument("--snapshot", required=True)
         s.add_argument("--out-dir", required=True)

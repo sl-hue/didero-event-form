@@ -44,7 +44,10 @@ on unclear rows through multiple-choice prompts in chat.
 
 ## Open questions
 
-- None right now.
+- Cowork review 2.3: add a `drop` command (currently a manual instruction).
+- Cowork review 2.4–2.13 (LinkedIn global pages, noisy phone matches, stale
+  renamed companies, non-ZoomInfo inputs, nickname overwrites, skip path for
+  Clay, etc.) — not yet decided.
 
 ## Decision log
 
@@ -122,6 +125,14 @@ on unclear rows through multiple-choice prompts in chat.
   (Gmail, Hotmail, 139.com) → step 1 now never uses personal mailbox domains.
   Fast HubSpot search and post-import duplicate check still untested: need
   `HUBSPOT_PRIVATE_APP_TOKEN` in the environment.
+
+- 2026-09-30 — After the Cowork test: steps/sub-agents table; HubSpot links
+  on every record in chat; segment exclusions verified by the user (Claude
+  lists the six lists with links, asks for the segment link + confirmation;
+  no membership check); connector mode first-class (ingest, build-snapshot,
+  plan/match-dupes); first-time connector check (manual, in Claude
+  settings); same-person-different-company contacts go to review.
+  Open: Cowork review items 2.3 (drop command) and 2.4–2.13.
 
 ## Using this in Cowork
 
