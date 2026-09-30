@@ -84,6 +84,9 @@ HubSpot associates them. The website is **never** used as the email domain.
    - Clear match → `keep`.
    - Clear mismatch (a prior employer, a data-vendor placeholder such as
      `zoomhubs.com`) → `clear`.
+   - Personal mailboxes (gmail.com, hotmail.com, 139.com, …) never appear
+     here: the script keeps those emails but never uses their domain, and
+     backfills the company domain instead.
    - Parent/child (subsidiary or acquired company, e.g. `kodiakbp.com` at
      QXO) → `keep`; it becomes an additional domain unless it is the most
      used one.

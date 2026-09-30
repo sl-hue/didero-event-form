@@ -34,7 +34,6 @@ on unclear rows through multiple-choice prompts in chat.
 | Step 5 — Clay enrichment (guided checklist, user confirms before step 6) | Built |
 | Step 6 — BDR assignment (hubspot-bdr-list-assignment + bdr_assign.py) | Tested up to the CSV on list 2759: 81 contacts / 72 companies, 27 contacts each |
 | **End of workflow** | No step 7 |
-| ~~Later steps~~ (, company file build, personalization, HubSpot record IDs, splitting, filtering) | Not yet specified — waiting on the user's walkthrough |
 
 ## Next up
 
