@@ -43,9 +43,11 @@ ALIASES = {
     "contact_city": ["Person City", "City"],
     "company_country": ["Company Country", "Company HQ Country", "HQ Country"],
     "company_location": ["Company Location", "Company HQ", "Company Headquarters", "companyLocation"],
+    "jobs": ["Current Jobs Number", "Current Jobs", "Number of Current Positions"],
+    "headline": ["Profile Headline", "Headline", "headline"],
     "id": ["ZoomInfo Contact ID", "LinkedIn ID", "Profile ID", "Sales Navigator ID", "id"],
 }
-STD = ["Row ID", "Contact", "Title", "Company", "Contact City", "Contact State", "Contact Country", "Location Note",
+STD = ["Row ID", "Contact", "Title", "Company", "Current Jobs", "Jobs Check", "Contact City", "Contact State", "Contact Country", "Location Note",
        "Company Country", "Company Presence",
        "Title Fit", "Title Reason", "Company Fit", "Company Reason", "Geo Fit", "Geo Reason",
        "Recommendation", "Decision"]
@@ -168,6 +170,7 @@ def init(args):
         name = pick(r, "full") or f"{pick(r, 'first')} {pick(r, 'last')}".strip()
         r.update({"Row ID": pick(r, "id") or f"R{i:04d}", "Contact": name, "Title": pick(r, "title"),
                   "Company": pick(r, "company"),
+                  "Current Jobs": pick(r, "jobs"), "Jobs Check": "",
                   **contact_location(r),
                   "Company Country": country_of(pick(r, "company_country"), pick(r, "company_location"))})
     out = Path(args.out_dir)
@@ -176,6 +179,9 @@ def init(args):
     save(out, fields, rows)
     print(f"screening.csv: {len(rows)} contacts at {len({r['Company'] for r in rows})} companies. "
           f"Columns used: " + ", ".join(f"{k}={v}" for k, v in found.items() if v))
+    multi = sum(1 for r in rows if (r["Current Jobs"] or "1").isdigit() and int(r["Current Jobs"] or 1) > 1)
+    print(f"{multi} contacts have more than one current job (next: jobs.py build)" if found["jobs"] else
+          "no current-jobs column in this file: ask the user whether to check for people with several jobs")
     unknown = sum(1 for r in rows if r["Location Note"] or not r["Contact Country"])
     metro = sum(1 for r in rows if r["Contact State"] and not r["Contact City"])
     print(f"locations: {len(rows) - unknown} placed ({metro} with state and country but no city); "

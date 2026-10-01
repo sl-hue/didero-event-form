@@ -40,7 +40,28 @@ ZoomInfo column names; if it can't find the name, title or company column, ask
 the user which column holds it. If the file has pre-filter columns (e.g.
 `Matches Filters`), ask the user whether to screen all rows or only some.
 
-**2. Research and review companies and job titles**
+**2. Multiple current jobs** — `jobs-checker` (subagent)
+LinkedIn exports show one "main" job per person and only a *count* of current
+jobs (`Current Jobs Number`); the other jobs aren't in the file, so the
+company and title can be wrong. Check these before any company research.
+- `python3 scripts/jobs.py build --run-dir <run_dir> --title "<list name>"`
+  and open `<run_dir>/jobs.html` for the user (local page, never published).
+  If the file has no current-jobs column, ask the user whether to skip this.
+- The page shows one person at a time: the title and company from the file
+  (pre-filled, editable), how many current jobs, the headline, and **Open
+  LinkedIn profile**. **Confirm and next** (Enter) saves and opens the next
+  person's profile in the same LinkedIn tab; **Exclude** drops the person;
+  Previous / Next move without answering; a list below shows everyone's
+  status. **Finish — get the code** (top and bottom).
+- The user pastes the code: `jobs.py apply --run-dir <run_dir> --code "<code>"`
+  previews the changes (show them: name, in the file → change, and excluded).
+  **Only after their OK**: `jobs.py apply --run-dir <run_dir> --confirm`.
+  It sets Title / Company and **Jobs Check** (confirmed / title changed /
+  company changed / excluded). When the company changes, the row's old company
+  data (website, domain, size, industry, HQ…) is cleared so step 3 researches
+  the right company.
+
+**3. Research and review companies and job titles**
 - `company-researcher` (subagent) — for each company: what it does, HQ
   country, **every country where it has a real presence** (offices, plants,
   warehouses, distribution — e.g. a Canadian company with US plants is
@@ -50,14 +71,14 @@ the user which column holds it. If the file has pre-filter columns (e.g.
   enrichment credits without asking. Write the result as
   `{"<company>": {"fit": "fit|unclear|no", "reason": "…", "hq_country": "…", "presence": ["United States", …]}}`
   and run `screen.py apply-research --run-dir <run_dir> --file research.json`.
-- `title-reviewer` (subagent) — `screen.py check` (step 3) gives every title a
+- `title-reviewer` (subagent) — `screen.py check` (step 4) gives every title a
   first-pass verdict from keywords and seniority (`config.json`). Review every
   title the keywords didn't pass: many target roles use other words
   ("Integrated Supply", "Commodities", "Procure to Pay", "MRO"). Write
   `{"<Row ID>": {"fit": "…", "reason": "…"}}` and run
   `screen.py set-title --run-dir <run_dir> --file title_reviews.json`.
 
-**3. Geography** — `geo-checker` (subagent)
+**4. Geography** — `geo-checker` (subagent)
 - **Ask the user**, as two separate questions, which countries the
   **companies** (HQ) and the **contacts** (where the person is) must be in.
   Defaults if they don't specify: United States, Canada, United Kingdom
@@ -70,7 +91,7 @@ the user which column holds it. If the file has pre-filter columns (e.g.
   look them up (LinkedIn location, company HQ) before the review.
 - Report the counts (`screen.py summary`).
 
-**4. User review — review page** — `screening-reviewer` (subagent)
+**5. User review — review page** — `screening-reviewer` (subagent)
 - Stop here and let the user decide. Run
   `python3 scripts/flashcards.py build --run-dir <run_dir> --title "<list name>"`
   and open `<run_dir>/review.html` for the user in the Cowork / Claude Code
