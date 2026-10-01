@@ -1,13 +1,13 @@
 """Build the flashcard review page from screening.csv.
 
   build   Writes <run_dir>/cards.json and <run_dir>/review.html — a single,
-          self-contained page (no internet needed). One card per company with
-          all its contacts and their title / company / geography verdicts and
-          Claude's recommendation: Keep all / Exclude all, or per contact.
-          A country bar adds include/exclude rules (company, contact or both;
-          any case or common spelling; asks when unsure). The finish screen
-          shows every result with the changes highlighted, then a code to
-          paste into the chat for `screen.py apply-decisions --code …`.
+          self-contained page (no internet needed), one layout: a Companies |
+          Contacts switch, a country rules bar (include/exclude; the rule
+          applies to company HQ or contact country depending on the view; any
+          case or common spelling; asks when unsure), and one list with
+          Claude's suggestion filled in — Keep all / Exclude all per company,
+          Keep / Exclude per contact, changes highlighted. "Finish review"
+          gives a code for `screen.py apply-decisions --code …`.
 
 The page holds personal data: it stays on the user's device (shown in the
 Cowork/Claude Code window) and is never published.
@@ -53,7 +53,7 @@ def build(args):
                    .replace("__REVIEW_ID__", review_id).replace("__GEO__", geo).replace("__CARDS__", data)
     (run / "review.html").write_text(page, encoding="utf-8")
     counts = {k: sum(1 for c in cards if c["recommendation"] == k) for k in ("keep", "review", "exclude")}
-    print(f"review.html: {len(cards)} contacts on {len({c['company'] for c in cards})} company cards ({counts['keep']} recommended keep, {counts['review']} to review, "
+    print(f"review.html: {len(cards)} contacts on {len({c['company'] for c in cards})} companies ({counts['keep']} recommended keep, {counts['review']} to review, "
           f"{counts['exclude']} recommended exclude)")
 
 

@@ -56,34 +56,34 @@ the user which column holds it. If the file has pre-filter columns (e.g.
   look them up (LinkedIn location, company HQ) before the review.
 - Report the counts (`screen.py summary`).
 
-**4. User review — flashcards** — `screening-reviewer` (subagent)
+**4. User review — review page** — `screening-reviewer` (subagent)
 - Stop here and let the user decide. Run
   `python3 scripts/flashcards.py build --run-dir <run_dir> --title "<list name>"`
   and open `<run_dir>/review.html` for the user in the Cowork / Claude Code
   window (send the file; it's a local page, never published).
-- **One card per company** with all its contacts: the company verdict once,
-  then each person's title and geography verdicts and your recommendation.
-  **Keep all / Exclude all** (keys Y, N), or ✓ / ✗ per person then
-  **Confirm as marked** (Enter). Moving is separate from answering:
-  **Previous / Next** (← →) and a company list beside the card (status dots,
-  "!" for needs a look, search) let the user look around and see patterns
-  before deciding. The start screen shows **all the data** in a searchable
-  table (filters: everyone / needs a look / hit by a rule), also one click
-  away from every card. The user can go through every company, or only
-  companies with someone who needs a look or would be excluded (clear passes
-  are kept). Progress is saved in the page if it's reopened.
-- **Country rules bar** (top of the page): the user types a country, picks
-  **Include only** or **Exclude**, and **Company / Contact / Both**. Any case
-  or common spelling matches ("united states", "USA", "scotland" → United
-  Kingdom). If the page isn't sure (typos, "CA", "Georgia", a state name) it
-  asks "did you mean…" and never guesses; an include rule nobody on the list
-  matches asks before it's added. A person's own ✓/✗ always beats a rule.
-  Contacts with an unknown country are never touched by a rule.
-- **Final review**: when the cards are done the page shows every contact,
-  grouped by company, with what changed highlighted — yellow where the result
-  differs from your recommendation or came from a rule, blue where you left it
-  to the user — and an **edit** link on every company. When they approve it
-  shows a code (e.g. `LS1;170;X:9-11,153;K:1-8,12-152,154-170;R:-c:Canada`).
+- **One page, one layout.** At the top, a **Companies | Contacts** switch and
+  the country bar; below, one list with your suggestion already filled in.
+  - **Companies** view: every company (HQ, contact count, how many kept /
+    excluded / open) with **Keep all / Exclude all**; click a company to fold
+    out its contacts (Expand all / Collapse all). Companies with someone you
+    flagged start open.
+  - **Contacts** view: every contact with title, company and both countries.
+  - Each contact has **Keep / Exclude**; a click records it, nothing else
+    to confirm. Contacts you flagged show one line, "Claude flagged: …".
+    Search, and filters: everyone / flagged by Claude / need your answer /
+    changed / excluded. Progress is saved in the page.
+  - **Country bar**: type a country, pick **Include only** or **Exclude**,
+    **Add rule**. In Companies view the rule applies to the company HQ, in
+    Contacts view to where the contact is. Any case or common spelling matches
+    ("united states", "USA", "scotland" → United Kingdom); typos, "CA",
+    "Georgia" or a state name get "did you mean…", never a guess; an include
+    rule nobody matches asks first. A person's own Keep/Exclude beats a rule;
+    unknown countries are never touched by a rule.
+  - Rows that differ from your suggestion (or were set by a rule) are
+    **highlighted yellow**, with a count at the bottom. **Finish review — get
+    the code** (top and bottom) shows the code, e.g.
+    `LS1;170;X:9-12,153;K:1-8,13-152,154-170;R:-c:Canada`, once nobody is
+    left needing an answer.
 - Ask them to paste the code into the chat, then run
   `screen.py apply-decisions --run-dir <run_dir> --code "<code>"`. This only
   **previews**: show the user its table of changes (company, contact, title,
