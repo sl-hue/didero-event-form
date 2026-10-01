@@ -7,28 +7,50 @@ description: Didero's outbound list workflow, end to end — clean and standardi
 
 ## Steps and sub-agents
 
-The table is the source of truth for the **order** of the workflow. When a
+This list is the source of truth for the **order** of the workflow. When a
 step or sub-skill is added, insert it here and renumber — the step sections
 below follow this order. The workflow ends after the last step. Ask the user
 which step to start from if it isn't clear (e.g. a list that is already
 imported starts at step 4's post-import part).
 
-| # | Step | Sub-agents | Scripts | The user decides / confirms |
-|---|---|---|---|---|
-| 1 | Email domain cleaning | `domain-judge` — judges each company/email-domain pair · `web-domain-finder` — finds public inboxes for companies with no email | `email_domain.py` | doubtful domains, parent/child cases |
-| 2 | Normalization | `name-and-linkedin-checker` — judges LinkedIn slugs and emails against names | `normalize.py` | last-name mismatches |
-| 3 | HubSpot duplicate check | `hubspot-searcher` — runs the search plan · `duplicate-reviewer` — judges candidates, prepares merge questions | `hubspot_match.py` | merges (done in HubSpot) and survivor IDs |
-| 4 | HubSpot import and post-import checks | `import-mapper` — mapping table · `segment-guide` — exclusion lists and segment link · `association-fixer` — primary company fixes · `leftover-duplicate-finder` | `hubspot_import.py`, `post_import.py` | the import, the segment and its exclusion lists, association fixes, merges |
-| 5 | Clay enrichment (guided) | `clay-guide` — walks the user through the workbook | — | template, button runs, "enrichment done" |
-| 6 | BDR assignment | `hubspot-bdr-list-assignment` (skill) · `bdr-assigner` — applies this workflow's rules | `bdr_assign.py` | BDR pool, approval of the CSV |
+**1. Email domain cleaning** — `email_domain.py`
+- `domain-judge` (subagent) — judges each company/email-domain pair
+- `web-domain-finder` (subagent) — finds public inboxes for companies with no email
+- The user decides: doubtful domains, parent/child cases
+
+**2. Normalization** — `normalize.py`
+- `name-and-linkedin-checker` (subagent) — judges LinkedIn slugs and emails against names
+  (more normalization subagents will be added here)
+- The user decides: last-name mismatches
+
+**3. HubSpot duplicate check** — `hubspot_match.py`
+- `hubspot-searcher` (subagent) — runs the search plan
+- `duplicate-reviewer` (subagent) — judges candidates, prepares merge questions
+- The user decides: merges (done in HubSpot) and survivor IDs; flagged rows
+
+**4. HubSpot import and post-import checks** — `hubspot_import.py`, `post_import.py`
+- `import-mapper` (subagent) — upload files and mapping table
+- `segment-guide` (subagent) — exclusion lists and the segment link
+- `association-fixer` (subagent) — primary company fixes
+- `leftover-duplicate-finder` (subagent) — duplicates the import created or missed
+- The user decides: the import, the segment's exclusion lists, association fixes, merges
+
+**5. Clay enrichment** — agent: `clay-guide` (walks the user through the workbook)
+- The user decides: template, button runs, "enrichment done"
+
+**6. BDR assignment** — `bdr_assign.py`
+- `bdr-assigner` (subagent) — calls the `hubspot-bdr-list-assignment` skill and
+  applies this workflow's rules
+- The user decides: BDR pool, approval of the CSV
 
 All steps read and update the one working file through `worksheet.py`
 (see "One working file").
 
-Sub-agents are roles. Where the host supports subagents (Cowork, Claude
-Code), run the heavy ones — `web-domain-finder`, `hubspot-searcher`,
-`leftover-duplicate-finder` — as subagents so raw results stay out of the
-chat; run the others inline. Name the sub-agent when you start its work
+Each step owns its subagents. Where the host supports subagents (Cowork,
+Claude Code), run them as subagents — always the heavy ones
+(`web-domain-finder`, `hubspot-searcher`, `leftover-duplicate-finder`) so raw
+results stay out of the chat. `clay-guide` is an agent in its own right (step
+5 is a guided conversation, not a sub-task). Name the sub-agent when you start its work
 ("Step 3 · hubspot-searcher: …") so the user can follow along.
 
 ## HubSpot links in chat — always
@@ -456,7 +478,7 @@ on the work happens in HubSpot and the files are not updated again.
 
 ## Step 5 — Enrichment in Clay (user-run, guided)
 
-Sub-agent: `clay-guide`.
+Agent: `clay-guide`.
 
 Assumes the segment exists, duplicates are merged and every contact is
 associated with its company. This step happens in Clay, not HubSpot. The
