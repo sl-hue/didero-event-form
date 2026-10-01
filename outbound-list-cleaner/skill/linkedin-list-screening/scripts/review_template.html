@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--fg:#1d1b18;--mut:#6f6a62;--line:#e4e1da;--fit:#1f7a4d;--fitbg:#e3f3ea;
+--unc:#8a5a00;--uncbg:#fbf0d9;--no:#b3261e;--nobg:#fbe4e2;--acc:#2f5bd3;--accbg:#e6ecfb;--hl:#fff1a8;--hl2:#e6eefc;--shadow:0 6px 24px rgba(0,0,0,.08)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#161513;--card:#22201d;--fg:#f1eee8;--mut:#a39d93;
+--line:#3a3631;--fit:#6fd3a0;--fitbg:#163527;--unc:#f0c46a;--uncbg:#3a2e14;--no:#ff8a80;--nobg:#3d1a17;--acc:#8fb0ff;--accbg:#1d2740;--hl:#4a4012;--hl2:#1e2a45;--shadow:none}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:18px;margin:0 0 4px}h2{font-size:15px;margin:0 0 8px}.mut{color:var(--mut)}.sm{font-size:13px}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:12px 0 16px}.bar i{display:block;height:100%;background:var(--acc)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.num{color:var(--mut);font-size:13px;white-space:nowrap}
+.co{font-size:21px;font-weight:650;margin:0}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;margin:2px 4px 2px 0;white-space:nowrap}
+.fit{background:var(--fitbg);color:var(--fit)}.unclear,.review{background:var(--uncbg);color:var(--unc)}.no,.exclude{background:var(--nobg);color:var(--no)}
+.keep{background:var(--fitbg);color:var(--fit)}.rulechip{background:var(--accbg);color:var(--acc)}
+.why{font-size:13px;margin-top:6px}
+.person{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.person:first-child{border-top:0}.pname{font-weight:600}.pname a{color:inherit}.ptitle{font-size:14px}
+.reasons{font-size:12px;color:var(--mut);margin-top:2px}
+.tog{display:flex;gap:6px}.tog button{padding:7px 11px;font-size:14px}
+.tog .on.k{background:var(--fit);border-color:var(--fit);color:#fff}.tog .on.x{background:var(--no);border-color:var(--no);color:#fff}
+.src{font-size:11px;color:var(--mut);text-align:right;margin-top:3px}
+.btns{display:grid;grid-template-columns:1fr 1.2fr 1.2fr 1.2fr;gap:8px;margin-top:14px}
+button{font:inherit;font-weight:600;border-radius:10px;border:1px solid var(--line);padding:11px 10px;cursor:pointer;background:var(--card);color:var(--fg)}
+button.k{background:var(--fit);border-color:var(--fit);color:#fff}button.x{background:var(--no);border-color:var(--no);color:#fff}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff}
+.tog button.k,.tog button.x{background:var(--card);color:var(--fg);border-color:var(--line)}
+button:disabled{opacity:.4;cursor:default}button.link{border:0;background:none;color:var(--acc);padding:6px 0;font-weight:500}
+.keys{font-size:12px;color:var(--mut);text-align:center;margin-top:8px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
+.stat b{display:block;font-size:20px}
+.geo{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.geo input{flex:1 1 180px;font:inherit;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-width:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:8px 10px;font-weight:500;font-size:14px}.seg button.on{background:var(--acc);color:#fff}
+.msg{margin-top:10px;padding:10px;border-radius:9px;background:var(--uncbg);font-size:14px}.msg.ok{background:var(--fitbg)}
+.msg button{padding:5px 10px;margin:4px 6px 0 0;font-size:13px}
+.rules{margin-top:10px}.rule{display:inline-flex;align-items:center;gap:6px;background:var(--accbg);color:var(--fg);border-radius:99px;padding:3px 4px 3px 10px;margin:3px 6px 3px 0;font-size:13px}
+.rule button{border:0;background:none;padding:0 6px;font-size:15px;color:var(--mut)}
+.cs{margin-top:8px;font-size:12px}.cs button{font-size:12px;font-weight:500;padding:2px 8px;border-radius:99px;margin:2px 4px 2px 0}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:6px 6px;border-top:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--mut);font-weight:600;border-top:0}
+tr.chg td{background:var(--hl)}tr.dec td{background:var(--hl2)}td.coh{font-weight:650;padding-top:12px}
+td.coh button{font-size:12px;padding:0 0 0 8px}
+.legend span{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin:0 4px 0 10px;border:1px solid var(--line)}
+textarea{width:100%;font:13px ui-monospace,Menlo,monospace;padding:10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-height:70px}
+.choice{display:grid;gap:10px;margin-top:14px}
+@media (max-width:560px){.person{grid-template-columns:1fr}.src{text-align:left}.btns{grid-template-columns:1fr 1fr}}
+</style></head><body><div class="wrap" id="app"></div>
+<script>
+const CARDS = __CARDS__;
+const GEO = __GEO__;
+const KEY = "ls-review-__REVIEW_ID__";
+const SCOPES = {b: "company & contact", c: "company", p: "contact"};
+let state = {mode: null, view: "start", i: 0, d: {}, seen: {}, rules: []};
+try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.d) state = Object.assign(state, s); } catch (e) {}
+CARDS.forEach(c => { if (c.decision && !state.d[c.n]) state.d[c.n] = c.decision; });
+let ui = {mode: "exclude", scope: "b", msg: "", onlyChanges: false};
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const app = document.getElementById("app");
+
+// ---- companies: one card per company -------------------------------------
+const COMPANIES = [];
+(() => { const by = {};
+  CARDS.forEach(c => { const k = (c.company || "(no company)").trim().toLowerCase();
+    if (!by[k]) { by[k] = {key: k, name: c.company || "(no company)", people: []}; COMPANIES.push(by[k]); }
+    by[k].people.push(c); });
+  COMPANIES.forEach(co => {
+    const cnt = {}; co.people.forEach(c => { if (c.company_country) cnt[c.company_country] = (cnt[c.company_country] || 0) + 1; });
+    co.country = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || "";
+    co.verdict = co.people[0].verdicts[1];
+  });
+})();
+
+// ---- countries ------------------------------------------------------------
+const DATA_COUNTRIES = {};
+CARDS.forEach(c => [c.company_country, c.contact_country].forEach(x => { if (x) DATA_COUNTRIES[x] = 1; }));
+const KNOWN = [...new Set([...Object.values(GEO.aliases), ...Object.keys(DATA_COUNTRIES)])].sort();
+function lev(a, b) { const m = a.length, n = b.length, d = Array.from({length: m + 1}, (_, i) => [i]);
+  for (let j = 1; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+    d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return d[m][n]; }
+// -> {country} when sure, {ask:[...], note} when not, {none:true} when nothing fits
+function resolveCountry(text) {
+  const t = text.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!t) return null;
+  if (GEO.ambiguous[t]) return {ask: GEO.ambiguous[t].map(o => o.replace(/^United States.*/, "United States").replace(/ \(.*$/, "")),
+    labels: GEO.ambiguous[t], note: `“${esc(text)}” could mean more than one place. Which one?`};
+  for (const v of [t, t.replace(/\./g, "")]) {
+    if (GEO.aliases[v]) return {country: GEO.aliases[v]};
+    const k = KNOWN.find(x => x.toLowerCase() === v); if (k) return {country: k};
+  }
+  if (GEO.states.includes(t)) return {ask: ["United States"], note: `${esc(text)} is a US state. Rules work by country. Did you mean the United States?`};
+  if (GEO.provinces.includes(t)) return {ask: ["Canada"], note: `${esc(text)} is a Canadian province. Rules work by country. Did you mean Canada?`};
+  const cands = KNOWN.map(k => { const l = k.toLowerCase();
+      return {k, s: l.startsWith(t) ? 0 : Math.min(lev(t, l), ...Object.entries(GEO.aliases).filter(([a, c]) => c === k).map(([a]) => lev(t, a)))}; })
+    .filter(x => x.s <= Math.max(2, Math.floor(t.length / 4))).sort((a, b) => a.s - b.s || a.k.localeCompare(b.k)).slice(0, 4);
+  if (cands.length) return {ask: cands.map(x => x.k), note: `Not sure which country “${esc(text)}” is. Did you mean:`};
+  return {none: true};
+}
+
+// ---- rules and decisions -----------------------------------------------------
+function ruleFor(c) {  // reason a country rule excludes this contact, or ""
+  const cc = {c: c.company_country, p: c.contact_country};
+  for (const r of state.rules) if (r.mode === "exclude")
+    for (const s of ["c", "p"]) if ((r.scope === s || r.scope === "b") && cc[s] === r.country) return `rule: exclude ${r.country} (${SCOPES[s]})`;
+  for (const s of ["c", "p"]) {
+    const inc = state.rules.filter(r => r.mode === "include" && (r.scope === s || r.scope === "b")).map(r => r.country);
+    if (inc.length && cc[s] && !inc.includes(cc[s])) return `rule: ${SCOPES[s]} not in ${inc.join(", ")}`;
+  }
+  return "";
+}
+const recDecision = c => c.recommendation === "keep" || c.recommendation === "exclude" ? c.recommendation : "";
+function effective(c) {
+  if (state.d[c.n]) return {d: state.d[c.n], src: "your answer"};
+  const r = ruleFor(c); if (r) return {d: "exclude", src: r};
+  const rd = recDecision(c); return rd ? {d: rd, src: `Claude suggests ${rd}`} : {d: "", src: "needs your answer"};
+}
+const needsLook = co => co.people.some(c => c.recommendation !== "keep" && !ruleFor(c));
+const deck = () => state.mode === "flagged" ? COMPANIES.filter(needsLook) : COMPANIES;
+function finalDecision(c) {
+  const co = COMPANIES.find(x => x.people.includes(c));
+  if (state.d[c.n]) return state.d[c.n];
+  if (ruleFor(c)) return "exclude";
+  if (state.seen[co.key] || (state.mode === "flagged" && !needsLook(co))) return recDecision(c);
+  return "";
+}
+
+// ---- country bar ---------------------------------------------------------------
+function geoBar() {
+  const counts = {};
+  CARDS.forEach(c => { const k = c.company_country || "unknown"; counts[k] = (counts[k] || 0) + 1; });
+  const affected = r => CARDS.filter(c => { const kept = state.rules; state.rules = [r]; const hit = ruleFor(c); state.rules = kept; return hit; }).length;
+  return `<div class="box"><h2>Country rules</h2>
+  <div class="geo"><input id="cty" list="ctylist" placeholder="Type a country, e.g. united states" autocomplete="off">
+  <datalist id="ctylist">${KNOWN.map(k => `<option value="${esc(k)}">`).join("")}</datalist>
+  <span class="seg" id="gm"><button data-v="include" class="${ui.mode === "include" ? "on" : ""}">Include only</button><button data-v="exclude" class="${ui.mode === "exclude" ? "on" : ""}">Exclude</button></span>
+  <span class="seg" id="gs"><button data-v="c" class="${ui.scope === "c" ? "on" : ""}">Company</button><button data-v="p" class="${ui.scope === "p" ? "on" : ""}">Contact</button><button data-v="b" class="${ui.scope === "b" ? "on" : ""}">Both</button></span>
+  <button class="p" id="gadd">Add</button></div>
+  ${ui.msg ? `<div class="msg ${ui.msgOk ? "ok" : ""}">${ui.msg}</div>` : ""}
+  ${state.rules.length ? `<div class="rules">${state.rules.map((r, i) => `<span class="rule">${r.mode === "include" ? "Include only" : "Exclude"} <b>${esc(r.country)}</b> · ${SCOPES[r.scope]} · ${affected(r)} excluded<button data-del="${i}" title="Remove rule">×</button></span>`).join("")}</div>` : `<div class="sm mut" style="margin-top:8px">No rules. Your answers on the cards always win over a rule.</div>`}
+  <div class="cs mut">Company countries on this list: ${Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, v]) => k === "unknown" ? `<span>unknown ${v}</span>` : `<button data-fill="${esc(k)}">${esc(k)} ${v}</button>`).join("")}</div></div>`;
+}
+function wireGeo(rerender) {
+  const inp = document.getElementById("cty");
+  document.querySelectorAll("#gm button").forEach(b => b.onclick = () => { ui.mode = b.dataset.v; rerender(); });
+  document.querySelectorAll("#gs button").forEach(b => b.onclick = () => { ui.scope = b.dataset.v; rerender(); });
+  document.querySelectorAll("[data-fill]").forEach(b => b.onclick = () => { inp.value = b.dataset.fill; inp.focus(); });
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { state.rules.splice(+b.dataset.del, 1); ui.msg = ""; save(); rerender(); });
+  document.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => addRule(b.dataset.pick, b.dataset.pick, rerender, false));
+  document.querySelectorAll("[data-force]").forEach(b => b.onclick = () => addRule(b.dataset.force, b.dataset.force, rerender, true));
+  document.getElementById("gadd").onclick = () => tryAdd(inp.value, rerender);
+  inp.onkeydown = e => { if (e.key === "Enter") tryAdd(inp.value, rerender); };
+}
+function tryAdd(text, rerender) {
+  const r = resolveCountry(text);
+  if (!r) return;
+  ui.msgOk = false;
+  if (r.none) { ui.msg = `“${esc(text)}” doesn't match any country I know. Check the spelling, or ask Claude in the chat.`; return rerender(); }
+  if (r.ask) { ui.msg = `${r.note}<br>${r.ask.map((k, i) => `<button data-pick="${esc(k)}">${esc(r.labels ? r.labels[i] : k)}</button>`).join("")}`; return rerender(); }
+  addRule(r.country, text, rerender, false);
+}
+function addRule(country, typed, rerender, confirmed) {
+  const rule = {mode: ui.mode, scope: ui.scope, country};
+  if (state.rules.some(r => r.mode === rule.mode && r.scope === rule.scope && r.country === country)) { ui.msg = "That rule is already there."; ui.msgOk = false; return rerender(); }
+  const fields = rule.scope === "c" ? ["company_country"] : rule.scope === "p" ? ["contact_country"] : ["company_country", "contact_country"];
+  const present = CARDS.filter(c => fields.some(f => c[f] === country)).length;
+  const matchNote = typed.trim().toLowerCase() !== country.toLowerCase() ? `Matched “${esc(typed)}” to <b>${esc(country)}</b>. ` : "";
+  if (!present && rule.mode === "include" && !confirmed) {
+    ui.msg = `${matchNote}No one on this list has ${SCOPES[rule.scope]} in ${esc(country)}, so “include only” would exclude everyone with a known country. Add it anyway?<br><button data-force="${esc(country)}">Yes, add it</button>`;
+    ui.msgOk = false; return rerender();
+  }
+  state.rules.push(rule); save();
+  ui.msg = matchNote + (present ? `Rule added.` : `Rule added, but no one on this list is in ${esc(country)}, so it changes nothing.`);
+  ui.msgOk = true;
+  const inp = document.getElementById("cty"); if (inp) inp.value = "";
+  rerender();
+}
+
+// ---- screens ---------------------------------------------------------------
+function render() { ({start, card, review, done})[state.view || "start"](); }
+function go(view) { state.view = view; save(); ui.msg = ""; render(); }
+
+function start() {
+  const n = k => CARDS.filter(c => c.recommendation === k).length;
+  const flagged = COMPANIES.filter(needsLook);
+  app.innerHTML = `<h1>__TITLE__</h1><div class="mut">${CARDS.length} contacts at ${COMPANIES.length} companies. One card per company: keep or exclude everyone at once, or person by person.</div>
+  <div class="stats"><div class="stat"><b>${n("keep")}</b>recommended keep</div><div class="stat"><b>${n("review")}</b>need a look</div>
+  <div class="stat"><b>${n("exclude")}</b>recommended exclude</div></div>
+  ${geoBar()}
+  <div class="choice"><button class="k" id="all">Review all ${COMPANIES.length} companies</button>
+  <button id="flag">Review only the ${flagged.length} companies with someone who needs a look or would be excluded<br><span class="mut" style="font-weight:400">clear passes are kept, and country rules apply</span></button>
+  ${Object.keys(state.d).length || Object.keys(state.seen).length ? `<button id="fin">See the results so far</button>` : ""}</div>`;
+  wireGeo(start);
+  document.getElementById("all").onclick = () => { state.mode = "all"; state.i = 0; go("card"); };
+  document.getElementById("flag").onclick = () => { state.mode = "flagged"; state.i = 0; go("card"); };
+  const f = document.getElementById("fin"); if (f) f.onclick = () => { state.mode = state.mode || "flagged"; go("review"); };
+}
+
+function card() {
+  const D = deck(), edit = state.editKey && COMPANIES.find(x => x.key === state.editKey);
+  if (!edit && (!D.length || state.i >= D.length)) { state.i = D.length; return go("review"); }
+  const co = edit || D[state.i], pct = edit ? 100 : Math.round(100 * state.i / D.length);
+  const rows = co.people.map(c => {
+    const e = effective(c), t = c.verdicts[0], g = c.verdicts[2];
+    const name = c.linkedin ? `<a href="${esc(c.linkedin)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name);
+    return `<div class="person"><div><div class="pname">${name} <span class="chip ${esc(c.recommendation)}">Claude: ${esc(c.recommendation)}</span></div>
+      <div class="ptitle">${esc(c.title) || '<span class="mut">no title</span>'}</div>
+      <div class="reasons"><span class="chip ${esc(t.fit)}">Title · ${t.fit === "no" ? "not a fit" : esc(t.fit)}</span>${esc(t.reason)}<br>
+      <span class="chip ${esc(g.fit)}">Geo · ${g.fit === "no" ? "not a fit" : esc(g.fit)}</span>Contact in ${esc(c.contact_country) || "unknown"}${g.reason ? " — " + esc(g.reason) : ""}</div></div>
+      <div><div class="tog"><button class="x ${e.d === "exclude" ? "on" : ""}" data-n="${c.n}" data-v="exclude">✗</button><button class="k ${e.d === "keep" ? "on" : ""}" data-n="${c.n}" data-v="keep">✓</button></div>
+      <div class="src">${esc(e.src)}</div></div></div>`; }).join("");
+  const open = co.people.filter(c => !effective(c).d).length;
+  app.innerHTML = `<div class="top"><h1>__TITLE__</h1><span class="num">${edit ? "Editing one company" : `Company ${state.i + 1} / ${D.length}`}</span></div>
+  <div class="bar"><i style="width:${pct}%"></i></div>
+  ${geoBar()}
+  <div class="box"><div class="top"><p class="co">${esc(co.name)}</p><span class="num">${co.people.length} contact${co.people.length > 1 ? "s" : ""}</span></div>
+  <div class="sm mut">HQ: ${esc(co.country) || "unknown"}</div>
+  <div class="why"><span class="chip ${esc(co.verdict.fit)}">Company · ${co.verdict.fit === "no" ? "not a fit" : esc(co.verdict.fit)}</span>${esc(co.verdict.reason)}</div>
+  <div style="margin-top:10px">${rows}</div>
+  <div class="btns"><button id="b" ${state.i === 0 || edit ? "disabled" : ""}>← Back</button>
+  <button class="x" id="x">✗ Exclude all</button><button class="k" id="k">✓ Keep all</button>
+  <button class="p" id="nx" ${open ? "disabled" : ""}>${open ? `${open} to answer` : edit ? "Done → results" : "Next →"}</button></div>
+  <div class="keys">Keys: Y keep all · N exclude all · Enter next (as marked) · ← back. “All” leaves people set by a country rule as they are.</div></div>
+  ${edit ? "" : `<button class="link" id="home">Start over / change mode</button> · `}<button class="link" id="fin">${edit ? "← Back to results" : "See results so far"}</button>`;
+  wireGeo(card);
+  document.querySelectorAll(".tog button").forEach(b => b.onclick = () => { state.d[b.dataset.n] = b.dataset.v; save(); card(); });
+  document.getElementById("k").onclick = () => all(co, "keep");
+  document.getElementById("x").onclick = () => all(co, "exclude");
+  document.getElementById("nx").onclick = () => next(co);
+  document.getElementById("b").onclick = back;
+  if (!edit) document.getElementById("home").onclick = () => { state.mode = null; go("start"); };
+  document.getElementById("fin").onclick = () => { state.editKey = null; go("review"); };
+}
+function all(co, v) { co.people.forEach(c => { if (!ruleFor(c) || state.d[c.n]) state.d[c.n] = v; }); next(co); }
+function next(co) {
+  if (co.people.some(c => !effective(c).d)) return;
+  state.seen[co.key] = 1; ui.msg = "";
+  if (state.editKey) { state.editKey = null; return go("review"); }
+  state.i++; save(); card();
+}
+function back() { if (state.i > 0) { state.i--; ui.msg = ""; save(); card(); } }
+
+// ---- final review: everything, changes highlighted --------------------------
+function review() {
+  const fin = CARDS.map(c => ({c, d: finalDecision(c), why: state.d[c.n] ? "your answer" : ruleFor(c) || (finalDecision(c) ? "Claude's recommendation" : "")}));
+  const K = fin.filter(x => x.d === "keep").length, X = fin.filter(x => x.d === "exclude").length, O = fin.length - K - X;
+  const cls = x => !x.d ? "dec" : (x.why.startsWith("rule") || (x.c.recommendation !== "review" && x.d !== x.c.recommendation)) ? "chg" : x.c.recommendation === "review" ? "dec" : "";
+  const nChg = fin.filter(x => cls(x) === "chg").length, nDec = fin.filter(x => cls(x) === "dec").length;
+  const body = COMPANIES.map(co => {
+    const rs = fin.filter(x => co.people.includes(x.c)).filter(x => !ui.onlyChanges || cls(x));
+    if (!rs.length) return "";
+    return `<tr><td class="coh" colspan="5">${esc(co.name)} <span class="mut" style="font-weight:400">${esc(co.country)}</span><button class="link" data-go="${esc(co.key)}">edit</button></td></tr>` +
+      rs.map(x => `<tr class="${cls(x)}"><td>${esc(x.c.name)}</td><td>${esc(x.c.title)}</td><td><span class="chip ${esc(x.c.recommendation)}">${esc(x.c.recommendation)}</span></td>
+      <td>${x.d ? `<span class="chip ${x.d}">${x.d}</span>` : '<b class="mut">not answered</b>'}</td><td class="mut">${esc(x.why)}</td></tr>`).join("");
+  }).join("");
+  app.innerHTML = `<h1>Review the results</h1><div class="mut">Check everything before you approve. Highlighted rows are where the result isn't simply Claude's recommendation.</div>
+  <div class="stats"><div class="stat"><b>${K}</b>keep</div><div class="stat"><b>${X}</b>exclude</div><div class="stat"><b>${O}</b>not answered</div></div>
+  <div class="sm legend"><span style="background:var(--hl)"></span>${nChg} changed from Claude's recommendation or set by a country rule <span style="background:var(--hl2)"></span>${nDec} that Claude left to you</div>
+  <div style="margin:10px 0"><label class="sm"><input type="checkbox" id="oc" ${ui.onlyChanges ? "checked" : ""}> Show only highlighted rows</label></div>
+  <div class="box" style="padding:8px 10px;overflow-x:auto"><table><thead><tr><th>Contact</th><th>Title</th><th>Claude</th><th>Final</th><th>Why</th></tr></thead><tbody>${body || '<tr><td colspan="5" class="mut">Nothing highlighted.</td></tr>'}</tbody></table></div>
+  ${O ? `<p class="sm" style="color:var(--unc)">${O} contacts are not answered yet. They stay undecided unless you go back and answer them.</p>` : ""}
+  <div class="choice"><button class="k" id="ok">Looks right — get the code for Claude</button><button id="bk">← Back to the cards</button></div>`;
+  document.getElementById("oc").onchange = e => { ui.onlyChanges = e.target.checked; review(); };
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { state.editKey = b.dataset.go; go("card"); });
+  document.getElementById("ok").onclick = () => go("done");
+  document.getElementById("bk").onclick = () => { state.i = Math.max(0, deck().length - 1); go("card"); };
+}
+
+function done() {
+  const X = [], K = [];
+  CARDS.forEach(c => { const d = finalDecision(c); if (d) (d === "exclude" ? X : K).push(c.n); });
+  const ranges = a => { const out = []; for (let i = 0; i < a.length; i++) { let j = i;
+      while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++; out.push(j > i ? `${a[i]}-${a[j]}` : `${a[i]}`); i = j; }
+    return out.join(","); };
+  const R = state.rules.map(r => `${r.mode === "include" ? "+" : "-"}${r.scope}:${r.country}`).join("|");
+  const code = `LS1;${CARDS.length};X:${ranges(X)};K:${ranges(K)}` + (R ? `;R:${R}` : "");
+  app.innerHTML = `<h1>Approved — one last step</h1>
+  <p><strong>Copy this code and paste it into the chat.</strong> Claude will show you the changes once more, then save them to the list after you say OK.</p>
+  <textarea id="code" readonly>${esc(code)}</textarea>
+  <div class="choice"><button class="k" id="copy">Copy code</button><button id="dl">Download answers (.json)</button></div>
+  <button class="link" id="again">← Back to the results</button>`;
+  const ta = document.getElementById("code");
+  document.getElementById("copy").onclick = async () => {
+    try { await navigator.clipboard.writeText(code); document.getElementById("copy").textContent = "Copied ✓"; }
+    catch (e) { ta.focus(); ta.select(); document.getElementById("copy").textContent = "Selected — press Ctrl/Cmd+C"; }
+  };
+  document.getElementById("dl").onclick = () => {
+    const dec = {}; CARDS.forEach(c => { const d = finalDecision(c); if (d) dec[c.row_id] = d; });
+    const blob = new Blob([JSON.stringify({code, rules: state.rules, decisions: dec}, null, 1)], {type: "application/json"});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "screening_answers.json"; a.click();
+  };
+  document.getElementById("again").onclick = () => go("review");
+}
+
+document.addEventListener("keydown", e => {
+  if (state.view !== "card" || ["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
+  const D = deck(), co = (state.editKey && COMPANIES.find(x => x.key === state.editKey)) || D[state.i];
+  if (!co) return;
+  if (e.key === "y" || e.key === "Y") all(co, "keep");
+  else if (e.key === "n" || e.key === "N") all(co, "exclude");
+  else if (e.key === "Enter" || e.key === "ArrowRight") next(co);
+  else if (e.key === "ArrowLeft" && !state.editKey) back();
+});
+render();
+</script></body></html>

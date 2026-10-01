@@ -47,7 +47,7 @@ STD = ["Row ID", "Contact", "Title", "Company", "Contact Country", "Company Coun
 COUNTRY_ALIASES = {
     "us": "United States", "usa": "United States", "u.s.": "United States", "united states": "United States",
     "united states of america": "United States", "america": "United States",
-    "ca": "Canada", "canada": "Canada",
+    "canada": "Canada",
     "uk": "United Kingdom", "u.k.": "United Kingdom", "united kingdom": "United Kingdom",
     "great britain": "United Kingdom", "britain": "United Kingdom", "gb": "United Kingdom",
     "england": "United Kingdom", "scotland": "United Kingdom", "wales": "United Kingdom",
@@ -57,6 +57,21 @@ COUNTRY_ALIASES = {
     "france": "France", "netherlands": "Netherlands", "switzerland": "Switzerland", "japan": "Japan",
     "china": "China", "india": "India", "australia": "Australia",
 }
+# More countries, so whatever the user types (any case) can be matched.
+for _c in ("Argentina", "Austria", "Bangladesh", "Belgium", "Brazil", "Bulgaria", "Chile", "Colombia",
+           "Costa Rica", "Croatia", "Czech Republic", "Denmark", "Dominican Republic", "Egypt", "Estonia",
+           "Finland", "Greece", "Guatemala", "Hong Kong", "Hungary", "Indonesia", "Israel", "Italy",
+           "Kenya", "Latvia", "Lithuania", "Luxembourg", "Malaysia", "Morocco", "New Zealand", "Nigeria",
+           "Norway", "Pakistan", "Peru", "Philippines", "Poland", "Portugal", "Puerto Rico", "Romania",
+           "Saudi Arabia", "Serbia", "Singapore", "Slovakia", "Slovenia", "South Africa", "South Korea",
+           "Spain", "Sri Lanka", "Sweden", "Taiwan", "Thailand", "Turkey", "Ukraine",
+           "United Arab Emirates", "Uruguay", "Vietnam"):
+    COUNTRY_ALIASES.setdefault(_c.lower(), _c)
+COUNTRY_ALIASES.update({"uae": "United Arab Emirates", "korea": "South Korea", "czechia": "Czech Republic",
+                        "türkiye": "Turkey", "holland": "Netherlands", "the netherlands": "Netherlands",
+                        "españa": "Spain", "italia": "Italy", "brasil": "Brazil"})
+# Typed by a user these could mean two places: always ask.
+AMBIGUOUS = {"ca": ["Canada", "United States (California)"], "georgia": ["Georgia (the country)", "United States (Georgia)"]}
 US_STATES = {"alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware",
              "florida", "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky",
              "louisiana", "maine", "maryland", "massachusetts", "michigan", "minnesota", "mississippi",
@@ -66,6 +81,9 @@ US_STATES = {"alabama", "alaska", "arizona", "arkansas", "california", "colorado
              "virginia", "washington", "west virginia", "wisconsin", "wyoming", "district of columbia"}
 CA_PROVINCES = {"alberta", "british columbia", "manitoba", "new brunswick", "newfoundland and labrador",
                 "nova scotia", "ontario", "prince edward island", "quebec", "québec", "saskatchewan"}
+US_STATE_CODES = set("AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ "
+                     "NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC".split())
+CA_PROVINCE_CODES = set("AB BC MB NB NL NS ON PE QC SK".split())
 
 
 def pick(row, key):
@@ -80,8 +98,13 @@ def country_of(*texts):
     for text in texts:
         if not text:
             continue
-        parts = [p.strip().lower() for p in re.split(r"[,/|]", text) if p.strip()]
-        for p in reversed(parts):
+        raw = [p.strip() for p in re.split(r"[,/|]", text) if p.strip()]
+        parts = [p.lower() for p in raw]
+        for q, p in zip(reversed(raw), reversed(parts)):
+            if q in US_STATE_CODES:      # "Austin, TX" (CA here = California)
+                return "United States"
+            if q in CA_PROVINCE_CODES:
+                return "Canada"
             if p in COUNTRY_ALIASES:
                 return COUNTRY_ALIASES[p]
             if p in US_STATES:
@@ -160,10 +183,37 @@ def title_fit(title):
     return "no", "function and seniority outside the targets"
 
 
+def canonical_countries(values):
+    """User-typed countries -> canonical names, any case or common variant
+    ("united states", "USA", "scotland" -> United Kingdom). Anything unknown
+    stops with suggestions, so Claude checks with the user instead of guessing."""
+    import difflib
+    known = sorted(set(COUNTRY_ALIASES.values()))
+    out, unknown = [], []
+    for v in values:
+        low = v.strip().lower()
+        if low in AMBIGUOUS:
+            unknown.append(f"{v!r} (could be {' or '.join(AMBIGUOUS[low])})")
+            continue
+        if low in US_STATES or low in CA_PROVINCES or v.strip() in US_STATE_CODES | CA_PROVINCE_CODES:
+            unknown.append(f"{v!r} (a state/province, not a country — did they mean "
+                           f"{'Canada' if low in CA_PROVINCES or v.strip() in CA_PROVINCE_CODES else 'United States'}?)")
+            continue
+        c = country_of(v) or next((k for k in known if k.lower() == v.strip().lower()), "")
+        if c:
+            out.append(c)
+        else:
+            close = difflib.get_close_matches(v.strip().title(), known, n=3, cutoff=0.6)
+            unknown.append(f"{v!r}" + (f" (did you mean {', '.join(close)}?)" if close else ""))
+    if unknown:
+        raise SystemExit("not sure which country is meant: " + "; ".join(unknown) + " — ask the user")
+    return sorted(set(out))
+
+
 def check(args):
     fields, rows = load(args.run_dir)
-    companies = args.company_countries or CONFIG["default_company_countries"]
-    contacts = args.contact_countries or CONFIG["default_contact_countries"]
+    companies = canonical_countries(args.company_countries) if args.company_countries else CONFIG["default_company_countries"]
+    contacts = canonical_countries(args.contact_countries) if args.contact_countries else CONFIG["default_contact_countries"]
     for r in rows:
         if not r.get("Title Fit"):
             r["Title Fit"], r["Title Reason"] = title_fit(r["Title"])
@@ -237,11 +287,61 @@ def summary(args):
         print(f"{col}: {dict(Counter(r.get(col) or '—' for r in rows))}")
 
 
+RULE_SCOPE = {"c": "company", "p": "contact", "b": "company and contact"}
+
+
+def parse_rules(text):
+    """'+b:United States|-c:Germany' -> [{"mode": "include", "scope": "b", "country": "United States"}, ...]"""
+    out = []
+    for part in filter(None, (text or "").split("|")):
+        mode, scope, country = part[0], part[1], part[3:]
+        out.append({"mode": "include" if mode == "+" else "exclude", "scope": scope, "country": country})
+    return out
+
+
+def rule_hit(row, rules):
+    """The country rule that excludes this row, if any (same logic as the review page)."""
+    countries = {"c": row["Company Country"], "p": row["Contact Country"]}
+    for r in rules:
+        if r["mode"] == "exclude":
+            for s in ("c", "p"):
+                if r["scope"] in (s, "b") and countries[s] == r["country"]:
+                    return f"country rule: exclude {r['country']} ({RULE_SCOPE[s]})"
+    for s in ("c", "p"):
+        inc = [r["country"] for r in rules if r["mode"] == "include" and r["scope"] in (s, "b")]
+        if inc and countries[s] and countries[s] not in inc:
+            return f"country rule: {RULE_SCOPE[s]} not in {', '.join(inc)}"
+    return ""
+
+
 def apply_decisions(args):
-    """Code from the flashcards: 'LS1;<n cards>;X:<card numbers>;K:<card numbers>'."""
+    """Code from the flashcards: 'LS1;<n cards>;X:<numbers>;K:<numbers>[;R:<country rules>]'.
+    Without --confirm it only previews: writes decisions_pending.json and prints every
+    change. With --confirm (after the user approves) it writes the pending decisions
+    into screening.csv."""
+    run = Path(args.run_dir)
     fields, rows = load(args.run_dir)
-    cards = json.loads((Path(args.run_dir) / "cards.json").read_text())
-    m = re.match(r"LS1;(\d+);X:([\d,\-]*);K:([\d,\-]*)$", args.code.strip())
+    pending_path = run / "decisions_pending.json"
+    if args.confirm:
+        if not pending_path.exists():
+            raise SystemExit("nothing pending — paste the review code first (apply-decisions --code …)")
+        pending = json.loads(pending_path.read_text())
+        for col in ("Decision", "Decision Note"):
+            if col not in fields:
+                fields.insert(fields.index("Decision") + 1 if col == "Decision Note" else len(fields), col)
+        by_id = {r["Row ID"]: r for r in rows}
+        for rid, d in pending["decisions"].items():
+            by_id[rid]["Decision"], by_id[rid]["Decision Note"] = d["decision"], d["note"]
+        save(args.run_dir, fields, rows)
+        (run / "geo_rules.json").write_text(json.dumps(pending["rules"], indent=2))
+        pending_path.rename(run / "decisions_applied.json")
+        print(f"saved to screening.csv: {sum(d['decision'] == 'keep' for d in pending['decisions'].values())} keep, "
+              f"{sum(d['decision'] == 'exclude' for d in pending['decisions'].values())} exclude")
+        return summary(args)
+    if not args.code:
+        raise SystemExit("give --code (preview) or --confirm (after the user approves)")
+    cards = json.loads((run / "cards.json").read_text())
+    m = re.match(r"LS1;(\d+);X:([\d,\-]*);K:([\d,\-]*)(?:;R:(.*))?$", args.code.strip())
     if not m or int(m.group(1)) != len(cards):
         raise SystemExit("that code doesn't match this review (wrong list or an old review) — ask the user to copy it again")
     def num(s):
@@ -251,17 +351,40 @@ def apply_decisions(args):
             out |= set(range(int(a), int(b or a) + 1))
         return out
     exclude, keep = num(m.group(2)), num(m.group(3))
+    rules = parse_rules(m.group(4))
     by_id = {r["Row ID"]: r for r in rows}
+    decisions, changes, open_ = {}, [], []
     for c in cards:
         r = by_id[c["row_id"]]
-        if c["n"] in exclude:
-            r["Decision"] = "exclude"
-        elif c["n"] in keep:
-            r["Decision"] = "keep"
-    save(args.run_dir, fields, rows)
-    print(f"decisions applied: {len(keep)} keep, {len(exclude)} exclude, "
-          f"{len(cards) - len(keep) - len(exclude)} not decided")
-    summary(args)
+        d = "exclude" if c["n"] in exclude else "keep" if c["n"] in keep else ""
+        if not d:
+            open_.append(r)
+            continue
+        hit = rule_hit(r, rules)
+        if hit and d == "exclude":
+            note = hit
+        elif hit:
+            note = f"reviewer kept, overriding {hit}"
+        elif r["Recommendation"] == "review":
+            note = "reviewer (Claude left it to the user)"
+        elif d != r["Recommendation"]:
+            note = "reviewer, against Claude's recommendation"
+        else:
+            note = "Claude's recommendation"
+        decisions[r["Row ID"]] = {"decision": d, "note": note}
+        if d != r["Recommendation"] or hit or (r.get("Decision") and r["Decision"] != d):
+            changes.append((r, d, note))
+    pending_path.write_text(json.dumps({"code": args.code.strip(), "rules": rules, "decisions": decisions}, indent=1))
+    print(f"PREVIEW — nothing saved yet. {len(keep)} keep, {len(exclude)} exclude, {len(open_)} not answered")
+    if rules:
+        print("country rules: " + "; ".join(f"{r['mode']} {r['country']} ({RULE_SCOPE[r['scope']]})" for r in rules))
+    print(f"\n{len(changes)} contacts where the result differs from Claude's recommendation or came from a rule:")
+    print("Company | Contact | Title | Claude recommended | Final | Why")
+    for r, d, note in sorted(changes, key=lambda x: (x[0]["Company"].lower(), x[0]["Contact"])):
+        print(f"{r['Company']} | {r['Contact']} | {r['Title']} | {r['Recommendation']} | {d.upper()} | {note}")
+    if open_:
+        print(f"\nnot answered ({len(open_)}): " + ", ".join(f"{r['Contact']} ({r['Company']})" for r in open_))
+    print("\nShow this to the user. After they approve: apply-decisions --run-dir … --confirm")
 
 
 def main():
@@ -276,7 +399,8 @@ def main():
         p = sub.add_parser(name); p.add_argument("--run-dir", required=True); p.add_argument("--file", required=True)
         p.set_defaults(func=func)
     p = sub.add_parser("summary"); p.add_argument("--run-dir", required=True); p.set_defaults(func=summary)
-    p = sub.add_parser("apply-decisions"); p.add_argument("--run-dir", required=True); p.add_argument("--code", required=True)
+    p = sub.add_parser("apply-decisions"); p.add_argument("--run-dir", required=True); p.add_argument("--code")
+    p.add_argument("--confirm", action="store_true", help="write the previewed decisions into screening.csv")
     p.set_defaults(func=apply_decisions)
     args = ap.parse_args()
     args.func(args)

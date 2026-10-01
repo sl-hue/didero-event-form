@@ -61,19 +61,36 @@ the user which column holds it. If the file has pre-filter columns (e.g.
   `python3 scripts/flashcards.py build --run-dir <run_dir> --title "<list name>"`
   and open `<run_dir>/review.html` for the user in the Cowork / Claude Code
   window (send the file; it's a local page, never published).
-- The page shows one contact per card — name (linked to LinkedIn), title,
-  company, countries, the three verdicts with reasons, and your
-  recommendation — with **Keep**, **Exclude** and **Back** (keys Y, N, ←). The
-  user can review all cards, or only those that need a look or would be
-  excluded (clear passes are kept). Progress is saved in the page if it's
-  reopened.
-- When they finish, the page shows a short code (e.g.
-  `LS1;170;X:8;K:1-7,9-170`). Ask them to paste it into the chat, then run
-  `screen.py apply-decisions --run-dir <run_dir> --code "<code>"`, which
-  records **Decision = keep / exclude** on every row of `screening.csv` —
+- **One card per company** with all its contacts: the company verdict once,
+  then each person's title and geography verdicts and your recommendation.
+  **Keep all / Exclude all** (keys Y, N), or ✓ / ✗ per person, then Next
+  (Enter); Back (←). The user can review every company, or only companies
+  with someone who needs a look or would be excluded (clear passes are kept).
+  Progress is saved in the page if it's reopened.
+- **Country rules bar** (top of the page): the user types a country, picks
+  **Include only** or **Exclude**, and **Company / Contact / Both**. Any case
+  or common spelling matches ("united states", "USA", "scotland" → United
+  Kingdom). If the page isn't sure (typos, "CA", "Georgia", a state name) it
+  asks "did you mean…" and never guesses; an include rule nobody on the list
+  matches asks before it's added. A person's own ✓/✗ always beats a rule.
+  Contacts with an unknown country are never touched by a rule.
+- **Final review**: when the cards are done the page shows every contact,
+  grouped by company, with what changed highlighted — yellow where the result
+  differs from your recommendation or came from a rule, blue where you left it
+  to the user — and an **edit** link on every company. When they approve it
+  shows a code (e.g. `LS1;170;X:9-11,153;K:1-8,12-152,154-170;R:-c:Canada`).
+- Ask them to paste the code into the chat, then run
+  `screen.py apply-decisions --run-dir <run_dir> --code "<code>"`. This only
+  **previews**: show the user its table of changes (company, contact, title,
+  your recommendation, final, why) and the not-answered contacts. If they want
+  changes, they edit in the page and paste a new code.
+- **Only after the user's OK** run `screen.py apply-decisions --run-dir <run_dir> --confirm`,
+  which writes **Decision** (keep / exclude) and **Decision Note** (why) on
+  every row of `screening.csv` and saves the rules in `geo_rules.json` —
   nothing is deleted.
-- Show the result: counts, and every excluded contact (name, title,
-  company). Wait for the user's OK before the next stage.
+- If the user gives countries in the chat instead, the same matching applies:
+  `screen.py check` stops with "not sure which country is meant … did you
+  mean …" — ask the user, never pick one yourself.
 
 `screening.csv` is the state carried to the next stage: only rows with
 Decision = keep go on.
