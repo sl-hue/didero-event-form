@@ -21,6 +21,10 @@ import re
 from collections import Counter
 from pathlib import Path
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from location import parse_location  # noqa: E402
+
 HERE = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((HERE / "config.json").read_text())
 
@@ -28,19 +32,21 @@ ALIASES = {
     "first": ["First Name", "first_name", "firstName", "FirstName"],
     "last": ["Last Name", "last_name", "lastName", "LastName"],
     "full": ["Full Name", "Name", "full_name", "fullName"],
-    "title": ["Job Title", "Title", "Current Title", "title", "jobTitle", "Position"],
+    "title": ["Job Title", "Title", "Current Title", "Current Job", "title", "jobTitle", "Position"],
     "company": ["Company Name", "Company", "Current Company", "company", "companyName", "Organization"],
-    "website": ["Website", "Company Website", "Company Domain", "Domain", "companyWebsite"],
-    "linkedin": ["LinkedIn Contact Profile URL", "Profile URL", "LinkedIn URL", "Person Linkedin Url",
+    "website": ["Website", "Company Website", "Company Website URL", "Company Domain", "Domain", "companyWebsite"],
+    "linkedin": ["LinkedIn Contact Profile URL", "Linkedin URL Public", "Profile URL", "LinkedIn URL", "Person Linkedin Url",
                  "linkedinUrl", "LinkedIn Profile", "profileUrl"],
     "contact_location": ["Location", "Person Location", "Geography", "location"],
     "contact_country": ["Country", "Person Country", "Contact Country"],
     "contact_state": ["Person State", "State"],
+    "contact_city": ["Person City", "City"],
     "company_country": ["Company Country", "Company HQ Country", "HQ Country"],
     "company_location": ["Company Location", "Company HQ", "Company Headquarters", "companyLocation"],
     "id": ["ZoomInfo Contact ID", "LinkedIn ID", "Profile ID", "Sales Navigator ID", "id"],
 }
-STD = ["Row ID", "Contact", "Title", "Company", "Contact Country", "Company Country", "Company Presence",
+STD = ["Row ID", "Contact", "Title", "Company", "Contact City", "Contact State", "Contact Country", "Location Note",
+       "Company Country", "Company Presence",
        "Title Fit", "Title Reason", "Company Fit", "Company Reason", "Geo Fit", "Geo Reason",
        "Recommendation", "Decision"]
 
@@ -137,10 +143,22 @@ def save(run_dir, fields, rows):
     tmp.replace(path(run_dir))
 
 
-def init(args):
-    with open(args.input, newline="", encoding="utf-8-sig") as f:
+def read_table(path):
+    """CSV or Excel (first sheet) -> (headers, rows as dicts of strings)."""
+    if str(path).lower().endswith((".xlsx", ".xlsm")):
+        import openpyxl
+        ws = openpyxl.load_workbook(path, read_only=True, data_only=True).worksheets[0]
+        it = ws.iter_rows(values_only=True)
+        fields = [str(h).strip() if h is not None else f"Column {i}" for i, h in enumerate(next(it), 1)]
+        rows = [{f: "" if v is None else str(v).strip() for f, v in zip(fields, r)} for r in it if any(r)]
+        return fields, rows
+    with open(path, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
-        fields, rows = list(reader.fieldnames), list(reader)
+        return list(reader.fieldnames), list(reader)
+
+
+def init(args):
+    fields, rows = read_table(args.input)
     found = {k: next((n for n in v if n in fields), None) for k, v in ALIASES.items()}
     missing = [k for k in ("title", "company") if not found[k]] + ([] if found["first"] or found["full"] else ["name"])
     if missing:
@@ -150,8 +168,7 @@ def init(args):
         name = pick(r, "full") or f"{pick(r, 'first')} {pick(r, 'last')}".strip()
         r.update({"Row ID": pick(r, "id") or f"R{i:04d}", "Contact": name, "Title": pick(r, "title"),
                   "Company": pick(r, "company"),
-                  "Contact Country": country_of(pick(r, "contact_country"), pick(r, "contact_location"),
-                                                pick(r, "contact_state")),
+                  **contact_location(r),
                   "Company Country": country_of(pick(r, "company_country"), pick(r, "company_location"))})
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -159,9 +176,36 @@ def init(args):
     save(out, fields, rows)
     print(f"screening.csv: {len(rows)} contacts at {len({r['Company'] for r in rows})} companies. "
           f"Columns used: " + ", ".join(f"{k}={v}" for k, v in found.items() if v))
-    unknown = sum(1 for r in rows if not r["Contact Country"])
-    if unknown:
-        print(f"{unknown} contacts with no recognisable country (geo-checker will judge them)")
+    unknown = sum(1 for r in rows if r["Location Note"] or not r["Contact Country"])
+    metro = sum(1 for r in rows if r["Contact State"] and not r["Contact City"])
+    print(f"locations: {len(rows) - unknown} placed ({metro} with state and country but no city, e.g. a metro area); "
+          f"{unknown} uncertain (see Location Note; resolve with set-location)")
+
+
+def contact_location(r):
+    """Contact City / State / Country: separate columns win (ZoomInfo-style files); otherwise the
+    LinkedIn location is split, filling only what's certain (a metro area gives no city)."""
+    loc = parse_location(pick(r, "contact_location"), COUNTRY_ALIASES)
+    city, state = pick(r, "contact_city") or loc["city"], pick(r, "contact_state") or loc["state"]
+    country = country_of(pick(r, "contact_country")) or loc["country"] or country_of(state)
+    note = "" if (pick(r, "contact_country") or loc["certain"]) else loc["note"]
+    return {"Contact City": city, "Contact State": state, "Contact Country": country, "Location Note": note}
+
+
+def set_location(args):
+    """locations.json: {"<Row ID>": {"city": "", "state": "", "country": ""}} — for locations the
+    parser couldn't place (Claude resolves them, asking the user when unsure; never guess a city)."""
+    fields, rows = load(args.run_dir)
+    fixes = json.loads(Path(args.file).read_text())
+    by_id = {r["Row ID"]: r for r in rows}
+    for rid, f in fixes.items():
+        r = by_id[rid]
+        r["Contact City"], r["Contact State"] = f.get("city", ""), f.get("state", "")
+        r["Contact Country"] = country_of(f.get("country", "")) or f.get("country", "")
+        r["Location Note"] = ""
+    save(args.run_dir, fields, rows)
+    left = sum(1 for r in rows if r.get("Location Note"))
+    print(f"locations set for {len(fixes)} contacts; {left} still uncertain")
 
 
 def title_fit(title):
@@ -432,7 +476,7 @@ def main():
     p = sub.add_parser("check"); p.add_argument("--run-dir", required=True)
     p.add_argument("--company-countries", nargs="*"); p.add_argument("--contact-countries", nargs="*")
     p.set_defaults(func=check)
-    for name, func in (("apply-research", apply_research), ("set-title", set_title)):
+    for name, func in (("apply-research", apply_research), ("set-title", set_title), ("set-location", set_location)):
         p = sub.add_parser(name); p.add_argument("--run-dir", required=True); p.add_argument("--file", required=True)
         p.set_defaults(func=func)
     p = sub.add_parser("summary"); p.add_argument("--run-dir", required=True); p.set_defaults(func=summary)

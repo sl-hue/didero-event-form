@@ -65,9 +65,12 @@ on unclear rows through multiple-choice prompts in chat.
    no shorteners/linktree/careers/subpages; company name ZI only if it matches
    the LinkedIn company after the multiple-jobs step, otherwise the whole ZI
    record is distrusted; company LinkedIn URL LinkedIn; person/company
-   location ZI — but the ZoomInfo connector doesn't return a person's
-   city/state/country, so contact location stays LinkedIn's unless a ZI
-   search proves otherwise; job title LinkedIn (more current), as long as the
+   location: ZoomInfo's person city/state/country when ZoomInfo has them;
+   otherwise inferred from the LinkedIn location, filling only what's certain
+   (metro area → state + country, city blank) — screen.py/location.py.
+   Note: the ZoomInfo connector's enrich_contacts doesn't return a person's
+   location; check whether search_contacts does (one test search, with the
+   user's OK); job title LinkedIn (more current), as long as the
    LinkedIn company is the target company after the multiple-jobs step,
    otherwise flag).
 7. Consistency: within contact → across contacts of a company → contacts ↔

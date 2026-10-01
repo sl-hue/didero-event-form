@@ -62,7 +62,7 @@ def build(args):
     geo_file = run / "geo_settings.json"
     geo_set = json.loads(geo_file.read_text()) if geo_file.exists() else {
         "company_countries": CONFIG["default_company_countries"], "contact_countries": CONFIG["default_contact_countries"]}
-    li_cols = ["LinkedIn Contact Profile URL", "Profile URL", "LinkedIn URL", "Person Linkedin Url", "linkedinUrl"]
+    li_cols = ["LinkedIn Contact Profile URL", "Linkedin URL Public", "Profile URL", "LinkedIn URL", "Person Linkedin Url", "linkedinUrl"]
     groups = {}
     for r in rows:
         groups.setdefault((r["Company"] or "(no company)").strip().lower(), []).append(r)

@@ -22,8 +22,18 @@ on the user's device; never publish it.
 
 **1. Load the list** — `screen.py init --input <file> --out-dir <run_dir>`
 builds the one screening file, `<run_dir>/screening.csv`: the original
-columns plus Row ID, Contact, Title, Company, Contact Country, Company Country
-and the verdict columns. It recognises common LinkedIn / Sales Navigator /
+columns plus Row ID, Contact, Title, Company, Contact City / State / Country,
+Location Note, Company Country and the verdict columns. It reads CSV or Excel.
+**Contact location:** separate city/state/country columns (ZoomInfo files) are
+used as they are. A LinkedIn location is split, filling only what's certain:
+"Austin, Texas, United States" → all three; a metro area ("Greater Chicago
+Area", "Dallas-Fort Worth Metroplex") → state and country, **city left
+blank**; a metro spanning several states takes its main city's state.
+Anything it can't place gets a Location Note: work those out (company HQ,
+the profile) and run `screen.py set-location --run-dir <run_dir> --file
+locations.json` with `{"<Row ID>": {"city": "", "state": "", "country": ""}}`;
+never guess a city, and ask the user when unsure. Later, ZoomInfo's person
+city/state/country replace these whenever ZoomInfo has them. It recognises common LinkedIn / Sales Navigator /
 ZoomInfo column names; if it can't find the name, title or company column, ask
 the user which column holds it. If the file has pre-filter columns (e.g.
 `Matches Filters`), ask the user whether to screen all rows or only some.
