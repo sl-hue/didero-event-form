@@ -6,3 +6,6 @@ samples/**/*.xls
 samples/**/*.tsv
 runs/
 __pycache__/
+
+# built skill packages (rebuilt from skill/)
+*.zip
