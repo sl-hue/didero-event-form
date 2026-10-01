@@ -42,6 +42,33 @@ on unclear rows through multiple-choice prompts in chat.
 2. Once the pipeline is complete, compare its output against the hand-cleaned
    samples (files 4 and 5) column by column.
 
+## LinkedIn list flow (agreed with the user, 2026-10-01)
+
+0. Orchestrator: identify the list type first — ZoomInfo / LinkedIn (Sales
+   Nav or Evaboot) / event list — and confirm with the user.
+1. linkedin-list-screening: load → **multiple jobs** (contacts with
+   `Current Jobs Number` > 1; the other jobs aren't in the file, so the user
+   checks each LinkedIn profile via an "Open LinkedIn" button and sets the real
+   title + company; next contact follows) → company review (based/present in)
+   → contact review.
+2. Title + company name cleaning (new; name cleaning reuses normalize.py).
+3. Hand-off into outbound-list-cleaner's working file (contacts + companies).
+4. outbound-list-cleaner steps 1–2 only.
+5. ZoomInfo pull (enrich_contacts / enrich_companies, 10 per call, Bulk
+   Credits; tell the user the maximum credits first). Good matches' data go in
+   separate ZI columns.
+6. Source priority per field (user's rules: names ZI; contact LinkedIn URL
+   LinkedIn, format only — no live check; emails both if domain matches the
+   company, else cleared, majority domain preferred; website ZI then cleaned —
+   no shorteners/linktree/careers/subpages; company name ZI only if it matches
+   the LinkedIn company after the multiple-jobs step, otherwise the whole ZI
+   record is distrusted; company LinkedIn URL LinkedIn; person/company
+   location ZI).
+7. Consistency: within contact → across contacts of a company → contacts ↔
+   companies. Ties go to the user.
+8. Prune columns.
+9. outbound-list-cleaner steps 3–6 (HubSpot duplicates, import, Clay, BDRs).
+
 ## Open questions
 
 - Cowork review 2.4–2.13 (LinkedIn global pages, noisy phone matches, stale
