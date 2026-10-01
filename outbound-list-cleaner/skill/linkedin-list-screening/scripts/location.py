@@ -6,9 +6,11 @@ Only what is certain is filled in:
   "Greater Chicago Area"             -> (blank) / Illinois / United States
   "Columbus, Ohio Metropolitan Area" -> (blank) / Ohio / United States
   "United States"                    -> (blank) / (blank) / United States
-A metro area never gives a city (we don't know which town in it). A metro that
-spans several states takes its main city's state (Washington DC-Baltimore ->
-District of Columbia, Kansas City -> Missouri), as agreed with the user.
+A metro area gives its main (first-named) city ("Columbus, Ohio Metropolitan
+Area" -> Columbus / Ohio, "Greater Houston" -> Houston / Texas,
+"Dallas-Fort Worth Metroplex" -> Dallas / Texas). A metro that spans several
+states takes its main city's state (Washington DC-Baltimore -> Washington /
+District of Columbia, Kansas City -> Missouri).
 Anything not recognised comes back with certain=False so Claude resolves it
 (or asks the user) instead of guessing.
 """
@@ -137,16 +139,28 @@ def _state(text):
     return "", ""
 
 
+CITY_NAMES = {"new york city": "New York", "washington dc": "Washington", "washington d.c.": "Washington",
+              "st louis": "St. Louis", "saint louis": "St. Louis", "san francisco bay": "San Francisco"}
+
+
+def main_city(name):
+    """'Minneapolis-St. Paul' -> 'Minneapolis'; 'New York City' -> 'New York'."""
+    first = re.split(r"\s*-\s*|\s+/\s+", name.strip())[0].strip()
+    return CITY_NAMES.get(first.lower(), first)
+
+
 def _metro(core):
     """'Minneapolis-St. Paul' / 'Columbus, Ohio' / 'Washington DC-Baltimore' -> (state, country) or None."""
     parts = [p.strip() for p in core.split(",")]
     if len(parts) == 2:  # 'Columbus, Ohio' / 'Rochester-Austin, Minnesota'
         st, co = _state(parts[1])
         if st:
-            return st, co
+            return st, co, main_city(parts[0])
     main = re.split(r"\s*-\s*|\s+/\s+", parts[0])[0].strip().lower()
     hit = METRO_CITIES.get(main) or METRO_CITIES.get(parts[0].lower())
-    return hit
+    if not hit:
+        return None
+    return hit + (main_city(parts[0]),)
 
 
 def parse_location(text, aliases):
@@ -169,9 +183,8 @@ def parse_location(text, aliases):
     if is_metro:
         hit = _metro(core)
         if hit:
-            out["state"], c = hit
+            out["state"], c, out["city"] = hit
             out["country"] = out["country"] or c
-            out["note"] = f"metro area '{raw}': state from its main city, city left blank"
         else:
             out.update(certain=False, note=f"metro area '{raw}' not recognised")
         return out

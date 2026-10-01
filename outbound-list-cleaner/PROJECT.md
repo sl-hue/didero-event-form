@@ -67,7 +67,7 @@ on unclear rows through multiple-choice prompts in chat.
    record is distrusted; company LinkedIn URL LinkedIn; person/company
    location: ZoomInfo's person city/state/country when ZoomInfo has them;
    otherwise inferred from the LinkedIn location, filling only what's certain
-   (metro area → state + country, city blank) — screen.py/location.py.
+   (metro area → its main city + state + country) — screen.py/location.py.
    Note: the ZoomInfo connector's enrich_contacts doesn't return a person's
    location; check whether search_contacts does (one test search, with the
    user's OK); job title LinkedIn (more current), as long as the

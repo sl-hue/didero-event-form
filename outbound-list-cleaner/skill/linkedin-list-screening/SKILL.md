@@ -26,9 +26,11 @@ columns plus Row ID, Contact, Title, Company, Contact City / State / Country,
 Location Note, Company Country and the verdict columns. It reads CSV or Excel.
 **Contact location:** separate city/state/country columns (ZoomInfo files) are
 used as they are. A LinkedIn location is split, filling only what's certain:
-"Austin, Texas, United States" → all three; a metro area ("Greater Chicago
-Area", "Dallas-Fort Worth Metroplex") → state and country, **city left
-blank**; a metro spanning several states takes its main city's state.
+"Austin, Texas, United States" → all three; a metro area gives its main
+(first-named) city ("Greater Chicago Area" → Chicago / Illinois,
+"Dallas-Fort Worth Metroplex" → Dallas / Texas, "New York City Metropolitan
+Area" → New York / New York); a metro spanning several states takes its main
+city's state; just a country ("United States") → country only.
 Anything it can't place gets a Location Note: work those out (company HQ,
 the profile) and run `screen.py set-location --run-dir <run_dir> --file
 locations.json` with `{"<Row ID>": {"city": "", "state": "", "country": ""}}`;

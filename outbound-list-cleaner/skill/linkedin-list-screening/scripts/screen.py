@@ -178,7 +178,7 @@ def init(args):
           f"Columns used: " + ", ".join(f"{k}={v}" for k, v in found.items() if v))
     unknown = sum(1 for r in rows if r["Location Note"] or not r["Contact Country"])
     metro = sum(1 for r in rows if r["Contact State"] and not r["Contact City"])
-    print(f"locations: {len(rows) - unknown} placed ({metro} with state and country but no city, e.g. a metro area); "
+    print(f"locations: {len(rows) - unknown} placed ({metro} with state and country but no city); "
           f"{unknown} uncertain (see Location Note; resolve with set-location)")
 
 
