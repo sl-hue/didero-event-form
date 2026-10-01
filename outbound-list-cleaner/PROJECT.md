@@ -139,6 +139,12 @@ on unclear rows through multiple-choice prompts in chat.
   next step, upload files generated only at export. Cowork review 2.3
   (drop command) is superseded by this.
 
+- 2026-10-01 — Started skill 2: `linkedin-list-screening` (for non-ZoomInfo
+  lists): load → company-researcher + title-reviewer → geography (ask company
+  and contact countries separately; default US, Canada, UK incl. Scotland,
+  Ireland) → flashcard review (local HTML, Keep/Exclude/Back, code pasted back
+  into chat) → Decision column in `screening.csv`. Tested on the CBM sample.
+
 ## Using this in Cowork
 
 - Create a Cowork project, e.g. "Outbound List Cleaner", and add

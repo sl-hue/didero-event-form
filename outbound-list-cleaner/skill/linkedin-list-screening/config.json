@@ -1,0 +1,11 @@
+{
+  "default_company_countries": ["United States", "Canada", "United Kingdom", "Ireland"],
+  "default_contact_countries": ["United States", "Canada", "United Kingdom", "Ireland"],
+  "uk_includes": ["England", "Scotland", "Wales", "Northern Ireland"],
+  "target_title_keywords": ["procurement", "purchasing", "sourcing", "supply chain", "buyer", "buying",
+                            "category", "materials", "supplier", "vendor", "logistics", "operations",
+                            "planning", "s&op", "inventory", "replenishment", "merchandising"],
+  "min_seniority_keywords": ["chief", "cpo", "coo", "cfo", "vp", "vice president", "svp", "evp", "head",
+                             "director", "manager", "lead", "president", "owner", "founder"],
+  "exclude_title_keywords": ["intern", "student", "retired", "assistant to", "software engineer", "recruiter"]
+}
