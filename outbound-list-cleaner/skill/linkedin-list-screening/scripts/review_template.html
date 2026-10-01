@@ -35,38 +35,34 @@ input[type=text]{font:inherit;padding:8px 11px;border-radius:9px;border:1px soli
 .state{font-size:12px;color:var(--mut);text-align:right;margin-top:3px}
 .foot{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px}
 .foot .in{max-width:980px;margin:0 auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-.foot b{font-size:17px}.legend{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--hl);border:1px solid var(--line);vertical-align:-1px;margin-right:4px}
+.foot b{font-size:17px}
+.steps{display:flex;gap:6px;margin:12px 0 4px}.steps button{border-radius:99px;padding:7px 16px;font-weight:600}
+.steps button.on{background:var(--acc);border-color:var(--acc);color:#fff}.steps button:disabled{opacity:.45;cursor:default}
+.about{font-size:13px;color:var(--mut);margin-top:2px}.pres b{color:var(--fg);font-weight:600}
+button:disabled{opacity:.45;cursor:default}.legend{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--hl);border:1px solid var(--line);vertical-align:-1px;margin-right:4px}
 textarea{width:100%;font:13px ui-monospace,Menlo,monospace;padding:10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-height:64px;margin-top:8px}
 @media (max-width:640px){.item{grid-template-columns:1fr}.state{text-align:left}.person{padding-left:22px}}
 </style></head><body><div class="wrap" id="app"></div>
 <script>
+const COMPANIES = __COMPANIES__;
 const CARDS = __CARDS__;
 const GEO = __GEO__;
-const KEY = "ls-review3-__REVIEW_ID__";
-let state = {view: "company", d: {}, rules: [], open: {}, finished: false};
+const KEY = "ls-review4-__REVIEW_ID__";
+let state = {step: "company", cd: {}, d: {}, rules: [], open: {}, finished: false};
 try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.d) state = Object.assign(state, s); } catch (e) {}
 CARDS.forEach(c => { if (c.decision && !state.d[c.n]) state.d[c.n] = c.decision; });
-let ui = {mode: "exclude", msg: "", msgOk: false, q: "", filter: "all"};
+let ui = {mode: "include", msg: "", msgOk: false, q: "", filter: "all"};
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
 const esc = s => String(s ?? "").replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
 const app = document.getElementById("app");
-const SCOPE = {c: "company HQ", p: "contact", b: "company and contact"};
-
-// ---- companies ---------------------------------------------------------------
-const COMPANIES = [];
-(() => { const by = {};
-  CARDS.forEach(c => { const k = (c.company || "(no company)").trim().toLowerCase();
-    if (!by[k]) { by[k] = {key: k, name: c.company || "(no company)", people: []}; COMPANIES.push(by[k]); }
-    by[k].people.push(c); });
-  COMPANIES.forEach(co => { const cnt = {};
-    co.people.forEach(c => { if (c.company_country) cnt[c.company_country] = (cnt[c.company_country] || 0) + 1; });
-    co.country = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || ""; });
-  COMPANIES.forEach(co => { if (co.people.some(c => c.recommendation !== "keep") && state.open[co.key] === undefined) state.open[co.key] = true; });
-})();
+COMPANIES.forEach(co => { co.people = CARDS.filter(c => c.company_n === co.n); });
+const coOf = c => COMPANIES[c.company_n - 1];
+COMPANIES.forEach(co => { if (state.open[co.n] === undefined) state.open[co.n] = co.people.some(c => c.suggestion !== "keep"); });
 
 // ---- countries ------------------------------------------------------------
 const DATA_COUNTRIES = {};
-CARDS.forEach(c => [c.company_country, c.contact_country].forEach(x => { if (x) DATA_COUNTRIES[x] = 1; }));
+COMPANIES.forEach(co => [co.hq, ...co.presence].forEach(x => { if (x) DATA_COUNTRIES[x] = 1; }));
+CARDS.forEach(c => { if (c.contact_country) DATA_COUNTRIES[c.contact_country] = 1; });
 const KNOWN = [...new Set([...Object.values(GEO.aliases), ...Object.keys(DATA_COUNTRIES)])].sort();
 function lev(a, b) { const m = a.length, n = b.length, d = Array.from({length: m + 1}, (_, i) => [i]);
   for (let j = 1; j <= n; j++) d[0][j] = j;
@@ -93,110 +89,164 @@ function resolveCountry(text) {
 }
 
 
-// ---- decisions -----------------------------------------------------------------
-function ruleFor(c) {
-  const cc = {c: c.company_country, p: c.contact_country};
-  for (const r of state.rules) if (r.mode === "exclude")
-    for (const s of ["c", "p"]) if ((r.scope === s || r.scope === "b") && cc[s] === r.country) return `country rule: exclude ${r.country} (${SCOPE[s]})`;
-  for (const s of ["c", "p"]) {
-    const inc = state.rules.filter(r => r.mode === "include" && (r.scope === s || r.scope === "b")).map(r => r.country);
-    if (inc.length && cc[s] && !inc.includes(cc[s])) return `country rule: ${SCOPE[s]} not in ${inc.join(", ")}`;
-  }
+// ---- decisions --------------------------------------------------------------------
+// company rules: "include only" keeps companies based in OR present in the country; "exclude" drops companies based in it
+function coRule(co, rules = state.rules) {
+  for (const r of rules) if (r.scope === "c" && r.mode === "exclude" && co.hq === r.country) return `rule: exclude companies based in ${r.country}`;
+  const inc = rules.filter(r => r.scope === "c" && r.mode === "include").map(r => r.country);
+  const where = [co.hq, ...co.presence].filter(Boolean);
+  if (inc.length && where.length && !where.some(x => inc.includes(x))) return `rule: not based or present in ${inc.join(", ")}`;
   return "";
 }
-// final answer for a contact: yours > country rule > Claude's suggestion (blank = still open)
-function final(c) {
+function pRule(c, rules = state.rules) {
+  for (const r of rules) if (r.scope === "p" && r.mode === "exclude" && c.contact_country === r.country) return `rule: exclude contacts in ${r.country}`;
+  const inc = rules.filter(r => r.scope === "p" && r.mode === "include").map(r => r.country);
+  if (inc.length && c.contact_country && !inc.includes(c.contact_country)) return `rule: contact not in ${inc.join(", ")}`;
+  return "";
+}
+function coFinal(co) {
+  if (state.cd[co.n]) return {d: state.cd[co.n], why: "your choice"};
+  const r = coRule(co); if (r) return {d: "exclude", why: r};
+  return co.suggestion === "review" ? {d: "", why: "needs your answer"} : {d: co.suggestion, why: "Claude's suggestion"};
+}
+function pFinal(c) {
+  if (coFinal(coOf(c)).d === "exclude") return {d: "exclude", why: "company excluded"};
   if (state.d[c.n]) return {d: state.d[c.n], why: "your choice"};
-  const r = ruleFor(c); if (r) return {d: "exclude", why: r};
-  if (c.recommendation === "keep" || c.recommendation === "exclude") return {d: c.recommendation, why: "Claude's suggestion"};
-  return {d: "", why: "needs your answer"};
+  const r = pRule(c); if (r) return {d: "exclude", why: r};
+  return c.suggestion === "review" ? {d: "", why: "needs your answer"} : {d: c.suggestion, why: "Claude's suggestion"};
 }
-const changed = c => { const f = final(c); return f.d && f.d !== c.recommendation && c.recommendation !== "review" || f.why.startsWith("country rule"); };
-const whyFlag = c => c.recommendation === "keep" ? "" : c.verdicts.filter(v => v.fit !== "fit").map(v => `${v.label}: ${v.reason}`).join(" · ");
-const matches = c => {
-  const q = ui.q.trim().toLowerCase(), f = final(c);
-  if (q && ![c.name, c.title, c.company, c.contact_country, c.company_country].join(" ").toLowerCase().includes(q)) return false;
-  return ui.filter === "all" || (ui.filter === "open" && !f.d) || (ui.filter === "flag" && c.recommendation !== "keep")
-    || (ui.filter === "chg" && changed(c)) || (ui.filter === "exc" && f.d === "exclude");
-};
+const coChanged = co => { const f = coFinal(co); return (f.d && co.suggestion !== "review" && f.d !== co.suggestion) || f.why.startsWith("rule"); };
+const pChanged = c => { const f = pFinal(c); return (f.d && c.suggestion !== "review" && f.d !== c.suggestion) || f.why.startsWith("rule"); };
+const text = (...a) => a.join(" ").toLowerCase();
+function filt(f, d, chg, flagged) {
+  return ui.filter === "all" || (ui.filter === "open" && !d) || (ui.filter === "flag" && flagged)
+    || (ui.filter === "chg" && chg) || (ui.filter === "exc" && d === "exclude") || (ui.filter === "keep" && d === "keep");
+}
+const coMatch = co => { const f = coFinal(co), q = ui.q.trim().toLowerCase();
+  return (!q || text(co.name, co.hq, co.presence.join(" "), co.about).includes(q)) && filt(ui.filter, f.d, coChanged(co), co.suggestion !== "keep"); };
+const pMatch = c => { const f = pFinal(c), q = ui.q.trim().toLowerCase();
+  return (!q || text(c.name, c.title, c.company, c.contact_country).includes(q)) && filt(ui.filter, f.d, pChanged(c), c.suggestion !== "keep"); };
+const kept = () => COMPANIES.filter(co => coFinal(co).d === "keep");
+const coOpen = () => COMPANIES.filter(co => !coFinal(co).d).length;
 
-// ---- page -----------------------------------------------------------------------
-function personRow(c, indent) {
-  const f = final(c), w = whyFlag(c);
-  const name = c.linkedin ? `<a href="${esc(c.linkedin)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name);
-  return `<div class="item ${indent ? "person" : ""} ${changed(c) ? "chg" : ""}"><div>
-    <div class="pname">${name}</div>
-    <div class="meta">${esc(c.title) || "no title"}${indent ? "" : ` · <b>${esc(c.company)}</b>`} · contact in ${esc(c.contact_country) || "unknown"}${indent ? "" : ` · company HQ ${esc(c.company_country) || "unknown"}`}</div>
-    ${w ? `<div class="why">Claude flagged: ${esc(w)}</div>` : ""}</div>
-    <div><div class="tog"><button class="x ${f.d === "exclude" ? "on" : ""}" data-n="${c.n}" data-v="exclude">✗ Exclude</button><button class="k ${f.d === "keep" ? "on" : ""}" data-n="${c.n}" data-v="keep">✓ Keep</button></div>
-    <div class="state">${esc(f.why)}</div></div></div>`;
-}
-function companyBlock(co) {
-  const ppl = co.people.filter(matches);
-  if (!ppl.length) return "";
-  const fs = co.people.map(final), k = fs.filter(f => f.d === "keep").length, x = fs.filter(f => f.d === "exclude").length, o = fs.length - k - x;
-  const open = !!state.open[co.key];
-  const summary = [k && `${k} kept`, x && `${x} excluded`, o && `<span style="color:var(--unc)">${o} need${o > 1 ? "" : "s"} your answer</span>`].filter(Boolean).join(" · ");
-  return `<div class="item co-head ${co.people.some(changed) && !open ? "chg" : ""}" data-co="${esc(co.key)}"><div>
-    <span class="caret">${open ? "▾" : "▸"}</span><span class="co-name">${esc(co.name)}</span>
-    <span class="meta"> · HQ ${esc(co.country) || "unknown"} · ${co.people.length} contact${co.people.length > 1 ? "s" : ""} · ${summary}</span></div>
-    <div class="tog"><button class="x ${x === fs.length ? "on" : ""}" data-all="${esc(co.key)}" data-v="exclude">✗ Exclude all</button><button class="k ${k === fs.length ? "on" : ""}" data-all="${esc(co.key)}" data-v="keep">✓ Keep all</button></div></div>` +
-    (open ? ppl.map(c => personRow(c, true)).join("") : "");
-}
-function render() {
-  const view = state.view, fs = CARDS.map(final);
-  const K = fs.filter(f => f.d === "keep").length, X = fs.filter(f => f.d === "exclude").length, O = fs.length - K - X;
-  const nChg = CARDS.filter(changed).length;
-  const scope = view === "company" ? "c" : "p";
-  const counts = {}; CARDS.forEach(c => { const v = (view === "company" ? c.company_country : c.contact_country) || "unknown"; counts[v] = (counts[v] || 0) + 1; });
-  const body = view === "company" ? COMPANIES.map(companyBlock).join("") : CARDS.filter(matches).map(c => personRow(c, false)).join("");
-  const F = [["all", "Everyone"], ["flag", "Flagged by Claude"], ["open", `Need your answer (${O})`], ["chg", `Changed (${nChg})`], ["exc", "Excluded"]];
-  const sy = window.scrollY, focus = document.activeElement && document.activeElement.id;
-  app.innerHTML = `<h1>__TITLE__</h1>
-  <div class="row" style="justify-content:space-between;align-items:flex-start"><div class="mut" style="flex:1 1 400px">${CARDS.length} contacts at ${COMPANIES.length} companies. Claude's suggestion is filled in; change anything you disagree with. Rows highlighted in yellow differ from Claude's suggestion.</div>
-    <button class="p fin">Finish review — get the code</button></div>
-  ${state.finished ? finishBox(O) : ""}
-  <div class="box"><div class="row" style="justify-content:space-between">
-    <span class="seg big" id="view"><button data-v="company" class="${view === "company" ? "on" : ""}">Companies</button><button data-v="contact" class="${view === "contact" ? "on" : ""}">Contacts</button></span>
-    <span class="sm mut">${view === "company" ? "Showing companies (click one to see its contacts). Country rules apply to the company HQ." : "Showing every contact. Country rules apply to where the contact is."}</span></div>
-    <div class="row" style="margin-top:12px"><input type="text" id="cty" list="ctylist" placeholder="Country, e.g. united states" autocomplete="off" style="flex:1 1 200px">
+// ---- shared pieces ------------------------------------------------------------------
+const tog = (attr, id, d, k1 = "Keep", x1 = "Exclude") =>
+  `<div class="tog"><button class="x ${d === "exclude" ? "on" : ""}" ${attr}="${id}" data-v="exclude">✗ ${x1}</button><button class="k ${d === "keep" ? "on" : ""}" ${attr}="${id}" data-v="keep">✓ ${k1}</button></div>`;
+function rulesBox(scope) {
+  const counts = {};
+  if (scope === "c") COMPANIES.forEach(co => { const v = co.hq || "unknown"; counts[v] = (counts[v] || 0) + 1; });
+  else kept().forEach(co => co.people.forEach(c => { const v = c.contact_country || "unknown"; counts[v] = (counts[v] || 0) + 1; }));
+  const mine = state.rules.map((r, i) => [r, i]).filter(([r]) => r.scope === scope);
+  const hits = r => scope === "c" ? COMPANIES.filter(co => coRule(co, [r])).length : kept().flatMap(co => co.people).filter(c => pRule(c, [r])).length;
+  const label = r => scope === "c" ? (r.mode === "include" ? `Keep only companies based in or present in <b>${esc(r.country)}</b>` : `Exclude companies based in <b>${esc(r.country)}</b>`)
+                                   : (r.mode === "include" ? `Keep only contacts in <b>${esc(r.country)}</b>` : `Exclude contacts in <b>${esc(r.country)}</b>`);
+  return `<div class="box"><div class="row"><input type="text" id="cty" list="ctylist" placeholder="${scope === "c" ? "Country, e.g. united states" : "Contact country, e.g. united states"}" autocomplete="off" style="flex:1 1 200px">
     <datalist id="ctylist">${KNOWN.map(k => `<option value="${esc(k)}">`).join("")}</datalist>
     <span class="seg" id="gm"><button data-v="include" class="${ui.mode === "include" ? "on" : ""}">Include only</button><button data-v="exclude" class="${ui.mode === "exclude" ? "on" : ""}">Exclude</button></span>
     <button class="p" id="gadd">Add rule</button></div>
+    <div class="sm mut" style="margin-top:6px">${scope === "c" ? "Include only = keep companies <b>based in or with a presence in</b> the country. Exclude = drop companies <b>based in</b> it." : "Rules here use where the contact is."}</div>
     ${ui.msg ? `<div class="msg ${ui.msgOk ? "ok" : ""}">${ui.msg}</div>` : ""}
-    <div>${state.rules.map((r, i) => `<span class="rule">${r.mode === "include" ? "Include only" : "Exclude"} <b>${esc(r.country)}</b> · ${SCOPE[r.scope]} · ${CARDS.filter(c => ruleOnly(r, c)).length} excluded<button data-del="${i}" title="Remove">×</button></span>`).join("")}</div>
-    <div class="sm mut" style="margin-top:8px">${view === "company" ? "Company HQ" : "Contact"} countries: ${Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} ${v}`).join(" · ")}</div></div>
-  <div class="row" style="margin:6px 0 10px"><input type="text" id="q" placeholder="Search name, title, company, country" value="${esc(ui.q)}" autocomplete="off" style="flex:1 1 220px">
-    <span class="seg" id="flt">${F.map(([k, l]) => `<button data-v="${k}" class="${ui.filter === k ? "on" : ""}">${l}</button>`).join("")}</span>
-    ${view === "company" ? `<button class="link" id="exp">Expand all</button><button class="link" id="col">Collapse all</button>` : ""}</div>
-  <div class="list">${body || '<div class="item mut">Nothing matches.</div>'}</div>
-  ${state.finished ? finishBox(O) : ""}
-  <div class="foot"><div class="in"><span><b>${K}</b> keep</span><span><b>${X}</b> exclude</span><span style="${O ? "color:var(--unc)" : ""}"><b>${O}</b> need your answer</span>
-    <span class="sm mut"><span class="legend"></span>${nChg} changed from Claude's suggestion</span><span style="flex:1"></span>
-    <button class="p fin">Finish review — get the code</button></div></div>`;
-  wire();
-  window.scrollTo(0, sy);
-  if (focus && document.getElementById(focus) && ["q", "cty"].includes(focus)) { const el = document.getElementById(focus); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    <div>${mine.map(([r, i]) => `<span class="rule">${label(r)} · ${hits(r)} excluded<button data-del="${i}" title="Remove">×</button></span>`).join("")}</div>
+    <div class="sm mut" style="margin-top:8px">${scope === "c" ? "Based in" : "Contacts in"}: ${Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} ${v}`).join(" · ")}</div></div>`;
 }
-function ruleOnly(r, c) { const keep = state.rules; state.rules = [r]; const hit = ruleFor(c); state.rules = keep; return hit; }
+function filters(list) {
+  return `<div class="row" style="margin:6px 0 10px"><input type="text" id="q" placeholder="Search" value="${esc(ui.q)}" autocomplete="off" style="flex:1 1 200px">
+    <span class="seg" id="flt">${list.map(([k, l]) => `<button data-v="${k}" class="${ui.filter === k ? "on" : ""}">${l}</button>`).join("")}</span>
+    ${state.step === "contact" ? `<button class="link" id="exp">Expand all</button><button class="link" id="col">Collapse all</button>` : ""}</div>`;
+}
+function steps() {
+  const open = coOpen();
+  return `<div class="steps"><button data-step="company" class="${state.step === "company" ? "on" : ""}">1 · Companies</button>
+    <button data-step="contact" class="${state.step === "contact" ? "on" : ""}" ${open ? `disabled title="Answer every company first"` : ""}>2 · Contacts</button></div>`;
+}
+
+// ---- step 1: companies --------------------------------------------------------------
+function companyRow(co) {
+  const f = coFinal(co), others = co.presence.filter(x => x !== co.hq);
+  return `<div class="item ${coChanged(co) ? "chg" : ""}"><div>
+    <div class="co-name">${esc(co.name)} <span class="meta" style="font-weight:400">· ${co.contacts} contact${co.contacts > 1 ? "s" : ""}</span></div>
+    <div class="meta pres">Based in <b>${esc(co.hq) || "unknown"}</b>${others.length ? ` · also present in <b>${others.map(esc).join(", ")}</b>` : ""}</div>
+    ${co.about ? `<div class="about">${esc(co.about)}</div>` : ""}
+    ${co.reason ? `<div class="why">Claude: ${esc(co.reason)}</div>` : ""}</div>
+    <div>${tog("data-co", co.n, f.d)}<div class="state">${esc(f.why)}</div></div></div>`;
+}
+function companyStep() {
+  const fs = COMPANIES.map(coFinal), K = fs.filter(f => f.d === "keep").length, X = fs.filter(f => f.d === "exclude").length, O = fs.length - K - X;
+  const nChg = COMPANIES.filter(coChanged).length, rows = COMPANIES.filter(coMatch).map(companyRow).join("");
+  const next = `<button class="p nextstep" ${O ? "disabled" : ""}>${O ? `${O} compan${O > 1 ? "ies" : "y"} still need an answer` : "Next: review contacts →"}</button>`;
+  return `<div class="row" style="justify-content:space-between;align-items:flex-start"><div class="mut" style="flex:1 1 380px">Step 1: decide which companies stay. Is each one based in, or present in, the countries you sell to? Claude's suggestion is filled in; yellow rows differ from it.</div>${next}</div>
+  ${rulesBox("c")}
+  ${filters([["all", `All ${COMPANIES.length}`], ["open", `Need your answer (${O})`], ["keep", "Kept"], ["exc", "Excluded"], ["chg", `Changed (${nChg})`]])}
+  <div class="list">${rows || '<div class="item mut">Nothing matches.</div>'}</div>
+  <div class="foot"><div class="in"><span><b>${K}</b> companies kept</span><span><b>${X}</b> excluded</span><span style="${O ? "color:var(--unc)" : ""}"><b>${O}</b> need your answer</span>
+    <span class="sm mut"><span class="legend"></span>${nChg} changed from Claude's suggestion</span><span style="flex:1"></span>${next}</div></div>`;
+}
+
+// ---- step 2: contacts, grouped under their (kept) company -------------------------
+function personRow(c) {
+  const f = pFinal(c);
+  const name = c.linkedin ? `<a href="${esc(c.linkedin)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name);
+  return `<div class="item person ${pChanged(c) ? "chg" : ""}"><div><div class="pname">${name}</div>
+    <div class="meta">${esc(c.title) || "no title"} · in ${esc(c.contact_country) || "unknown"}</div>
+    ${c.reason ? `<div class="why">Claude flagged: ${esc(c.reason)}</div>` : ""}</div>
+    <div>${tog("data-n", c.n, f.d)}<div class="state">${esc(f.why)}</div></div></div>`;
+}
+function companyBlock(co) {
+  const ppl = co.people.filter(pMatch); if (!ppl.length) return "";
+  const fs = co.people.map(pFinal), k = fs.filter(f => f.d === "keep").length, x = fs.filter(f => f.d === "exclude").length, o = fs.length - k - x;
+  const open = !!state.open[co.n], others = co.presence.filter(p => p !== co.hq);
+  const summary = [k && `${k} kept`, x && `${x} excluded`, o && `<span style="color:var(--unc)">${o} need${o > 1 ? "" : "s"} your answer</span>`].filter(Boolean).join(" · ");
+  return `<div class="item co-head ${co.people.some(pChanged) && !open ? "chg" : ""}" data-open="${co.n}"><div>
+    <span class="caret">${open ? "▾" : "▸"}</span><span class="co-name">${esc(co.name)}</span>
+    <span class="meta"> · based in ${esc(co.hq) || "unknown"}${others.length ? ` (also ${others.map(esc).join(", ")})` : ""} · ${co.people.length} contact${co.people.length > 1 ? "s" : ""} · ${summary}</span></div>
+    ${tog("data-all", co.n, k === fs.length ? "keep" : x === fs.length ? "exclude" : "", "Keep all", "Exclude all")}</div>` +
+    (open ? ppl.map(personRow).join("") : "");
+}
+function contactStep() {
+  const K0 = kept(), ppl = K0.flatMap(co => co.people), fs = ppl.map(pFinal);
+  const K = fs.filter(f => f.d === "keep").length, X = fs.filter(f => f.d === "exclude").length, O = fs.length - K - X;
+  const nChg = ppl.filter(pChanged).length, out = COMPANIES.length - K0.length;
+  const fin = `<button class="p fin">Finish review — get the code</button>`;
+  return `<div class="row" style="justify-content:space-between;align-items:flex-start"><div class="mut" style="flex:1 1 380px">Step 2: decide which contacts stay, grouped by company. Only the ${K0.length} companies you kept are here${out ? ` (${out} excluded in step 1)` : ""}. Click a company to open or close it.</div>${fin}</div>
+  ${state.finished ? finishBox(O) : ""}
+  ${rulesBox("p")}
+  ${filters([["all", "Everyone"], ["flag", "Flagged by Claude"], ["open", `Need your answer (${O})`], ["chg", `Changed (${nChg})`], ["exc", "Excluded"]])}
+  <div class="list">${K0.map(companyBlock).join("") || '<div class="item mut">Nothing matches.</div>'}</div>
+  ${state.finished ? finishBox(O) : ""}
+  <div class="foot"><div class="in"><span><b>${K}</b> contacts kept</span><span><b>${X}</b> excluded</span><span style="${O ? "color:var(--unc)" : ""}"><b>${O}</b> need your answer</span>
+    <span class="sm mut"><span class="legend"></span>${nChg} changed from Claude's suggestion</span><span style="flex:1"></span>${fin}</div></div>`;
+}
+const ranges = a => { const out = []; for (let i = 0; i < a.length; i++) { let j = i;
+  while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++; out.push(j > i ? `${a[i]}-${a[j]}` : `${a[i]}`); i = j; } return out.join(","); };
 function codeNow() {
   const X = [], K = [];
-  CARDS.forEach(c => { const d = final(c).d; if (d) (d === "exclude" ? X : K).push(c.n); });
-  const ranges = a => { const out = []; for (let i = 0; i < a.length; i++) { let j = i;
-      while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++; out.push(j > i ? `${a[i]}-${a[j]}` : `${a[i]}`); i = j; } return out.join(","); };
+  CARDS.forEach(c => { const d = pFinal(c).d; if (d) (d === "exclude" ? X : K).push(c.n); });
+  const CX = COMPANIES.filter(co => coFinal(co).d === "exclude").map(co => co.n);
   const R = state.rules.map(r => `${r.mode === "include" ? "+" : "-"}${r.scope}:${r.country}`).join("|");
-  return `LS1;${CARDS.length};X:${ranges(X)};K:${ranges(K)}` + (R ? `;R:${R}` : "");
+  return `LS1;${CARDS.length};X:${ranges(X)};K:${ranges(K)}` + (CX.length ? `;CX:${ranges(CX)}` : "") + (R ? `;R:${R}` : "");
 }
 function finishBox(O) {
-  if (O) return `<div class="box finbox"><b>${O} contact${O > 1 ? "s" : ""} still need${O > 1 ? "" : "s"} your answer.</b> Use the filter “Need your answer” to see them. Answer them, then press Finish again.</div>`;
-  return `<div class="box finbox"><b>Done.</b> Check the yellow rows in the list (filter “Changed”), then copy this code and paste it into the chat. Claude shows the changes once more and saves them after your OK.
+  if (O) return `<div class="box finbox"><b>${O} contact${O > 1 ? "s" : ""} still need${O > 1 ? "" : "s"} your answer.</b> Use the filter “Need your answer” to see them, then press Finish again.</div>`;
+  return `<div class="box finbox"><b>Done.</b> Check the yellow rows (filter “Changed”), then copy this code and paste it into the chat. Claude shows the changes once more and saves them after your OK.
     <textarea class="code" readonly>${esc(codeNow())}</textarea><div class="row" style="margin-top:8px"><button class="p copy">Copy code</button></div></div>`;
+}
+
+// ---- render + events ------------------------------------------------------------------
+function render() {
+  if (state.step === "contact" && coOpen()) state.step = "company";
+  const sy = window.scrollY, focus = document.activeElement && document.activeElement.id;
+  app.innerHTML = `<h1>__TITLE__</h1>${steps()}${state.step === "company" ? companyStep() : contactStep()}`;
+  wire();
+  window.scrollTo(0, sy);
+  if (["q", "cty"].includes(focus)) { const el = document.getElementById(focus); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
 }
 function wire() {
   const $ = id => document.getElementById(id), all = sel => document.querySelectorAll(sel);
-  all("#view button").forEach(b => b.onclick = () => { state.view = b.dataset.v; ui.msg = ""; save(); render(); });
+  const goStep = s => { state.step = s; ui.filter = "all"; ui.q = ""; ui.msg = ""; save(); render(); window.scrollTo(0, 0); };
+  all("[data-step]").forEach(b => b.onclick = () => goStep(b.dataset.step));
+  all(".nextstep").forEach(b => b.onclick = () => goStep("contact"));
   all("#gm button").forEach(b => b.onclick = () => { ui.mode = b.dataset.v; render(); });
-  const reveal = () => { if (ui.q || ui.filter !== "all") COMPANIES.forEach(co => { if (co.people.some(matches)) state.open[co.key] = true; }); };
+  const reveal = () => { if (state.step === "contact" && (ui.q || ui.filter !== "all")) COMPANIES.forEach(co => { if (co.people.some(pMatch)) state.open[co.n] = true; }); };
   all("#flt button").forEach(b => b.onclick = () => { ui.filter = b.dataset.v; reveal(); render(); });
   $("q").oninput = e => { ui.q = e.target.value; reveal(); render(); };
   $("gadd").onclick = () => tryAdd($("cty").value);
@@ -204,8 +254,9 @@ function wire() {
   all("[data-del]").forEach(b => b.onclick = () => { state.rules.splice(+b.dataset.del, 1); ui.msg = ""; save(); render(); });
   all("[data-pick]").forEach(b => b.onclick = () => addRule(b.dataset.pick, b.dataset.pick, false));
   all("[data-force]").forEach(b => b.onclick = () => addRule(b.dataset.force, b.dataset.force, true));
-  all("[data-co]").forEach(el => el.onclick = e => { if (e.target.closest("button")) return; state.open[el.dataset.co] = !state.open[el.dataset.co]; save(); render(); });
-  all("[data-all]").forEach(b => b.onclick = () => { COMPANIES.find(x => x.key === b.dataset.all).people.forEach(c => state.d[c.n] = b.dataset.v); save(); render(); });
+  all("[data-co]").forEach(b => b.onclick = () => { state.cd[b.dataset.co] = b.dataset.v; save(); render(); });
+  all("[data-open]").forEach(el => el.onclick = e => { if (e.target.closest("button")) return; state.open[el.dataset.open] = !state.open[el.dataset.open]; save(); render(); });
+  all("[data-all]").forEach(b => b.onclick = () => { COMPANIES[b.dataset.all - 1].people.forEach(c => state.d[c.n] = b.dataset.v); save(); render(); });
   all("[data-n]").forEach(b => b.onclick = () => { state.d[b.dataset.n] = b.dataset.v; save(); render(); });
   all(".fin").forEach(b => b.onclick = () => { state.finished = true; save(); render();
     const boxes = document.querySelectorAll(".finbox"), box = b.closest(".foot") ? boxes[boxes.length - 1] : boxes[0];
@@ -215,27 +266,29 @@ function wire() {
     try { await navigator.clipboard.writeText(codeNow()); cp.textContent = "Copied ✓"; }
     catch (e) { ta.focus(); ta.select(); cp.textContent = "Selected — press Ctrl/Cmd+C"; } });
   const ex = $("exp"), co = $("col");
-  if (ex) ex.onclick = () => { COMPANIES.forEach(x => state.open[x.key] = true); save(); render(); };
-  if (co) co.onclick = () => { COMPANIES.forEach(x => state.open[x.key] = false); save(); render(); };
+  if (ex) ex.onclick = () => { COMPANIES.forEach(x => state.open[x.n] = true); save(); render(); };
+  if (co) co.onclick = () => { COMPANIES.forEach(x => state.open[x.n] = false); save(); render(); };
 }
-function tryAdd(text) {
-  const r = resolveCountry(text); if (!r) return;
+function tryAdd(t) {
+  const r = resolveCountry(t); if (!r) return;
   ui.msgOk = false;
-  if (r.none) { ui.msg = `“${esc(text)}” doesn't match any country I know. Check the spelling, or ask Claude in the chat.`; return render(); }
+  if (r.none) { ui.msg = `“${esc(t)}” doesn't match any country I know. Check the spelling, or ask Claude in the chat.`; return render(); }
   if (r.ask) { ui.msg = `${r.note}<br>${r.ask.map((k, i) => `<button data-pick="${esc(k)}">${esc(r.labels ? r.labels[i] : k)}</button>`).join("")}`; return render(); }
-  addRule(r.country, text, false);
+  addRule(r.country, t, false);
 }
 function addRule(country, typed, confirmed) {
-  const scope = state.view === "company" ? "c" : "p", rule = {mode: ui.mode, scope, country};
+  const scope = state.step === "company" ? "c" : "p", rule = {mode: ui.mode, scope, country};
   if (state.rules.some(r => r.mode === rule.mode && r.scope === scope && r.country === country)) { ui.msg = "That rule is already there."; ui.msgOk = false; return render(); }
-  const present = CARDS.filter(c => (scope === "c" ? c.company_country : c.contact_country) === country).length;
+  const present = scope === "c" ? COMPANIES.filter(co => [co.hq, ...co.presence].includes(country)).length
+                                : kept().flatMap(co => co.people).filter(c => c.contact_country === country).length;
   const note = typed.trim().toLowerCase() !== country.toLowerCase() ? `Matched “${esc(typed)}” to <b>${esc(country)}</b>. ` : "";
+  const who = scope === "c" ? "company on this list is based or present" : "contact on this list is";
   if (!present && rule.mode === "include" && !confirmed) {
-    ui.msg = `${note}No ${SCOPE[scope]} on this list is in ${esc(country)}, so “include only” would exclude everyone with a known country. Add it anyway?<br><button data-force="${esc(country)}">Yes, add it</button>`;
+    ui.msg = `${note}No ${who} in ${esc(country)}, so “include only” would exclude everyone. Add it anyway?<br><button data-force="${esc(country)}">Yes, add it</button>`;
     ui.msgOk = false; return render(); }
   state.rules.push(rule); save();
-  ui.msg = note + (present ? "Rule added." : `Rule added, but no ${SCOPE[scope]} on this list is in ${esc(country)}, so it changes nothing.`); ui.msgOk = true;
-  document.getElementById("cty").value = ""; render(); document.getElementById("cty").value = "";
+  ui.msg = note + (present ? "Rule added." : `Rule added, but no ${who} in ${esc(country)}, so it changes nothing.`); ui.msgOk = true;
+  render(); document.getElementById("cty").value = "";
 }
 render();
 </script></body></html>

@@ -40,7 +40,7 @@ ALIASES = {
     "company_location": ["Company Location", "Company HQ", "Company Headquarters", "companyLocation"],
     "id": ["ZoomInfo Contact ID", "LinkedIn ID", "Profile ID", "Sales Navigator ID", "id"],
 }
-STD = ["Row ID", "Contact", "Title", "Company", "Contact Country", "Company Country",
+STD = ["Row ID", "Contact", "Title", "Company", "Contact Country", "Company Country", "Company Presence",
        "Title Fit", "Title Reason", "Company Fit", "Company Reason", "Geo Fit", "Geo Reason",
        "Recommendation", "Decision"]
 
@@ -210,6 +210,11 @@ def canonical_countries(values):
     return sorted(set(out))
 
 
+def presence_of(row):
+    """Countries the company is based in or present in."""
+    return {c.strip() for c in (row.get("Company Presence") or "").split(";") if c.strip()} | ({row["Company Country"]} - {""})
+
+
 def check(args):
     fields, rows = load(args.run_dir)
     companies = canonical_countries(args.company_countries) if args.company_countries else CONFIG["default_company_countries"]
@@ -219,10 +224,11 @@ def check(args):
             r["Title Fit"], r["Title Reason"] = title_fit(r["Title"])
         cc, pc = r["Company Country"], r["Contact Country"]
         problems = []
-        if not cc:
+        presence = presence_of(r)
+        if not presence:
             problems.append("company country unknown")
-        elif cc not in companies:
-            problems.append(f"company in {cc}")
+        elif not presence & set(companies):
+            problems.append(f"company in {cc or ', '.join(sorted(presence))}, no presence in the target countries")
         if not pc:
             problems.append("contact country unknown")
         elif pc not in contacts:
@@ -251,8 +257,11 @@ def recommend(r):
 
 
 def apply_research(args):
-    """research.json: {"<company name>": {"fit": "fit|unclear|no", "reason": "...", "hq_country": "..."}}"""
+    """research.json: {"<company name>": {"fit": "fit|unclear|no", "reason": "...", "hq_country": "...",
+    "presence": ["<every country it has offices, plants or warehouses in>"]}}"""
     fields, rows = load(args.run_dir)
+    if "Company Presence" not in fields:
+        fields.insert(fields.index("Company Country") + 1, "Company Presence")
     research = json.loads(Path(args.file).read_text())
     hit = 0
     for r in rows:
@@ -263,6 +272,8 @@ def apply_research(args):
         r["Company Fit"], r["Company Reason"] = f["fit"], f.get("reason", "")
         if f.get("hq_country") and not r["Company Country"]:
             r["Company Country"] = country_of(f["hq_country"]) or f["hq_country"]
+        presence = {country_of(c) or c for c in f.get("presence", [])} | ({r["Company Country"]} - {""})
+        r["Company Presence"] = "; ".join(sorted(presence))
         recommend(r)
     save(args.run_dir, fields, rows)
     missing = sorted({r["Company"] for r in rows if not r.get("Company Fit")})
@@ -300,22 +311,26 @@ def parse_rules(text):
 
 
 def rule_hit(row, rules):
-    """The country rule that excludes this row, if any (same logic as the review page)."""
-    countries = {"c": row["Company Country"], "p": row["Contact Country"]}
+    """The country rule that excludes this row, if any (same logic as the review page).
+    Company rules: "include only" keeps companies based in OR present in a country;
+    "exclude" drops companies based in it. Contact rules use the contact's country."""
+    hq, contact, presence = row["Company Country"], row["Contact Country"], presence_of(row)
     for r in rules:
-        if r["mode"] == "exclude":
-            for s in ("c", "p"):
-                if r["scope"] in (s, "b") and countries[s] == r["country"]:
-                    return f"country rule: exclude {r['country']} ({RULE_SCOPE[s]})"
-    for s in ("c", "p"):
-        inc = [r["country"] for r in rules if r["mode"] == "include" and r["scope"] in (s, "b")]
-        if inc and countries[s] and countries[s] not in inc:
-            return f"country rule: {RULE_SCOPE[s]} not in {', '.join(inc)}"
+        if r["mode"] == "exclude" and r["scope"] in ("c", "b") and hq == r["country"]:
+            return f"company rule: exclude companies based in {r['country']}"
+        if r["mode"] == "exclude" and r["scope"] in ("p", "b") and contact == r["country"]:
+            return f"contact rule: exclude contacts in {r['country']}"
+    inc = [r["country"] for r in rules if r["mode"] == "include" and r["scope"] in ("c", "b")]
+    if inc and presence and not presence & set(inc):
+        return f"company rule: not based or present in {', '.join(inc)}"
+    inc = [r["country"] for r in rules if r["mode"] == "include" and r["scope"] in ("p", "b")]
+    if inc and contact and contact not in inc:
+        return f"contact rule: contact not in {', '.join(inc)}"
     return ""
 
 
 def apply_decisions(args):
-    """Code from the flashcards: 'LS1;<n cards>;X:<numbers>;K:<numbers>[;R:<country rules>]'.
+    """Code from the review page: 'LS1;<n cards>;X:<numbers>;K:<numbers>[;CX:<company numbers>][;R:<rules>]'.
     Without --confirm it only previews: writes decisions_pending.json and prints every
     change. With --confirm (after the user approves) it writes the pending decisions
     into screening.csv."""
@@ -341,7 +356,7 @@ def apply_decisions(args):
     if not args.code:
         raise SystemExit("give --code (preview) or --confirm (after the user approves)")
     cards = json.loads((run / "cards.json").read_text())
-    m = re.match(r"LS1;(\d+);X:([\d,\-]*);K:([\d,\-]*)(?:;R:(.*))?$", args.code.strip())
+    m = re.match(r"LS1;(\d+);X:([\d,\-]*);K:([\d,\-]*)(?:;CX:([\d,\-]*))?(?:;R:(.*))?$", args.code.strip())
     if not m or int(m.group(1)) != len(cards):
         raise SystemExit("that code doesn't match this review (wrong list or an old review) — ask the user to copy it again")
     def num(s):
@@ -351,37 +366,59 @@ def apply_decisions(args):
             out |= set(range(int(a), int(b or a) + 1))
         return out
     exclude, keep = num(m.group(2)), num(m.group(3))
-    rules = parse_rules(m.group(4))
+    rules = parse_rules(m.group(5))
+    company_out = num(m.group(4) or "")
     by_id = {r["Row ID"]: r for r in rows}
+    cos_path = run / "companies.json"
+    companies = {co["n"]: co for co in json.loads(cos_path.read_text())} if cos_path.exists() else {}
     decisions, changes, open_ = {}, [], []
     for c in cards:
         r = by_id[c["row_id"]]
+        rec = c.get("suggestion") or r["Recommendation"]
         d = "exclude" if c["n"] in exclude else "keep" if c["n"] in keep else ""
         if not d:
             open_.append(r)
             continue
         hit = rule_hit(r, rules)
-        if hit and d == "exclude":
+        if c.get("company_n") in company_out and d == "exclude":
+            note = f"company excluded ({hit})" if hit.startswith("company rule") else "company excluded by the reviewer"
+        elif hit and d == "exclude":
             note = hit
         elif hit:
             note = f"reviewer kept, overriding {hit}"
-        elif r["Recommendation"] == "review":
+        elif rec == "review":
             note = "reviewer (Claude left it to the user)"
-        elif d != r["Recommendation"]:
+        elif d != rec:
             note = "reviewer, against Claude's recommendation"
         else:
             note = "Claude's recommendation"
         decisions[r["Row ID"]] = {"decision": d, "note": note}
-        if d != r["Recommendation"] or hit or (r.get("Decision") and r["Decision"] != d):
-            changes.append((r, d, note))
+        if c.get("company_n") in company_out:
+            continue  # reported once per company below
+        if d != rec or hit or (r.get("Decision") and r["Decision"] != d):
+            changes.append((r, rec, d, note))
     pending_path.write_text(json.dumps({"code": args.code.strip(), "rules": rules, "decisions": decisions}, indent=1))
     print(f"PREVIEW — nothing saved yet. {len(keep)} keep, {len(exclude)} exclude, {len(open_)} not answered")
     if rules:
         print("country rules: " + "; ".join(f"{r['mode']} {r['country']} ({RULE_SCOPE[r['scope']]})" for r in rules))
-    print(f"\n{len(changes)} contacts where the result differs from Claude's recommendation or came from a rule:")
-    print("Company | Contact | Title | Claude recommended | Final | Why")
-    for r, d, note in sorted(changes, key=lambda x: (x[0]["Company"].lower(), x[0]["Contact"])):
-        print(f"{r['Company']} | {r['Contact']} | {r['Title']} | {r['Recommendation']} | {d.upper()} | {note}")
+    if company_out:
+        print(f"\nCompanies excluded ({len(company_out)}) — all their contacts are excluded:")
+        print("Company | Based in | Also present in | Contacts | Claude suggested | Why")
+        sample = {c["company_n"]: by_id[c["row_id"]] for c in cards}
+        for n in sorted(company_out, key=lambda n: companies.get(n, {}).get("name", "").lower()):
+            co, row = companies.get(n, {}), sample[n]
+            hit = rule_hit(row, rules)
+            why = hit if hit.startswith("company rule") else "reviewer"
+            others = ", ".join(x for x in co.get("presence", []) if x != co.get("hq")) or "—"
+            print(f"{co.get('name', row['Company'])} | {co.get('hq', '')} | {others} | {co.get('contacts', '')} | "
+                  f"{co.get('suggestion', '')} | {why}")
+    left = [co["name"] for n, co in companies.items() if n not in company_out and co["suggestion"] != "keep"]
+    if left:
+        print(f"\nCompanies kept that Claude had left to the user or suggested excluding ({len(left)}): {', '.join(sorted(left))}")
+    print(f"\n{len(changes)} contacts (at kept companies) where the result differs from Claude's suggestion or came from a rule:")
+    print("Company | Contact | Title | Claude suggested | Final | Why")
+    for r, rec, d, note in sorted(changes, key=lambda x: (x[0]["Company"].lower(), x[0]["Contact"])):
+        print(f"{r['Company']} | {r['Contact']} | {r['Title']} | {rec} | {d.upper()} | {note}")
     if open_:
         print(f"\nnot answered ({len(open_)}): " + ", ".join(f"{r['Contact']} ({r['Company']})" for r in open_))
     print("\nShow this to the user. After they approve: apply-decisions --run-dir … --confirm")

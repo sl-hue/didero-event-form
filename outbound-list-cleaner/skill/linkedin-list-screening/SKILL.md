@@ -30,11 +30,13 @@ the user which column holds it. If the file has pre-filter columns (e.g.
 
 **2. Research and review companies and job titles**
 - `company-researcher` (subagent) — for each company: what it does, HQ
-  country, size, and whether it fits Didero's ICP (North American and UK/IE
+  country, **every country where it has a real presence** (offices, plants,
+  warehouses, distribution — e.g. a Canadian company with US plants is
+  present in the US), size, and whether it fits Didero's ICP (North American and UK/IE
   manufacturers and physical-goods companies with real supply chains — use
   the `didero-icp-check` skill's criteria). Web search only; don't spend paid
   enrichment credits without asking. Write the result as
-  `{"<company>": {"fit": "fit|unclear|no", "reason": "…", "hq_country": "…"}}`
+  `{"<company>": {"fit": "fit|unclear|no", "reason": "…", "hq_country": "…", "presence": ["United States", …]}}`
   and run `screen.py apply-research --run-dir <run_dir> --file research.json`.
 - `title-reviewer` (subagent) — `screen.py check` (step 3) gives every title a
   first-pass verdict from keywords and seniority (`config.json`). Review every
@@ -61,33 +63,33 @@ the user which column holds it. If the file has pre-filter columns (e.g.
   `python3 scripts/flashcards.py build --run-dir <run_dir> --title "<list name>"`
   and open `<run_dir>/review.html` for the user in the Cowork / Claude Code
   window (send the file; it's a local page, never published).
-- **One page, one layout.** At the top, a **Companies | Contacts** switch and
-  the country bar; below, one list with your suggestion already filled in.
-  - **Companies** view: every company (HQ, contact count, how many kept /
-    excluded / open) with **Keep all / Exclude all**; click a company to fold
-    out its contacts (Expand all / Collapse all). Companies with someone you
-    flagged start open.
-  - **Contacts** view: every contact with title, company and both countries.
-  - Each contact has **Keep / Exclude**; a click records it, nothing else
-    to confirm. Contacts you flagged show one line, "Claude flagged: …".
-    Search, and filters: everyone / flagged by Claude / need your answer /
-    changed / excluded. Progress is saved in the page.
-  - **Country bar**: type a country, pick **Include only** or **Exclude**,
-    **Add rule**. In Companies view the rule applies to the company HQ, in
-    Contacts view to where the contact is. Any case or common spelling matches
-    ("united states", "USA", "scotland" → United Kingdom); typos, "CA",
-    "Georgia" or a state name get "did you mean…", never a guess; an include
-    rule nobody matches asks first. A person's own Keep/Exclude beats a rule;
-    unknown countries are never touched by a rule.
-  - Rows that differ from your suggestion (or were set by a rule) are
-    **highlighted yellow**, with a count at the bottom. **Finish review — get
-    the code** (top and bottom) shows the code, e.g.
-    `LS1;170;X:9-12,153;K:1-8,13-152,154-170;R:-c:Canada`, once nobody is
-    left needing an answer.
+- **Two steps on one page, companies first.**
+  - **1 · Companies** — every company, with where it is **based**, where else
+    it's **present**, what it does, and your suggestion (keep if it's based or
+    present in a target country and fits; a one-line reason otherwise).
+    Keep / Exclude per company. Country bar: **Include only** keeps companies
+    *based in or present in* the country; **Exclude** drops companies *based
+    in* it. Filters: all / need your answer / kept / excluded / changed. Step
+    2 opens once every company has an answer.
+  - **2 · Contacts** — only contacts of kept companies, **grouped under
+    their company**: each company row folds out to its contacts (Expand all /
+    Collapse all), with **Keep all / Exclude all**; each contact has Keep /
+    Exclude, title, country, and "Claude flagged: …" when you flagged them
+    (title or where they are). Country bar here uses the contact's country.
+  - Any case or common spelling matches ("united states", "USA", "scotland"
+    → United Kingdom); typos, "CA", "Georgia" or a state name get "did you
+    mean…", never a guess; an include rule nobody matches asks first. The
+    user's own Keep/Exclude beats a rule; unknown countries are never touched.
+  - Your suggestions are filled in; a click records an answer, nothing else to
+    confirm. Rows that differ from your suggestion (or came from a rule) are
+    **highlighted yellow**. **Finish review — get the code** (top and bottom
+    of step 2) shows the code, e.g.
+    `LS1;170;X:9-12,153;K:1-8,13-152,154-170;CX:3,52;R:+c:United States|-c:Canada`.
 - Ask them to paste the code into the chat, then run
   `screen.py apply-decisions --run-dir <run_dir> --code "<code>"`. This only
-  **previews**: show the user its table of changes (company, contact, title,
-  your recommendation, final, why) and the not-answered contacts. If they want
+  **previews**: show the user its tables — companies excluded (based in,
+  present in, contacts, why), companies kept that you'd left open, and contacts
+  that differ from your suggestion — and any not-answered contacts. If they want
   changes, they edit in the page and paste a new code.
 - **Only after the user's OK** run `screen.py apply-decisions --run-dir <run_dir> --confirm`,
   which writes **Decision** (keep / exclude) and **Decision Note** (why) on
