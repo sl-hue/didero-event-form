@@ -45,7 +45,9 @@ on unclear rows through multiple-choice prompts in chat.
 ## LinkedIn list flow (agreed with the user, 2026-10-01)
 
 0. Orchestrator: identify the list type first — ZoomInfo / LinkedIn (Sales
-   Nav or Evaboot) / event list — and confirm with the user.
+   Nav or Evaboot) / event list — and confirm with the user. Event lists:
+   separate flow, designed later. Evaboot's Matches Filters / No Match
+   Reasons columns are ignored.
 1. linkedin-list-screening: load → **multiple jobs** (contacts with
    `Current Jobs Number` > 1; the other jobs aren't in the file, so the user
    checks each LinkedIn profile via an "Open LinkedIn" button and sets the real
@@ -63,11 +65,18 @@ on unclear rows through multiple-choice prompts in chat.
    no shorteners/linktree/careers/subpages; company name ZI only if it matches
    the LinkedIn company after the multiple-jobs step, otherwise the whole ZI
    record is distrusted; company LinkedIn URL LinkedIn; person/company
-   location ZI).
+   location ZI — but the ZoomInfo connector doesn't return a person's
+   city/state/country, so contact location stays LinkedIn's unless a ZI
+   search proves otherwise; job title LinkedIn (more current), as long as the
+   LinkedIn company is the target company after the multiple-jobs step,
+   otherwise flag).
 7. Consistency: within contact → across contacts of a company → contacts ↔
    companies. Ties go to the user.
 8. Prune columns.
-9. outbound-list-cleaner steps 3–6 (HubSpot duplicates, import, Clay, BDRs).
+9. outbound-list-cleaner steps 1–2 again (full re-run: company domains are
+   re-decided from all emails incl. ZoomInfo's), showing the user only what
+   changed since the first pass; earlier decisions are kept.
+10. outbound-list-cleaner steps 3–6 (HubSpot duplicates, import, Clay, BDRs).
 
 ## Open questions
 
