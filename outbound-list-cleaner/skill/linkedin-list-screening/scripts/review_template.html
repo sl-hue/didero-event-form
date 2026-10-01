@@ -7,7 +7,19 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#161513;--card:#22201d;--fg:#f1eee8;--mut:#a39d93;
 --line:#3a3631;--fit:#6fd3a0;--fitbg:#163527;--unc:#f0c46a;--uncbg:#3a2e14;--no:#ff8a80;--nobg:#3d1a17;--acc:#8fb0ff;--accbg:#1d2740;--hl:#4a4012;--hl2:#1e2a45;--shadow:none}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
-.wrap{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 48px}.wrap.wide{max-width:1120px}
+.layout{display:grid;grid-template-columns:260px 1fr;gap:14px;align-items:start}
+.side{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;position:sticky;top:12px}
+.side input[type=text],.side #lq{width:100%;font:inherit;font-size:14px;padding:7px 9px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.clist{max-height:60vh;overflow-y:auto;margin:0 -4px}
+.ci{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;border-radius:8px;padding:6px 8px;font-weight:500;font-size:14px;background:none}
+.ci:hover{background:var(--bg)}.ci.cur{background:var(--accbg);font-weight:650}
+.cn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm{font-size:12px;color:var(--mut)}.cm b{color:var(--unc)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none;border:1.5px solid var(--mut);margin:0 3px 0 6px;vertical-align:0}.ci .dot{margin:0}
+.dot.done{background:var(--fit);border-color:var(--fit)}.dot.part{background:linear-gradient(90deg,var(--unc) 50%,transparent 50%);border-color:var(--unc)}
+.nav{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.nav button{padding:8px 14px}
+.btns3{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:8px;margin-top:14px}
 h1{font-size:18px;margin:0 0 4px}h2{font-size:15px;margin:0 0 8px}.mut{color:var(--mut)}.sm{font-size:13px}
 .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:12px 0 16px}.bar i{display:block;height:100%;background:var(--acc)}
 .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
@@ -48,17 +60,18 @@ td.coh button{font-size:12px;padding:0 0 0 8px}
 .legend span{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin:0 4px 0 10px;border:1px solid var(--line)}
 textarea{width:100%;font:13px ui-monospace,Menlo,monospace;padding:10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-height:70px}
 .choice{display:grid;gap:10px;margin-top:14px}
-@media (max-width:560px){.person{grid-template-columns:1fr}.src{text-align:left}.btns{grid-template-columns:1fr 1fr}}
+@media (max-width:820px){.layout{grid-template-columns:1fr}.side{position:static}.clist{max-height:220px}}
+@media (max-width:560px){.btns3{grid-template-columns:1fr 1fr}.person{grid-template-columns:1fr}.src{text-align:left}.btns{grid-template-columns:1fr 1fr}}
 </style></head><body><div class="wrap" id="app"></div>
 <script>
 const CARDS = __CARDS__;
 const GEO = __GEO__;
 const KEY = "ls-review-__REVIEW_ID__";
 const SCOPES = {b: "company & contact", c: "company", p: "contact"};
-let state = {mode: null, view: "start", i: 0, d: {}, seen: {}, rules: []};
+let state = {mode: null, view: "start", key: null, d: {}, seen: {}, rules: []};
 try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.d) state = Object.assign(state, s); } catch (e) {}
 CARDS.forEach(c => { if (c.decision && !state.d[c.n]) state.d[c.n] = c.decision; });
-let ui = {mode: "exclude", scope: "b", msg: "", onlyChanges: false};
+let ui = {mode: "exclude", scope: "b", msg: "", onlyChanges: false, q: "", filter: "all", lq: "", listDeck: false};
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
 const esc = s => String(s ?? "").replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
 const app = document.getElementById("app");
@@ -183,29 +196,101 @@ function addRule(country, typed, rerender, confirmed) {
 }
 
 // ---- screens ---------------------------------------------------------------
-function render() { ({start, card, review, done})[state.view || "start"](); }
+function render() { app.classList.remove("wide"); ({start, card, review, done, data: dataView})[state.view || "start"](); }
 function go(view) { state.view = view; save(); ui.msg = ""; render(); }
+
+// ---- navigation: free movement, answering is separate ------------------------
+const coByKey = k => COMPANIES.find(x => x.key === k);
+const current = () => coByKey(state.key) || deck()[0] || COMPANIES[0];
+function step(dir) {  // next / previous company in the current deck, from wherever you are
+  const pos = COMPANIES.indexOf(current()), D = deck();
+  const t = dir > 0 ? D.find(x => COMPANIES.indexOf(x) > pos) : [...D].reverse().find(x => COMPANIES.indexOf(x) < pos);
+  if (t) { state.key = t.key; ui.msg = ""; save(); card(); return true; }
+  return false;
+}
+function status(co) {  // done | part | open
+  const n = co.people.filter(c => finalDecision(c)).length;
+  return n === co.people.length ? "done" : n ? "part" : "open";
+}
+function open(key) { state.mode = state.mode || "all"; state.key = key; go("card"); }
+
+// ---- all the data, as a table ------------------------------------------------
+function dataTable() {
+  const q = (ui.q || "").trim().toLowerCase(), f = ui.filter || "all";
+  const vchip = v => `<span class="chip ${esc(v.fit)}" title="${esc(v.reason)}">${v.fit === "no" ? "no" : esc(v.fit)}</span>`;
+  let shown = 0;
+  const body = COMPANIES.map(co => {
+    const ppl = co.people.filter(c => (f === "all" || (f === "look" && c.recommendation !== "keep") || (f === "rule" && ruleFor(c)))
+      && (!q || [c.name, c.title, c.company, c.contact_country, c.company_country].join(" ").toLowerCase().includes(q)));
+    if (!ppl.length) return "";
+    shown += ppl.length;
+    const st = status(co);
+    return `<tr><td class="coh" colspan="7"><button class="link" data-open="${esc(co.key)}" style="font-weight:650;padding:0">${esc(co.name)}</button>
+      <span class="mut" style="font-weight:400"> · ${esc(co.country) || "HQ unknown"} · ${co.people.length} contact${co.people.length > 1 ? "s" : ""} · company ${vchip(co.verdict)}</span>
+      <span class="chip ${st === "done" ? "keep" : st === "part" ? "review" : ""}" style="${st === "open" ? "color:var(--mut)" : ""}">${st === "done" ? "answered" : st === "part" ? "partly answered" : "not answered"}</span></td></tr>` +
+      ppl.map(c => { const d = finalDecision(c);
+        return `<tr><td>${esc(c.name)}</td><td>${esc(c.title)}</td><td>${esc(c.contact_country) || "?"}</td><td>${vchip(c.verdicts[0])}</td><td>${vchip(c.verdicts[2])}</td>
+        <td><span class="chip ${esc(c.recommendation)}">${esc(c.recommendation)}</span></td><td>${d ? `<span class="chip ${d}">${d}</span>` : ruleFor(c) ? '<span class="chip rulechip">rule</span>' : '<span class="mut">—</span>'}</td></tr>`; }).join("");
+  }).join("");
+  return `<div class="box"><div class="geo"><input id="q" placeholder="Search name, title, company or country" value="${esc(ui.q || "")}" autocomplete="off">
+    <span class="seg" id="tf"><button data-v="all" class="${f === "all" ? "on" : ""}">Everyone</button><button data-v="look" class="${f === "look" ? "on" : ""}">Needs a look</button><button data-v="rule" class="${f === "rule" ? "on" : ""}">Hit by a rule</button></span></div>
+    <div class="sm mut" style="margin:8px 0 4px">${shown} of ${CARDS.length} contacts. Click a company to open its card. Hover a verdict for the reason.</div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Contact</th><th>Title</th><th>Contact country</th><th>Title</th><th>Geo</th><th>Claude</th><th>Yours</th></tr></thead>
+    <tbody>${body || '<tr><td colspan="7" class="mut">No matches.</td></tr>'}</tbody></table></div></div>`;
+}
+function wireTable(rerender) {
+  const q = document.getElementById("q");
+  q.oninput = () => { ui.q = q.value; rerender(); const n = document.getElementById("q"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
+  document.querySelectorAll("#tf button").forEach(b => b.onclick = () => { ui.filter = b.dataset.v; rerender(); });
+  document.querySelectorAll("[data-open]").forEach(b => b.onclick = () => open(b.dataset.open));
+}
 
 function start() {
   const n = k => CARDS.filter(c => c.recommendation === k).length;
   const flagged = COMPANIES.filter(needsLook);
-  app.innerHTML = `<h1>__TITLE__</h1><div class="mut">${CARDS.length} contacts at ${COMPANIES.length} companies. One card per company: keep or exclude everyone at once, or person by person.</div>
+  app.classList.add("wide");
+  app.innerHTML = `<h1>__TITLE__</h1><div class="mut">${CARDS.length} contacts at ${COMPANIES.length} companies. One card per company: keep or exclude everyone at once, or person by person. You can move between companies freely and answer in any order.</div>
   <div class="stats"><div class="stat"><b>${n("keep")}</b>recommended keep</div><div class="stat"><b>${n("review")}</b>need a look</div>
   <div class="stat"><b>${n("exclude")}</b>recommended exclude</div></div>
+  <div class="choice" style="margin-bottom:14px"><button class="k" id="all">Go through all ${COMPANIES.length} companies</button>
+  <button id="flag">Go through only the ${flagged.length} companies with someone who needs a look or would be excluded<br><span class="mut" style="font-weight:400">clear passes are kept, and country rules apply</span></button>
+  ${Object.keys(state.d).length || Object.keys(state.seen).length ? `<button id="fin">See the results so far</button>` : ""}</div>
   ${geoBar()}
-  <div class="choice"><button class="k" id="all">Review all ${COMPANIES.length} companies</button>
-  <button id="flag">Review only the ${flagged.length} companies with someone who needs a look or would be excluded<br><span class="mut" style="font-weight:400">clear passes are kept, and country rules apply</span></button>
-  ${Object.keys(state.d).length || Object.keys(state.seen).length ? `<button id="fin">See the results so far</button>` : ""}</div>`;
-  wireGeo(start);
-  document.getElementById("all").onclick = () => { state.mode = "all"; state.i = 0; go("card"); };
-  document.getElementById("flag").onclick = () => { state.mode = "flagged"; state.i = 0; go("card"); };
+  <h2 style="margin-top:6px">All the data <span class="mut sm" style="font-weight:400">— look through everything before you start; it stays one click away on every card</span></h2>
+  ${dataTable()}`;
+  wireGeo(start); wireTable(start);
+  document.getElementById("all").onclick = () => { state.mode = "all"; state.key = deck()[0]?.key; go("card"); };
+  document.getElementById("flag").onclick = () => { state.mode = "flagged"; state.key = deck()[0]?.key; go("card"); };
   const f = document.getElementById("fin"); if (f) f.onclick = () => { state.mode = state.mode || "flagged"; go("review"); };
 }
 
+function dataView() {
+  app.classList.add("wide");
+  app.innerHTML = `<div class="top"><h1>All the data</h1><button class="link" id="bk">← Back to the card</button></div>${geoBar()}${dataTable()}`;
+  wireGeo(dataView); wireTable(dataView);
+  document.getElementById("bk").onclick = () => go("card");
+}
+
+function companyList(co) {
+  const D = deck(), lq = (ui.lq || "").toLowerCase();
+  const items = COMPANIES.filter(x => (!ui.listDeck || D.includes(x)) && (!lq || x.name.toLowerCase().includes(lq))).map(x => {
+    const st = status(x), look = needsLook(x);
+    return `<button class="ci ${x === co ? "cur" : ""}" data-open="${esc(x.key)}"><span class="dot ${st}"></span><span class="cn">${esc(x.name)}</span>
+      <span class="cm">${x.people.length}${look ? ' <b title="someone needs a look">!</b>' : ""}</span></button>`; }).join("");
+  const done = COMPANIES.filter(x => status(x) === "done").length;
+  return `<div class="side"><div class="sm" style="margin-bottom:6px"><b>Companies</b> <span class="mut">${done}/${COMPANIES.length} answered</span></div>
+    <input id="lq" placeholder="Find a company" value="${esc(ui.lq || "")}" autocomplete="off">
+    <label class="sm mut" style="display:block;margin:6px 0"><input type="checkbox" id="ld" ${ui.listDeck ? "checked" : ""}> only the ${D.length} in this review</label>
+    <div class="clist">${items}</div>
+    <div class="sm mut" style="margin-top:6px"><span class="dot done"></span>answered <span class="dot part"></span>partly <span class="dot open"></span>not yet · <b>!</b> needs a look</div></div>`;
+}
+
 function card() {
-  const D = deck(), edit = state.editKey && COMPANIES.find(x => x.key === state.editKey);
-  if (!edit && (!D.length || state.i >= D.length)) { state.i = D.length; return go("review"); }
-  const co = edit || D[state.i], pct = edit ? 100 : Math.round(100 * state.i / D.length);
+  const D = deck(), co = current();
+  if (!co) return go("review");
+  state.key = co.key;
+  const k = D.indexOf(co), answered = D.filter(x => status(x) === "done").length;
+  const pct = D.length ? Math.round(100 * answered / D.length) : 100;
   const rows = co.people.map(c => {
     const e = effective(c), t = c.verdicts[0], g = c.verdicts[2];
     const name = c.linkedin ? `<a href="${esc(c.linkedin)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name);
@@ -214,37 +299,47 @@ function card() {
       <div class="reasons"><span class="chip ${esc(t.fit)}">Title · ${t.fit === "no" ? "not a fit" : esc(t.fit)}</span>${esc(t.reason)}<br>
       <span class="chip ${esc(g.fit)}">Geo · ${g.fit === "no" ? "not a fit" : esc(g.fit)}</span>Contact in ${esc(c.contact_country) || "unknown"}${g.reason ? " — " + esc(g.reason) : ""}</div></div>
       <div><div class="tog"><button class="x ${e.d === "exclude" ? "on" : ""}" data-n="${c.n}" data-v="exclude">✗</button><button class="k ${e.d === "keep" ? "on" : ""}" data-n="${c.n}" data-v="keep">✓</button></div>
-      <div class="src">${esc(e.src)}</div></div></div>`; }).join("");
-  const open = co.people.filter(c => !effective(c).d).length;
-  app.innerHTML = `<div class="top"><h1>__TITLE__</h1><span class="num">${edit ? "Editing one company" : `Company ${state.i + 1} / ${D.length}`}</span></div>
+      <div class="src">${esc(state.d[c.n] || ruleFor(c) || !finalDecision(c) ? e.src : state.seen[co.key] ? "confirmed" : "kept automatically (clear pass)")}</div></div></div>`; }).join("");
+  const unresolved = co.people.filter(c => !effective(c).d).length, st = status(co);
+  const hasPrev = D.some(x => COMPANIES.indexOf(x) < COMPANIES.indexOf(co)), hasNext = D.some(x => COMPANIES.indexOf(x) > COMPANIES.indexOf(co));
+  app.classList.add("wide");
+  app.innerHTML = `<div class="top"><h1>__TITLE__</h1><span class="num">${k >= 0 ? `Company ${k + 1} / ${D.length}` : "Not in this review — clear passes, kept automatically"} · ${answered} answered</span></div>
   <div class="bar"><i style="width:${pct}%"></i></div>
   ${geoBar()}
-  <div class="box"><div class="top"><p class="co">${esc(co.name)}</p><span class="num">${co.people.length} contact${co.people.length > 1 ? "s" : ""}</span></div>
+  <div class="layout">${companyList(co)}<div>
+  <div class="box"><div class="nav"><button id="pv" ${hasPrev ? "" : "disabled"}>← Previous</button>
+  <span class="sm ${st === "done" ? "" : "mut"}">${st === "done" ? "✓ answered" : st === "part" ? "partly answered" : "not answered yet"}</span>
+  <button id="nv">${hasNext ? "Next →" : "Results →"}</button></div>
+  <div class="top"><p class="co">${esc(co.name)}</p><span class="num">${co.people.length} contact${co.people.length > 1 ? "s" : ""}</span></div>
   <div class="sm mut">HQ: ${esc(co.country) || "unknown"}</div>
   <div class="why"><span class="chip ${esc(co.verdict.fit)}">Company · ${co.verdict.fit === "no" ? "not a fit" : esc(co.verdict.fit)}</span>${esc(co.verdict.reason)}</div>
   <div style="margin-top:10px">${rows}</div>
-  <div class="btns"><button id="b" ${state.i === 0 || edit ? "disabled" : ""}>← Back</button>
-  <button class="x" id="x">✗ Exclude all</button><button class="k" id="k">✓ Keep all</button>
-  <button class="p" id="nx" ${open ? "disabled" : ""}>${open ? `${open} to answer` : edit ? "Done → results" : "Next →"}</button></div>
-  <div class="keys">Keys: Y keep all · N exclude all · Enter next (as marked) · ← back. “All” leaves people set by a country rule as they are.</div></div>
-  ${edit ? "" : `<button class="link" id="home">Start over / change mode</button> · `}<button class="link" id="fin">${edit ? "← Back to results" : "See results so far"}</button>`;
+  <div class="btns3"><button class="x" id="x">✗ Exclude all</button><button class="k" id="k">✓ Keep all</button>
+  <button class="p" id="ok" ${unresolved ? "disabled" : ""}>${unresolved ? `${unresolved} to mark` : "Confirm as marked"}</button></div>
+  <div class="keys">Keys: ← → move without answering · Y keep all · N exclude all · Enter confirm as marked. Answering moves you on. “All” leaves people set by a country rule as they are.</div></div>
+  <button class="link" id="home">Start over / change mode</button> · <button class="link" id="tbl">See all the data (table)</button> · <button class="link" id="fin">See results</button></div></div>`;
   wireGeo(card);
   document.querySelectorAll(".tog button").forEach(b => b.onclick = () => { state.d[b.dataset.n] = b.dataset.v; save(); card(); });
+  document.querySelectorAll(".side [data-open]").forEach(b => b.onclick = () => { state.key = b.dataset.open; ui.msg = ""; save(); card(); });
+  const lq = document.getElementById("lq");
+  lq.oninput = () => { ui.lq = lq.value; card(); const n = document.getElementById("lq"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
+  document.getElementById("ld").onchange = e => { ui.listDeck = e.target.checked; card(); };
   document.getElementById("k").onclick = () => all(co, "keep");
   document.getElementById("x").onclick = () => all(co, "exclude");
-  document.getElementById("nx").onclick = () => next(co);
-  document.getElementById("b").onclick = back;
-  if (!edit) document.getElementById("home").onclick = () => { state.mode = null; go("start"); };
-  document.getElementById("fin").onclick = () => { state.editKey = null; go("review"); };
+  document.getElementById("ok").onclick = () => confirmCo(co);
+  document.getElementById("pv").onclick = () => step(-1);
+  document.getElementById("nv").onclick = () => step(1) || go("review");
+  document.getElementById("home").onclick = () => { state.mode = null; go("start"); };
+  document.getElementById("tbl").onclick = () => go("data");
+  document.getElementById("fin").onclick = () => go("review");
+  const cur = document.querySelector(".ci.cur"); if (cur) cur.scrollIntoView({block: "nearest"});
 }
-function all(co, v) { co.people.forEach(c => { if (!ruleFor(c) || state.d[c.n]) state.d[c.n] = v; }); next(co); }
-function next(co) {
+function all(co, v) { co.people.forEach(c => { if (!ruleFor(c) || state.d[c.n]) state.d[c.n] = v; }); confirmCo(co); }
+function confirmCo(co) {
   if (co.people.some(c => !effective(c).d)) return;
-  state.seen[co.key] = 1; ui.msg = "";
-  if (state.editKey) { state.editKey = null; return go("review"); }
-  state.i++; save(); card();
+  state.seen[co.key] = 1; ui.msg = ""; save();
+  step(1) || go("review");
 }
-function back() { if (state.i > 0) { state.i--; ui.msg = ""; save(); card(); } }
 
 // ---- final review: everything, changes highlighted --------------------------
 function review() {
@@ -267,9 +362,9 @@ function review() {
   ${O ? `<p class="sm" style="color:var(--unc)">${O} contacts are not answered yet. They stay undecided unless you go back and answer them.</p>` : ""}
   <div class="choice"><button class="k" id="ok">Looks right — get the code for Claude</button><button id="bk">← Back to the cards</button></div>`;
   document.getElementById("oc").onchange = e => { ui.onlyChanges = e.target.checked; review(); };
-  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { state.editKey = b.dataset.go; go("card"); });
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => open(b.dataset.go));
   document.getElementById("ok").onclick = () => go("done");
-  document.getElementById("bk").onclick = () => { state.i = Math.max(0, deck().length - 1); go("card"); };
+  document.getElementById("bk").onclick = () => go("card");
 }
 
 function done() {
@@ -300,12 +395,12 @@ function done() {
 
 document.addEventListener("keydown", e => {
   if (state.view !== "card" || ["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
-  const D = deck(), co = (state.editKey && COMPANIES.find(x => x.key === state.editKey)) || D[state.i];
-  if (!co) return;
+  const co = current(); if (!co) return;
   if (e.key === "y" || e.key === "Y") all(co, "keep");
   else if (e.key === "n" || e.key === "N") all(co, "exclude");
-  else if (e.key === "Enter" || e.key === "ArrowRight") next(co);
-  else if (e.key === "ArrowLeft" && !state.editKey) back();
+  else if (e.key === "Enter") confirmCo(co);
+  else if (e.key === "ArrowRight") step(1) || go("review");
+  else if (e.key === "ArrowLeft") step(-1);
 });
 render();
 </script></body></html>

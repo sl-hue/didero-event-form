@@ -63,10 +63,15 @@ the user which column holds it. If the file has pre-filter columns (e.g.
   window (send the file; it's a local page, never published).
 - **One card per company** with all its contacts: the company verdict once,
   then each person's title and geography verdicts and your recommendation.
-  **Keep all / Exclude all** (keys Y, N), or ✓ / ✗ per person, then Next
-  (Enter); Back (←). The user can review every company, or only companies
-  with someone who needs a look or would be excluded (clear passes are kept).
-  Progress is saved in the page if it's reopened.
+  **Keep all / Exclude all** (keys Y, N), or ✓ / ✗ per person then
+  **Confirm as marked** (Enter). Moving is separate from answering:
+  **Previous / Next** (← →) and a company list beside the card (status dots,
+  "!" for needs a look, search) let the user look around and see patterns
+  before deciding. The start screen shows **all the data** in a searchable
+  table (filters: everyone / needs a look / hit by a rule), also one click
+  away from every card. The user can go through every company, or only
+  companies with someone who needs a look or would be excluded (clear passes
+  are kept). Progress is saved in the page if it's reopened.
 - **Country rules bar** (top of the page): the user types a country, picks
   **Include only** or **Exclude**, and **Company / Contact / Both**. Any case
   or common spelling matches ("united states", "USA", "scotland" → United
