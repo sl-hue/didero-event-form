@@ -283,12 +283,19 @@ Everything the user needs to review goes in the chat.
    `python3 scripts/normalize.py apply --run-dir <run_dir> --decisions <run_dir>/decisions_step2.json`.
    It updates `working.csv` (names, LinkedIn, emails, dropdown values,
    revenue ×1000 as `Revenue (in USD)`, `Employees.` prefix stripped,
-   industry combined, one website per company) and writes
+   industry combined, websites cleaned, one website per company) and writes
    `report_step2.json`. Upload columns are chosen only at export.
+   **Websites** are cut back to the site itself (subpages, index pages,
+   `?…` dropped: `acme.com/about/index.html` → `acme.com`), careers
+   subdomains become the main site (`careers.acme.com` → `www.acme.com`), and
+   link shorteners, Linktree-style pages, social profiles and job boards are
+   blanked (`websites_fixed` in the report); the company's website is then
+   the most common cleaned one across its rows.
 
 5. **Report in chat:** dropdown values with no matching HubSpot option
    (`dropdown_values_not_matching`, e.g. a Management Level or Department
-   value HubSpot's dropdown doesn't have), name fixes, blanked LinkedIn URLs (name, company,
+   value HubSpot's dropdown doesn't have), websites cleaned or blanked
+   (company, from → to, reason), name fixes, blanked LinkedIn URLs (name, company,
    removed URL, reason), and the user's last-name decisions.
 
 ## Step 3 — HubSpot duplicate check

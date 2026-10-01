@@ -167,18 +167,55 @@ def prepare(args):
                                  "linkedin_slug": slug})
 
     # Rows of one company that disagree on the website (it's company data).
+    websites_fixed = []
+    for r in contacts:
+        before = r.get("Website", "")
+        after, why = clean_website(before)
+        if after != before.strip():
+            websites_fixed.append({COMPANY_ID: r[COMPANY_ID], "company": r["Company Name"], "from": before,
+                                   "to": after, "reason": why or "cut back to the site itself"})
+            r["Website"] = after
     sites = {}
     for r in contacts:
-        sites.setdefault(r[COMPANY_ID], Counter())[r.get("Website", "")] += 1
+        if r.get("Website"):
+            sites.setdefault(r[COMPANY_ID], Counter())[r["Website"]] += 1
     website_conflicts = [{COMPANY_ID: k, "websites": dict(v)} for k, v in sites.items() if len(v) > 1]
 
-    review = {"name_changes": name_changes, "linkedin_review": linkedin_review,
+    review = {"website_fixes": websites_fixed, "name_changes": name_changes, "linkedin_review": linkedin_review,
               "email_review": email_review, "website_conflicts": website_conflicts}
     out = Path(args.run_dir)
     (out / "review_step2.json").write_text(json.dumps(review, indent=2))
     print(f"{len(contacts)} contacts: {len(name_changes)} name fixes, "
           f"{len(linkedin_review)} LinkedIn URLs and {len(email_review)} emails to judge; "
           f"{len(website_conflicts)} website conflicts -> {out / 'review_step2.json'}")
+
+
+# Not a company website: link shorteners, link-in-bio pages, social profiles, job boards.
+NOT_A_WEBSITE = ("bit.ly", "bitly.com", "tinyurl.com", "lnkd.in", "t.co", "ow.ly", "linktr.ee", "linktree.com",
+                 "beacons.ai", "carrd.co", "linkedin.com", "facebook.com", "instagram.com", "twitter.com", "x.com",
+                 "youtube.com", "tiktok.com", "greenhouse.io", "lever.co", "myworkdayjobs.com", "workday.com",
+                 "icims.com", "smartrecruiters.com", "bamboohr.com", "jobvite.com", "ultipro.com", "indeed.com",
+                 "glassdoor.com", "ziprecruiter.com", "breezy.hr", "recruitee.com", "workable.com", "taleo.net",
+                 "google.com", "sites.google.com", "wixsite.com")
+CAREERS_SUBDOMAIN = re.compile(r"^(careers?|jobs|join|apply|work|recruiting|talent)\.", re.I)
+
+
+def clean_website(url):
+    """Company website -> just the site ('https://www.acme.com/about/index.html' -> 'www.acme.com').
+    Returns (cleaned, reason) — cleaned is '' when it isn't a company website at all."""
+    u = (url or "").strip()
+    if not u:
+        return "", ""
+    host = re.sub(r"^[a-z]+://", "", u, flags=re.I).split("/")[0].split("?")[0].split("#")[0].split(":")[0].lower()
+    host = host.strip(".")
+    if not host or "." not in host:
+        return "", "not a web address"
+    bare = host[4:] if host.startswith("www.") else host
+    if any(bare == d or bare.endswith("." + d) for d in NOT_A_WEBSITE):
+        return "", f"{bare} is a link/social/job-board page, not the company site"
+    if CAREERS_SUBDOMAIN.match(bare) and bare.count(".") >= 2:
+        host = "www." + CAREERS_SUBDOMAIN.sub("", bare)
+    return host, ""
 
 
 def times_thousand(value):
@@ -233,11 +270,20 @@ def apply(args):
 
     # Company fields — every step is safe to re-run.
     fields = ws.ensure_columns(fields, ["Revenue (in USD)"], after="Revenue (in 000s USD)")
+    websites_fixed = []
+    for r in contacts:
+        before = r.get("Website", "")
+        after, why = clean_website(before)
+        if after != before.strip():
+            websites_fixed.append({COMPANY_ID: r[COMPANY_ID], "company": r["Company Name"], "from": before,
+                                   "to": after, "reason": why or "cut back to the site itself"})
+            r["Website"] = after
     sites = {}
     for r in contacts:
-        sites.setdefault(r[COMPANY_ID], Counter())[r.get("Website", "")] += 1
+        if r.get("Website"):
+            sites.setdefault(r[COMPANY_ID], Counter())[r["Website"]] += 1
     for r in contacts:
-        r["Website"] = sites[r[COMPANY_ID]].most_common(1)[0][0]
+        r["Website"] = sites[r[COMPANY_ID]].most_common(1)[0][0] if r[COMPANY_ID] in sites else ""
         if not r.get("Revenue (in USD)"):
             r["Revenue (in USD)"] = times_thousand(r.get("Revenue (in 000s USD)", ""))
         r["Employee Range"] = re.sub(r"^Employees\.", "", r.get("Employee Range", ""))
@@ -247,7 +293,9 @@ def apply(args):
             r["Primary Industry"] = f"{industry}- {sub}"
 
     ws.save(args.run_dir, fields, contacts)
-    report = {"linkedin_blanked": blanked, "linkedin_replaced": replaced, "emails_cleared": cleared_emails,
+    seen = set()
+    websites_fixed = [w for w in websites_fixed if (w[COMPANY_ID], w["from"]) not in seen and not seen.add((w[COMPANY_ID], w["from"]))]
+    report = {"websites_fixed": websites_fixed, "linkedin_blanked": blanked, "linkedin_replaced": replaced, "emails_cleared": cleared_emails,
               "dropdown_values_not_matching": [
                   {"column": col, "value": v, "rows": n, "hubspot_property": DROPDOWNS[col][0],
                    "allowed": sorted(set(DROPDOWNS[col][1].values()))}
@@ -256,7 +304,7 @@ def apply(args):
     ws.log(args.run_dir, {"action": "step2", "linkedin_blanked": len(blanked), "linkedin_replaced": len(replaced),
                           "emails_cleared": len(cleared_emails)})
     ws.snapshot_copy(args.run_dir, "02_normalize")
-    print(f"working.csv updated: {len(contacts)} contacts; {len(blanked)} LinkedIn URLs blanked, "
+    print(f"working.csv updated: {len(contacts)} contacts; {len(websites_fixed)} websites cleaned, {len(blanked)} LinkedIn URLs blanked, "
           f"{len(replaced)} replaced, {len(cleared_emails)} emails cleared, "
           f"{sum(unmapped_dropdowns.values())} dropdown values with no matching HubSpot option")
 
