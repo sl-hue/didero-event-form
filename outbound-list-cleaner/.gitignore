@@ -9,3 +9,8 @@ __pycache__/
 
 # built skill packages (rebuilt from skill/)
 *.zip
+
+# test output must never be committed (screenshots/codes can show contact data)
+skill/**/*.png
+skill/**/*.jpg
+skill/**/code*.txt
