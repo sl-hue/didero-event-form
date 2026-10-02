@@ -139,8 +139,9 @@ def send(record):
     if not url:
         return "not set up (no backend.json) — saved on this device only"
     req = urllib.request.Request(f"{url}/rest/v1/preflight_runs", data=json.dumps(record).encode(), method="POST",
-                                 headers={"apikey": key, "Authorization": f"Bearer {key}",
-                                          "Content-Type": "application/json", "Prefer": "return=minimal"})
+                                 headers={"apikey": key, "Content-Type": "application/json", "Prefer": "return=minimal",
+                                          # a legacy anon key (a JWT) also goes in Authorization; a publishable key doesn't
+                                          **({"Authorization": f"Bearer {key}"} if key.startswith("eyJ") else {})})
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             return f"sent to the team log (HTTP {r.status})"
