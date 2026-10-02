@@ -700,6 +700,13 @@ ZoomInfo match)
 2. `linkedin_finder.py apply --run-dir <run_dir> --code "<code>"` previews;
    after the user's OK, `--confirm` writes the URLs.
 
+**Job titles on event lists:** event lists' titles vary in quality, so in
+stage 8 ZoomInfo's title is used **only when it's the same job** as the event
+list's (then ZoomInfo's cleaner wording wins, e.g. "Dir. Procurement" →
+"Director, Procurement"); a different job keeps the event list's title, and
+`merge_report.json` → `titles_kept` lists those for the user. A blank event
+title takes ZoomInfo's.
+
 Then stages 8–10 (source per field, consistency, prune), steps 1–2 again, and
 steps 3–6. At step 3 the HubSpot duplicate check puts existing company and
 contact record IDs into the upload; at step 4 map **Event Name** to the event

@@ -129,6 +129,32 @@ def same_company(a, b):
         and len(ta & tb) / max(len(ta), len(tb)) >= 0.5
 
 
+TITLE_ABBR = {"dir": "director", "vp": "vice president", "svp": "senior vice president", "evp": "executive vice "
+              "president", "sr": "senior", "snr": "senior", "jr": "junior", "mgr": "manager", "mngr": "manager",
+              "proc": "procurement", "purch": "purchasing", "ops": "operations", "sc": "supply chain", "gm":
+              "general manager", "cpo": "chief procurement officer", "coo": "chief operating officer", "cfo":
+              "chief financial officer", "ceo": "chief executive officer", "assoc": "associate", "asst": "assistant",
+              "eng": "engineering", "mfg": "manufacturing", "intl": "international", "dept": "department",
+              "hd": "head", "co": "co"}
+TITLE_FILLER = {"of", "and", "the", "for", "at", "in", "a", "an", "to"}
+
+
+def title_tokens(t):
+    words = re.sub(r"[^a-z0-9 ]", " ", (t or "").lower().replace("&", " and ")).split()
+    out = []
+    for w in words:
+        out += TITLE_ABBR.get(w, w).split()
+    return {w for w in out if w not in TITLE_FILLER}
+
+
+def same_title(a, b):
+    """Same job described two ways ('Dir. Procurement' / 'Director, Procurement')?"""
+    ta, tb = title_tokens(a), title_tokens(b)
+    if not ta or not tb:
+        return False
+    return ta <= tb or tb <= ta or len(ta & tb) / len(ta | tb) >= 0.6
+
+
 def li_slug(url):
     m = re.search(r"linkedin\.com/in/([^/?#\s]+)", url or "", re.I)
     return m.group(1).lower().rstrip("/") if m else ""
@@ -455,7 +481,7 @@ def merge(args):
                 "Company HQ Phone", "Company Street Address", "Flag", "Flag Reason"):
         if col not in fields:
             fields.append(col)
-    changes, ties = [], []
+    changes, ties, notes = [], [], []
 
     def put(r, col, new, why):
         new = (new or "").strip()
@@ -476,6 +502,16 @@ def merge(args):
 
     for r in rows:
         good = r.get("ZI Match") == "good"
+        # Event lists: titles vary in quality. ZoomInfo's wording only when it's the same job;
+        # otherwise the event list's title stays. (LinkedIn lists keep LinkedIn's title.)
+        if good and r.get("Source List Type") == "Event" and r.get("ZI Job Title"):
+            if same_title(r.get("Job Title", ""), r["ZI Job Title"]):
+                put(r, "Job Title", r["ZI Job Title"], "ZoomInfo's wording of the same title")
+            elif r.get("Job Title"):
+                notes.append(f"{r.get('First Name', '')} {r.get('Last Name', '')}: kept event title "
+                             f"'{r['Job Title']}' (ZoomInfo: '{r['ZI Job Title']}')")
+            else:
+                put(r, "Job Title", r["ZI Job Title"], "event list had no title")
         if good:
             put(r, "First Name", r.get("ZI First Name"), "ZoomInfo name")
             put(r, "Last Name", r.get("ZI Last Name"), "ZoomInfo name")
@@ -557,7 +593,8 @@ def merge(args):
     site_changes = [c for c in changes if c["field"] == "Website"]
     changes = [c for c in changes if c["field"] != "Website"] + list(
         {c["company"]: dict(c, contact="(company-wide)") for c in site_changes}.values())
-    (run / "merge_report.json").write_text(json.dumps({"changes": changes, "ties": ties}, indent=1, ensure_ascii=False))
+    (run / "merge_report.json").write_text(json.dumps({"changes": changes, "ties": ties, "titles_kept": notes},
+                                                      indent=1, ensure_ascii=False))
     by_field = Counter(c["field"] for c in changes)
     print(f"merged: {len(changes)} changes ({dict(by_field)}); {len(ties)} ties flagged -> merge_report.json")
 
