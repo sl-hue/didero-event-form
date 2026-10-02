@@ -29,19 +29,18 @@ itself.
 | 1 | Load the list | `linkedin-list-screening` step 1 |
 | 2 | Multiple current jobs — the user sets each person's real title and company | `linkedin-list-screening` step 2 |
 | 3 | Research + review companies (based or present in the target countries), then contacts | `linkedin-list-screening` steps 3–5 |
-| 4 | Title and company name cleaning | *(next to be built)* |
-| 5 | Hand-off into the working file (contacts + companies) | *(to be built)* |
+| 4 | Title and company name cleaning | `linkedin-list-screening` step 6 |
+| 5 | Hand-off into the working file (contacts + companies) | `linkedin-list-screening` step 7 |
 | 6 | Steps 1–2 (email domains, normalization) | `outbound-list-cleaner` |
-| 7 | ZoomInfo pull — tell the user the maximum credits first | *(to be built)* |
-| 8 | Pick the source per field | *(to be built)* |
-| 9 | Consistency: within a contact → across a company's contacts → contacts ↔ companies | *(to be built)* |
-| 10 | Prune columns | *(to be built)* |
+| 7 | ZoomInfo pull — tell the user the maximum credits first | `outbound-list-cleaner` — LinkedIn lists, stage 7 |
+| 8 | Pick the source per field | `outbound-list-cleaner` — LinkedIn lists, stage 8 |
+| 9 | Consistency: within a contact → across a company's contacts → contacts ↔ companies | `outbound-list-cleaner` — LinkedIn lists, stage 9 |
+| 10 | Prune columns | `outbound-list-cleaner` — LinkedIn lists, stage 10 |
 | 11 | Steps 1–2 again (only what changed is shown) | `outbound-list-cleaner` |
 | 12 | HubSpot duplicates → import → Clay → BDRs (steps 3–6) | `outbound-list-cleaner` |
 
 Stop after each stage, show the user what changed and wait for their OK
-before the next one. Stages marked *to be built* aren't available yet: say so
-and stop there.
+before the next one.
 
 **Event list** → not built yet. Tell the user and stop.
 

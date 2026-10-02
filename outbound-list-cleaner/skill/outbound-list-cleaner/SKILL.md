@@ -606,6 +606,62 @@ anyone else (AEs, managers, …), say this workflow doesn't cover it and stop.
 11. **On approval, update HubSpot** as the base skill describes: contacts
    first, then companies, owner only, 10 per call, then verify every record.
 
+## LinkedIn lists: ZoomInfo pull, source priority, consistency, prune
+
+Only for lists that came through `linkedin-list-screening` (the orchestrator
+says when). They run after steps 1–2, then steps 1–2 run again, then 3–6.
+Script: `scripts/zoominfo_merge.py`. Stop after each stage, show what changed
+and wait for the user's OK.
+
+**Stage 7 — ZoomInfo pull** (`zoominfo-puller`)
+1. `python3 scripts/zoominfo_merge.py plan --run-dir <run_dir>`: batches of
+   10 and the **maximum credits** (contacts + companies). Tell the user the
+   maximum and get their OK (multiple-choice tool) before any call.
+2. For each contact batch in `zi/plan.json`: call ZoomInfo `enrich_contacts`
+   with the batch's `query` objects as `contacts` and
+   `contact_required_fields` as `requiredFields`; save the result to a file and
+   run `zoominfo_merge.py ingest --run-dir <run_dir> --kind contacts --batch <n> --response <file>`.
+   Same for company batches with `enrich_companies` (`--kind companies`).
+   One call at a time. If ZoomInfo says to slow down, wait 5 s, then 15 s,
+   then 45 s and retry; if it still refuses, stop and tell the user — `plan`
+   shows which batches are left, so the run can resume later.
+3. `zoominfo_merge.py attach --run-dir <run_dir>` adds the "ZI …" columns and
+   judges each match: **good** (same person, same company), **outdated** (same
+   person at another company — the whole ZoomInfo record is ignored),
+   **review** (name differs — show the user both versions and ask), **none**.
+   Nothing in the list's own columns changes yet.
+
+**Stage 8 — pick the source per field** — `zoominfo_merge.py merge --run-dir <run_dir>`
+Rules (from the user): names → ZoomInfo; job title → LinkedIn; contact
+LinkedIn URL → LinkedIn (format only); emails → every email on the company's
+domains from either source, others cleared; with two, the one on the
+company's most-used domain / address format is primary, the other goes in
+**Secondary Email**; person city/state/country → ZoomInfo when it has them;
+website → ZoomInfo then cleaned; company name → ZoomInfo's when it's the same
+company as LinkedIn's; company LinkedIn URL → LinkedIn; company location,
+phone, industry, size, revenue, management level, job function, phones →
+ZoomInfo. Only "good" matches are used. Show `merge_report.json` grouped by
+field; ties are flagged — ask the user for each.
+
+**Stage 9 — consistency** — `zoominfo_merge.py consistency --run-dir <run_dir>`
+1. within each contact (email on the company's domain, state vs country,
+   title present); 2. across a company's contacts (company values agree, email
+   domains are the company's, ZoomInfo doesn't put them at different
+   companies); 3. contacts vs the company (website vs email domain, HQ vs
+   contact countries, company name present). Show `consistency_report.json`;
+   anything needing a tiebreak is flagged → ask the user, fix with
+   `worksheet.py set`.
+
+**Stage 10 — prune** — `zoominfo_merge.py prune --run-dir <run_dir>`
+Removes the ZI and helper columns (copy kept in `zi/zi_columns.csv`); lists
+empty columns (`--drop-empty` removes them, if the user agrees).
+
+**Stage 11 — steps 1–2 again.** Before re-running, copy the first pass's
+`review.json` and `review_step2.json` (e.g. to `review_pass1.json`); after
+each `prepare`, run `zoominfo_merge.py diff-review --old <pass-1 file> --new <new file>`
+and bring the user **only the new entries** — reuse the first pass's decisions
+for everything else. Then steps 3–6.
+
 ## Data handling
 
 These files contain personal contact data. Never commit them to a repository

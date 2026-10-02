@@ -81,6 +81,15 @@ on unclear rows through multiple-choice prompts in chat.
    changed since the first pass; earlier decisions are kept.
 10. outbound-list-cleaner steps 3–6 (HubSpot duplicates, import, Clay, BDRs).
 
+Build status (2026-10-02): every LinkedIn stage is built — orchestrator
+(list type), screening steps 1–7 (load, multiple jobs, research, geography,
+review page, title/company cleaning, hand-off), outbound-list-cleaner
+`zoominfo_merge.py` (stages 7–10, diff-review for stage 11). Tested on the
+Sales Nav sample with simulated ZoomInfo answers; the first real ZoomInfo run
+still needs checking (response shape, person location fields). Open: where a
+second matching email goes in HubSpot ("Secondary Email" column for now, not
+in the upload yet); event-list flow (user to design).
+
 ## Open questions
 
 - Cowork review 2.4–2.13 (LinkedIn global pages, noisy phone matches, stale

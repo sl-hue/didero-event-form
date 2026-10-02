@@ -7,7 +7,7 @@ description: Screen a LinkedIn-sourced prospect list (LinkedIn, Sales Navigator,
 
 The first stage for any list that wasn't built in ZoomInfo. It decides **who
 stays on the list**; `outbound-list-cleaner` then cleans and imports the
-survivors. More stages for LinkedIn lists will be added after this one.
+survivors (see the orchestrator for the full LinkedIn sequence).
 
 ## Before you start
 
@@ -131,6 +131,34 @@ company and title can be wrong. Check these before any company research.
 - If the user gives countries in the chat instead, the same matching applies:
   `screen.py check` stops with "not sure which country is meant … did you
   mean …" — ask the user, never pick one yourself.
+
+**6. Clean job titles and company names** — `field-cleaner` (subagent)
+Only for contacts that stay. (Person names are cleaned later, in
+outbound-list-cleaner step 2, for every list type — not here.)
+- `python3 scripts/fields.py prepare --run-dir <run_dir>` writes
+  `fields_review.json`: each title / company name that would change, with a
+  proposal. **auto** = safe formatting (spacing, ®/™, ALL CAPS or all-lower
+  titles, "at <company>" in the title, legal suffixes like Inc./LLC/Corp. —
+  Didero's company names carry no legal suffix). The others need judgment:
+  several roles in one title ("Director | Source-to-Pay" → keep the role at
+  this company), very long titles, brackets in a company name, division /
+  group labels ("Legrand, North & Central America", "… & Subsidiaries"),
+  ALL-CAPS company names (keep if that's how the company writes it, e.g.
+  NVIDIA). Ask the user when unsure.
+- Write `fields_decisions.json` as `{"titles": {"<before>": "<after>"},
+  "companies": {"<before>": "<after>"}}`, run
+  `python3 scripts/fields.py apply --run-dir <run_dir> --decisions <file>`,
+  show the before → after tables (`fields_changes.json`) and wait for the OK.
+
+**7. Hand-off to outbound-list-cleaner**
+- `python3 scripts/handoff.py --run-dir <run_dir> --out <run_dir>/handoff_contacts.csv`
+  writes the kept contacts in the working file's columns (ZoomInfo's names):
+  contact and company LinkedIn URLs in standard form, Person City / State /
+  Country, company location, size, revenue range, industry. IDs are
+  `LI-<Row ID>` / `LIC-<n>` (never imported).
+- Then `python3 <outbound-list-cleaner>/scripts/worksheet.py init --contacts <run_dir>/handoff_contacts.csv --out-dir <cleaner run_dir>`
+  and continue with the orchestrator's next stage (outbound-list-cleaner
+  steps 1–2).
 
 `screening.csv` is the state carried to the next stage: only rows with
 Decision = keep go on.
