@@ -73,9 +73,9 @@ CONTACT_MAPPING = {
     "Direct Phone Number": ("Work Direct Phone", "work_direct_phone"),
     "Email Address": ("Email", "email"),
     "Additional Emails": ("Additional email addresses", "hs_additional_emails"),
-    # event lists: confirm the property with the user each run (default "Event name"; or the
-    # "Lead Source - Event" dropdown, whose option must exist in HubSpot first, plus LEAD SOURCE = Events)
-    "Event Name": ("Event name", "event_name"),
+    # event lists: Lead Source (dropdown) = "Events"; Lead Source Detail 1 (text) = the event name
+    "Lead Source": ("Lead Source", "lead_source"),
+    "Lead Source Detail 1": ("Lead Source Detail 1", "lead_source_detail_1"),
     "Email Domain": ("Company Domain", "company_domain"),
     "Mobile phone": ("Mobile Phone Number", "mobilephone"),
     "ZoomInfo Contact Profile URL": ("ZoomInfo Contact Profile URL", "zoominfo_contact_profile_url"),

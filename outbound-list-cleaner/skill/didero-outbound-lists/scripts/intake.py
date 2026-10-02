@@ -22,7 +22,8 @@ import re
 from pathlib import Path
 
 COLUMNS = ["Row ID", "First Name", "Last Name", "Job Title", "Company", "Email", "Phone", "LinkedIn URL",
-           "Company Website", "Company City", "Company State", "Company Country", "Event Name", "Source", "Note"]
+           "Company Website", "Company City", "Company State", "Company Country", "Event Name", "Source", "Note",
+           "Company Employees", "Company Revenue", "HubSpot Company Record ID", "Company Data Source"]
 ESSENTIAL = ["First Name", "Last Name", "Job Title", "Company"]
 ALIASES = {
     "First Name": ["first name", "firstname", "first", "given name", "fname"],

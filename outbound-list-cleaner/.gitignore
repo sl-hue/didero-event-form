@@ -14,3 +14,6 @@ __pycache__/
 skill/**/*.png
 skill/**/*.jpg
 skill/**/code*.txt
+
+# team-log key (insert-only, but keep it out of the public repo)
+skill/**/backend.json

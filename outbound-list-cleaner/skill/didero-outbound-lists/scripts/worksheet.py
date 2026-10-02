@@ -64,7 +64,7 @@ CONTACT_EXPORT = [
     "Department", "Direct Phone Number", "Email Address", "Additional Emails", "Email Domain", "Mobile phone",
     "ZoomInfo Contact Profile URL", "LinkedIn Contact Profile URL", "Person Street", "Person City",
     "Person State", "Person Zip Code", "Country", "Company Name", "Website", "Company HQ Phone",
-    "HubSpot Contact Record ID", "New Contact Outbound Personalization", "Event Name",
+    "HubSpot Contact Record ID", "New Contact Outbound Personalization", "Lead Source", "Lead Source Detail 1",
 ]
 COMPANY_EXPORT = [
     COMPANY_ID, "Company Name", "Website", "Founded Year", "Company HQ Phone",
@@ -321,6 +321,12 @@ def export_files(run_dir, out_dir=None):
                        for k, v in r.items()}
     rows = [blank(r) for r in rows]
     companies = {k: blank(v) for k, v in companies.items()}
+    # Event lists: the event goes to HubSpot as Lead Source = "Events" + Lead Source Detail 1 = the event name.
+    if "Event Name" in fields:
+        for r in rows:
+            if (r.get("Event Name") or "").strip():
+                r["Lead Source"], r["Lead Source Detail 1"] = "Events", r["Event Name"].strip()
+        fields = list(fields) + [c for c in ("Lead Source", "Lead Source Detail 1") if c not in fields]
     contact_cols = [c for c in CONTACT_EXPORT if c in fields]
     company_cols = [c for c in COMPANY_EXPORT if c in fields]
     for name, cols, data in (("contacts_upload.csv", contact_cols, rows),

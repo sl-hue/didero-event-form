@@ -42,7 +42,9 @@ keep it on the user's device; never publish it.
   essential field and names that couldn't be split safely. Look in the other
   sources first, then ask the user. Show the counts and wait for the OK.
 
-**3. Company website, then HQ** — `company-researcher` (subagent), web research only
+**3. Company website, then HQ** — HubSpot first, then `company-researcher` (subagent) for the rest
+- **HubSpot first** (see "HubSpot company lookup" below) with `--kind event`.
+  Companies HubSpot fills completely are done; only the rest is researched.
 - `python3 scripts/companies.py plan --run-dir <run_dir>` → `companies_todo.json`
   (with the corporate email domains seen on each company's attendees — the
   best clue to the right website).
@@ -64,17 +66,44 @@ keep it on the user's device; never publish it.
   `screen.py check … --skip-contact-geo`. Then its step 6 (title / company
   name cleaning) and step 7 hand-off with `--list-type Event`.
 
-**5. Event property in HubSpot**
-At the import (references/zoominfo-lists.md step 4), the **Event Name** column maps to
-the property the user chose. In Didero's HubSpot: **Event name** (text, any
-value), **Lead Source - Event** (dropdown like `Events_2026_IMTS` — a new
-event's option must be added in HubSpot first) and **LEAD SOURCE** = `Events`.
-Confirm with the user every run.
+**5. Event in HubSpot: Lead Source + Lead Source Detail 1**
+The working file keeps the event in **Event Name**. The export (`worksheet.py
+export`) turns it into two upload columns, mapped at the import
+(references/zoominfo-lists.md step 4):
+- **Lead Source** (`lead_source`, dropdown) = `Events`
+- **Lead Source Detail 1** (`lead_source_detail_1`, text) = the event name,
+  e.g. `IMTS 2026`. Agree the exact wording with the user once per event.
 
 The rest of the flow (ZoomInfo search → pick → enrich, LinkedIn URL finder,
 source priority, cleaning, HubSpot) is in `references/zoominfo-lists.md` — the
 `SKILL.md` lists the order.
 
+
+## HubSpot company lookup (both kinds of event list)
+
+HubSpot already has most companies we meet at events, and one
+`query_crm_data` call checks dozens at once — much faster than researching
+each one on the web. So company data comes from HubSpot first; web research
+only covers what HubSpot doesn't have; enrichment later (ZoomInfo, Clay)
+keeps the data up to date.
+
+1. `python3 scripts/hubspot_companies.py plan --run-dir <run_dir> --kind event|companies`
+   → `hs/plan_1.json`: SQL queries (exact company name OR domain — website
+   and attendees' email domains — 40 conditions each, `LIMIT 500`).
+2. Run each query with the HubSpot connector's `query_crm_data`
+   (`verbosityLevel: "LOW"`; call its tool guidance once first if the
+   connector asks), save the raw result to a file and run
+   `hubspot_companies.py ingest --run-dir <run_dir> --pass 1 --batch <i> --response <file>`.
+3. `hubspot_companies.py apply --run-dir <run_dir> --kind …` — matches by
+   domain or same name (sure), writes website, HQ city / state / country,
+   employees, revenue and **HubSpot Company Record ID** (source "HubSpot").
+4. If some aren't found: `plan --pass 2` (company name contains its main
+   word — catches "Orgill" for "Orgill Inc"), run + `ingest --pass 2`, then
+   `apply` again.
+5. **ASK lines** (similar names, or more than one record): ask the user
+   which record is the company (or none), with the record links; write
+   `{"<company>": "<record id>" | "none"}` and re-run `apply --decisions <file>`.
+6. Tell the user: X of Y filled from HubSpot, Z go to web research.
 
 ## Company-only event lists (exhibitors, sponsors — no contact names)
 
@@ -90,9 +119,11 @@ screenshots / pages → `companies.json` (`[{"company", "website", "title"}]`) �
 It says how many companies go to **branch A** (no titles) and **branch B**
 (titles).
 
-**2. Web research** — `company-researcher` (subagent), web research only
-`company_list.py plan --run-dir <run_dir>` → for **every** company (values the
-list already has are **re-checked**, not trusted): website, HQ city / state /
+**2. HubSpot first, then web research** — "HubSpot company lookup" below
+with `--kind companies`, then `company-researcher` (subagent) for the rest:
+`company_list.py plan --run-dir <run_dir>` → for every company HubSpot
+didn't fill (companies filled from HubSpot are skipped; values the list
+already has are **re-checked**, not trusted): website, HQ city / state /
 country, and number of employees / annual revenue if published (exact numbers;
 a range only if that's all there is). `found.json` →
 `company_list.py apply --run-dir <run_dir> --file found.json` (shows what

@@ -103,8 +103,8 @@ HQ by web research only) → linkedin-list-screening (company + contact review,
 → pick (unclear → user) → enrich picked only, no company enrichment → LinkedIn
 URL finder page for the unmatched (can't find = stays unenriched) → stages
 8–10 → steps 1–2 again → steps 3–6 (existing record IDs in the upload; Event
-Name mapped to the event property the user picks: Event name / Lead Source -
-Event + LEAD SOURCE = Events). Tested on a fictional 6-person list.
+Name exported as Lead Source = Events + Lead Source Detail 1 = event name).
+Tested on a fictional 6-person list.
 
 ## Company-only event lists (agreed 2026-10-02)
 
@@ -120,6 +120,26 @@ tag-event; branch B (titles, no names): ZoomInfo search per title → user
 always chooses → finder page (LinkedIn URL + typed name) → enrich → contact
 file → outbound-list-cleaner. Event contact lists: ZoomInfo title only when
 it's the same job. Tested with fictional data.
+
+## Cowork test feedback (2026-10-02)
+
+1. **List type:** `detect_list_type.py` reads the first rows too and returns a
+   confidence. High → Claude announces the type and carries on (the user can
+   correct it); only low confidence is asked.
+2. **Requirements check, logged:** `scripts/preflight.py` runs right after
+   Step 0 on every run. Script checks + model/connectors reported by Claude
+   → run folder, `~/.didero-outbound-lists/preflight.jsonl`, and the team
+   log (Supabase `preflight_runs`, insert-only key in git-ignored
+   `backend.json`). Setup: `setup/RUN_LOG_SETUP.md` + `setup/preflight_log.sql`.
+   Waiting on: restoring the Supabase project, running the SQL, the key, and
+   allowing `*.supabase.co` in Cowork.
+3. **Event in HubSpot:** Lead Source (`lead_source`) = `Events`, Lead Source
+   Detail 1 (`lead_source_detail_1`) = event name, written by the export.
+4. **Company data from HubSpot first:** `scripts/hubspot_companies.py`, used by
+   both event list kinds. It runs bulk `query_crm_data` (exact name / domain,
+   then name LIKE main word), fills website/HQ/employees/revenue/record ID,
+   and asks about ambiguous matches. Web research covers only the rest.
+   Tested against the live HubSpot: Lawson Products, A O Smith, Orgill found.
 
 ## Open questions
 

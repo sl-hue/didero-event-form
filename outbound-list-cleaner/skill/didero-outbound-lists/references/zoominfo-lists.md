@@ -707,9 +707,9 @@ title takes ZoomInfo's.
 
 Then stages 8–10 (source per field, consistency, prune), steps 1–2 again, and
 steps 3–6. At step 3 the HubSpot duplicate check puts existing company and
-contact record IDs into the upload; at step 4 map **Event Name** to the event
-property the user chose (Event name / Lead Source - Event, plus LEAD SOURCE =
-Events).
+contact record IDs into the upload; the export writes **Lead Source** = `Events`
+and **Lead Source Detail 1** = the event name; step 4 maps them to
+`lead_source` and `lead_source_detail_1`.
 
 ## Data handling
 

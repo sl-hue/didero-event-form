@@ -13,6 +13,10 @@ into the build chat so the skill can be fixed.
 
 ## 1. Start of a run
 - [ ] Skill triggers from a plain request ("clean this list for HubSpot").
+- [ ] An obvious list (e.g. a company-only event list) is **announced, not asked** ("This is an event company list … tell me if that's wrong").
+- [ ] The requirements check runs before anything else and prints each item plus a "log:" line (sent to the team log once `backend.json` is set up; otherwise "saved on this device only").
+- [ ] Event lists: company data comes from HubSpot first ("X of Y filled from HubSpot"); only the rest is researched on the web.
+- [ ] Event uploads have Lead Source = Events and Lead Source Detail 1 = the event name.
 - [ ] First thing it does: model check (Opus 5.x / Fable). Try once on another model — it should stop and ask you to switch.
 - [ ] It asks which step to start from when that's unclear.
 - [ ] It creates a run folder named after the list inside your shared folder.

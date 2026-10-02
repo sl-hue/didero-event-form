@@ -1,6 +1,6 @@
 ---
 name: didero-outbound-lists
-description: Didero's outbound prospect lists, start to finish — work out what kind of list it is (ZoomInfo export, LinkedIn Sales Navigator / Evaboot export, event contact list, or company-only event list), confirm with the user, then screen, research, clean and standardize it, match ZoomInfo, find LinkedIn URLs, check HubSpot for duplicates, prepare the HubSpot import, fix associations after import, guide the Clay enrichment and assign BDR owners. Use whenever someone brings a list, file, export, exhibitor list or attendee list to clean, screen, enrich, dedupe, import into HubSpot, enrich in Clay or hand out to BDRs — even if they don't say where it came from.
+description: Didero's outbound prospect lists, start to finish — work out what kind of list it is (ZoomInfo export, LinkedIn Sales Navigator / Evaboot export, event contact list, or company-only event list) — announced, or asked only when unclear — then check and log the requirements, screen, research, clean and standardize it, match ZoomInfo, find LinkedIn URLs, check HubSpot for duplicates, prepare the HubSpot import, fix associations after import, guide the Clay enrichment and assign BDR owners. Use whenever someone brings a list, file, export, exhibitor list or attendee list to clean, screen, enrich, dedupe, import into HubSpot, enrich in Clay or hand out to BDRs — even if they don't say where it came from.
 ---
 
 # Didero outbound lists
@@ -24,11 +24,21 @@ skill's root. Run them with the skill folder's absolute path.
 ## Step 0 — what kind of list is it?
 
 1. Run `python3 scripts/detect_list_type.py <file> [<company file>]`. It
-   reads only the header row and returns its guess with the columns that
-   gave it away.
-2. **Always confirm with the user** (one multiple-choice question): show the
-   guess and the evidence, options: ZoomInfo export / LinkedIn (Sales Nav or
-   Evaboot) export / Event list. Never start on a guess.
+   reads the header and the first rows and returns the type, a
+   **confidence** and the evidence (columns that gave it away, whether names
+   / titles are filled).
+2. **High confidence → don't ask.** Say what it is in one line, with the
+   evidence, and carry on — e.g. "This is an event company list (company and
+   website columns, no names, no job titles), so I'll start with the HubSpot
+   company lookup. Tell me if that's wrong." The user can correct it at any
+   point.
+3. **Low confidence → ask** (one multiple-choice question: ZoomInfo export /
+   LinkedIn (Sales Nav or Evaboot) export / event contact list / event
+   company list), showing the guess and the evidence.
+
+The detected type picks the flow below directly: `zoominfo`, `linkedin`,
+`event-contacts`, `event-companies` (no titles → branch A) or
+`event-companies-titles` (titles, no names → branch B).
 
 ## The flows
 
@@ -54,14 +64,12 @@ skill's root. Run them with the skill folder's absolute path.
 Stop after each stage, show the user what changed and wait for their OK
 before the next one.
 
-**Event list** — first ask: are the **people already named** (attendees,
-speakers, registrants) — the table below — or does it only name companies
-(exhibitors, sponsors)? For company-only lists:
+**Event company list** (exhibitors, sponsors — no contact names):
 
 | # | Stage | Skill |
 |---|---|---|
 | 1 | Collect the companies (+ any job titles) from every source | `references/event-lists.md` — company-only, step 1 |
-| 2 | Web research: website, HQ city / state / country, employees / revenue (re-check what the list says) | step 2 |
+| 2 | HubSpot first: bulk lookup of every company (`hubspot_companies.py`), then web research only for what HubSpot doesn't have (re-check what the list says) | step 2 |
 | 3 | Drop non-target countries (ask which each run) | step 3 |
 | 4 | Clean company names (same rules as LinkedIn lists) | step 4 |
 | 5A | No titles: ZoomInfo upload CSV + guide page next to ZoomInfo (filters asked each run; select → Excel → Suppression / 4 per company by seniority) → the export is a normal ZoomInfo list, event tagged | branch A, then `references/zoominfo-lists.md` steps 1–6 |
@@ -75,7 +83,7 @@ Event **contact** lists:
 |---|---|---|
 | 1 | Collect every source; ask for screenshots of dropdowns / contact pages / sub-pages | `references/event-lists.md` step 1 |
 | 2 | First name, last name, job title, company (+ whatever else is there) | `references/event-lists.md` step 2 |
-| 3 | Company website, then HQ city / state / country (web research) | `references/event-lists.md` step 3 |
+| 3 | Company website, HQ city / state / country: HubSpot first (`hubspot_companies.py`), web research only for the rest | `references/event-lists.md` step 3 |
 | 4 | Screening: companies (based / present in) → contacts (titles), contact geography skipped | `references/screening.md` steps 1, 3–5 (`--skip-contact-geo`) |
 | 5 | Title and company name cleaning | `references/screening.md` step 6 |
 | 6 | Hand-off into the working file | `references/screening.md` step 7 (`--list-type Event`) |
@@ -84,10 +92,31 @@ Event **contact** lists:
 | 9 | LinkedIn URL finder for people ZoomInfo couldn't match (browser + card page) | `references/zoominfo-lists.md` — event lists, LinkedIn finder |
 | 10 | Source per field, consistency, prune | `references/zoominfo-lists.md` — LinkedIn lists, stages 8–10 |
 | 11 | Steps 1–2 again (only what changed is shown) | `references/zoominfo-lists.md` |
-| 12 | HubSpot duplicates (existing record IDs go in the upload) → import with the event property → Clay → BDRs | `references/zoominfo-lists.md` steps 3–6 |
+| 12 | HubSpot duplicates (existing record IDs go in the upload) → import with Lead Source = Events + Lead Source Detail 1 = event name → Clay → BDRs | `references/zoominfo-lists.md` steps 3–6 |
 
-## Before you start
+## Before you start — requirements check (every run, logged)
 
-Same checks as in `references/zoominfo-lists.md` ("Before you start"): Opus 5.x or Fable, HubSpot connector
-and web search enabled. The list contains personal data: keep it on the
-user's device; never publish it.
+Right after Step 0, before any other step, run the requirements check and
+show its output to the user:
+
+```
+python3 scripts/preflight.py --list-type <type> --run-dir <run_dir> \
+  --user "<the user's name or email, if you know it>" \
+  --observed '{"model": "<your model id>", "connectors": {"hubspot": true|false,
+              "zoominfo": true|false, "web_search": true|false, "clay": true|false}}'
+```
+
+- `--observed` is what **you** see: your model, and for each connector
+  whether its tools are in your tool list (HubSpot: `query_crm_data`;
+  ZoomInfo: `enrich_contacts`; web search; Clay). Report honestly — `false`
+  if a tool isn't there. Use the type Step 0 detected.
+- The script checks Python, openpyxl, scripts, page templates, config.json
+  and the run folder itself, then writes the result to the run folder, to a
+  log on this device and — when `backend.json` is set up — to the team's log
+  (one row per run, whoever runs it). Tell the user the "log:" line.
+- **MISSING / exit code 1 → stop** and tell the user what to fix (connectors
+  are added in Claude's Settings → Connectors, then a new chat). Details on
+  each requirement: `references/zoominfo-lists.md` "Before you start".
+
+The list contains personal data: keep it on the user's device; never
+publish it.

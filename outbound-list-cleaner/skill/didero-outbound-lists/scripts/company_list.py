@@ -46,7 +46,8 @@ HERE = Path(__file__).resolve().parent
 SIBLING = HERE  # all scripts live in one folder
 CONFIG = json.loads((HERE.parent / "config.json").read_text())
 COMPANY_COLS = ["Company ID", "Company", "Website", "City", "State", "Country", "Employees", "Revenue",
-                "Status", "Status Note", "Event Name", "Source", "Research Source", "Confidence"]
+                "Status", "Status Note", "Event Name", "Source", "Research Source", "Confidence",
+                "HubSpot Company Record ID"]
 TARGET_COLS = ["Target ID", "Company ID", "Company", "Job Title", "Status", "Note"]
 ALIASES = {
     "Company": ["company", "company name", "organization", "organisation", "exhibitor", "exhibitor name",
@@ -163,12 +164,16 @@ def summary(run):
 
 def plan(args):
     companies = read_csv(p_companies(args.run_dir), COMPANY_COLS)
+    # Companies filled from HubSpot (hubspot_companies.py) with website + HQ are done; the rest is researched.
+    from_hs = lambda c: c.get("Research Source") == "HubSpot" and all(c.get(k) for k in ("Website", "City", "Country"))
+    live = [c for c in companies if c["Status"] != "excluded"]
     todo = [{"company": c["Company"],
              "in_the_list": {k: c[k] for k in ("Website", "City", "State", "Country", "Employees", "Revenue") if c[k]}}
-            for c in companies if c["Status"] != "excluded"]
+            for c in live if not from_hs(c)]
     (Path(args.run_dir) / "companies_todo.json").write_text(json.dumps(todo, indent=1, ensure_ascii=False))
     print(f"{len(todo)} companies to research -> companies_todo.json (website, then city/state/country; "
-          "employees and revenue if published). Re-check what the list already says.")
+          "employees and revenue if published). Re-check what the list already says."
+          + (f" {len(live) - len(todo)} already filled from HubSpot are skipped." if len(live) > len(todo) else ""))
 
 
 def clean_site(url):
