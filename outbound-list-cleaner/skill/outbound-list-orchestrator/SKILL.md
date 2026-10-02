@@ -43,8 +43,21 @@ Stop after each stage, show the user what changed and wait for their OK
 before the next one.
 
 **Event list** — first ask: are the **people already named** (attendees,
-speakers, registrants)? If it only names companies (exhibitors, sponsors),
-that's a different skill that isn't built yet: tell the user and stop.
+speakers, registrants) — the table below — or does it only name companies
+(exhibitors, sponsors)? For company-only lists:
+
+| # | Stage | Skill |
+|---|---|---|
+| 1 | Collect the companies (+ any job titles) from every source | `event-list-intake` — company-only, step 1 |
+| 2 | Web research: website, HQ city / state / country, employees / revenue (re-check what the list says) | step 2 |
+| 3 | Drop non-target countries (ask which each run) | step 3 |
+| 4 | Clean company names (same rules as LinkedIn lists) | step 4 |
+| 5A | No titles: ZoomInfo upload CSV + guide page next to ZoomInfo (filters asked each run; select → Excel → Suppression / 4 per company by seniority) → the export is a normal ZoomInfo list, event tagged | branch A, then `outbound-list-cleaner` steps 1–6 |
+| 5B | Titles, no names: ZoomInfo search per title → **user chooses** → finder page for the rest (LinkedIn URL + typed name) → enrich (max credits first) → contact file | branch B, then `outbound-list-cleaner` steps 1–6 |
+
+Mixed lists: 5B for companies with titles, 5A for the rest.
+
+Event **contact** lists:
 
 | # | Stage | Skill |
 |---|---|---|

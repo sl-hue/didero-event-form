@@ -28,7 +28,8 @@ FLOW = {
     "linkedin": "linkedin-list-screening (multiple jobs → companies → contacts → title/company cleaning), "
                 "then outbound-list-cleaner steps 1–2, ZoomInfo pull, source priority, consistency, prune, "
                 "steps 1–2 again, then steps 3–6",
-    "event": "event-list-intake (people already named) — company-only event lists aren't built yet",
+    "event": "event-list-intake — contact list (people named) or company-only list (branch A: ZoomInfo "
+             "list build; branch B: job titles without names)",
 }
 
 

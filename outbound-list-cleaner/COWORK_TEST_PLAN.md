@@ -97,6 +97,14 @@ into the build chat so the skill can be fixed.
 - [ ] LinkedIn finder page next to the Cowork browser: search opens in one tab, paste URL, Enter; Can't find works; code → preview → OK.
 - [ ] HubSpot import maps Event Name to the event property you choose.
 
+## 11. Company-only event list
+- [ ] Orchestrator asks whether people are named; company-only goes to company_list.py; branch A/B counts shown.
+- [ ] Research re-checks list values; differences and low-confidence finds shown.
+- [ ] Non-target countries: preview, your OK, unknown countries asked.
+- [ ] Name cleaning: safe fixes + judgment calls.
+- [ ] Branch A: upload CSV (7 columns); filters asked with defaults (Director+); guide page next to ZoomInfo; export processed as a ZoomInfo list with the event tagged.
+- [ ] Branch B: candidates per company/title, you choose; finder page needs URL + name; max credits before enrich; contacts go through steps 1–6.
+
 ## Known limits
 - Setting the token needs your own terminal or the Cowork file route; the token never goes in chat.
 - The Clay connector can't run workbooks; step 5 is always manual.

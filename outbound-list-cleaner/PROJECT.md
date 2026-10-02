@@ -106,6 +106,21 @@ URL finder page for the unmatched (can't find = stays unenriched) → stages
 Name mapped to the event property the user picks: Event name / Lead Source -
 Event + LEAD SOURCE = Events). Tested on a fictional 6-person list.
 
+## Company-only event lists (agreed 2026-10-02)
+
+event-list-intake company_list.py / titles.py: collect companies (+titles) →
+web research for every company (re-check list values; employees/revenue exact
+numbers in HubSpot number format, ranges as written) → drop non-target
+countries (asked each run) → clean names (fields.py rules) → branch A (no
+titles): ZoomInfo upload CSV (7 columns) + guide page (filters asked each run;
+defaults Director+, include procurement/supply-chain words, exclude
+sales/marketing/HR/talent/people…; select → Excel → Suppression button → 4 per
+company by seniority) → export processed as a normal ZoomInfo list +
+tag-event; branch B (titles, no names): ZoomInfo search per title → user
+always chooses → finder page (LinkedIn URL + typed name) → enrich → contact
+file → outbound-list-cleaner. Event contact lists: ZoomInfo title only when
+it's the same job. Tested with fictional data.
+
 ## Open questions
 
 - Cowork review 2.4–2.13 (LinkedIn global pages, noisy phone matches, stale

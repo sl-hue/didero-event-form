@@ -1,13 +1,12 @@
 ---
 name: event-list-intake
-description: Turn an event contact list (attendees, speakers, registrants — people already named, from a file, the event's website, screenshots or PDFs) into Didero's outbound list format — collect every source, fill first name / last name / job title / company, find each company's website and HQ by web research, then hand over to screening, ZoomInfo matching, LinkedIn URL finding, cleaning, HubSpot import, Clay and BDR assignment. Use whenever someone brings a conference / trade show / webinar / event list of people to prospect. Not for exhibitor or sponsor lists that only name companies (a separate skill, not built yet).
+description: Turn an event list into Didero's outbound list format. Two kinds — (1) a contact list (attendees, speakers, registrants already named, from a file, the event's website, screenshots or PDFs): fill first name / last name / job title / company, find each company's website and HQ by web research, then screening, ZoomInfo matching, LinkedIn URL finding, cleaning, HubSpot, Clay, BDRs; (2) a company-only list (exhibitors, sponsors): research website / HQ / size / revenue, drop non-target countries, clean names, then either build the contact list in ZoomInfo with a guide page (no titles) or find the people for listed job titles (titles but no names). Use whenever someone brings a conference / trade show / webinar / event list to prospect.
 ---
 
 # Event list intake
 
-The first stages for an **event contact list** — a list where the people are
-already named. (Company-only lists, where we'd work out who to contact at each
-company, are a different skill that isn't built yet: say so and stop.) The
+**Contact lists** (people named) use steps 1–5 below. **Company-only lists**
+(exhibitors, sponsors — no names) use the section at the end. The
 orchestrator (`outbound-list-orchestrator`) runs these stages, then hands over
 to `linkedin-list-screening` and `outbound-list-cleaner`.
 
@@ -77,3 +76,87 @@ Confirm with the user every run.
 The rest of the flow (ZoomInfo search → pick → enrich, LinkedIn URL finder,
 source priority, cleaning, HubSpot) is in `outbound-list-cleaner` — the
 orchestrator lists the order.
+
+
+## Company-only event lists (exhibitors, sponsors — no contact names)
+
+Script: `scripts/company_list.py` (and `scripts/titles.py` for branch B). Run
+folder as above. Stop after each step, show what changed, wait for the OK.
+
+**1. Collect the companies** — same as step 1 above (every source;
+screenshots for dropdowns / sub-pages). Note any **job titles** the source
+gives per company.
+`python3 scripts/company_list.py init --input <file> … --event "<event name>" --out-dir <run_dir>`;
+screenshots / pages → `companies.json` (`[{"company", "website", "title"}]`) →
+`company_list.py add --run-dir <run_dir> --file companies.json --source "<…>"`.
+It says how many companies go to **branch A** (no titles) and **branch B**
+(titles).
+
+**2. Web research** — `company-researcher` (subagent), web research only
+`company_list.py plan --run-dir <run_dir>` → for **every** company (values the
+list already has are **re-checked**, not trusted): website, HQ city / state /
+country, and number of employees / annual revenue if published (exact numbers;
+a range only if that's all there is). `found.json` →
+`company_list.py apply --run-dir <run_dir> --file found.json` (shows what
+differed from the list, and low-confidence finds — confirm those).
+
+**3. Drop non-target countries** — `company_list.py filter --run-dir <run_dir> [--countries …]`
+(default United States, Canada, United Kingdom, Ireland; ask the user each run).
+Show who would be excluded and anyone whose country is still unknown; after the
+OK, `filter … --confirm`. Settle unknowns with
+`company_list.py set --company "<name>" --field "Country=…"` (or `--exclude "<reason>"`).
+
+**4. Clean the company names** — the same rules as the LinkedIn title /
+company cleaning: `company_list.py clean --run-dir <run_dir>` → `names_review.json`
+(safe fixes + judgment calls — ask when unsure) →
+`company_list.py clean --run-dir <run_dir> --decisions <json>`.
+
+**Branch A — no job titles: the user builds the list in ZoomInfo**
+1. `company_list.py zoominfo --run-dir <run_dir> --out <run_dir>/zoominfo_upload.csv`
+   — Company Name, Company Website, Company City, Company State, Company
+   Country, Number of Employees, Annual Revenue (numbers in HubSpot's format).
+   Refuses while a company's country is unknown.
+2. **Ask the user for this run's filters**, showing the defaults from
+   `config.json`: company HQ countries and contact countries (US, Canada, UK,
+   Ireland), seniority **Director and above** (C-Level, VP-Level, Director),
+   titles to include (procurement, purchasing, sourcing, supply chain, buyer,
+   category manager, materials, operations, planning, inventory, logistics,
+   supplier) and to exclude (intern, assistant, recruiter, software engineer,
+   student, retired, sales, marketing, HR, talent, people). Save their changes
+   as a json and run
+   `company_list.py guide --run-dir <run_dir> --title "<event>" --upload zoominfo_upload.csv [--filters <json>]`.
+3. Open `<run_dir>/zoominfo_guide.html` for the user next to ZoomInfo: upload
+   the companies → contacts at those companies → each filter (with Copy
+   buttons) → **select the contacts first** → Export → **Excel** →
+   **Suppression** / limits: **4 contacts per company, prioritized by
+   seniority** → wait 10–15 minutes → give Claude the file. (Suppression lists
+   live in HubSpot; nothing else to set up.)
+4. The export is a **normal ZoomInfo list**: `outbound-list-cleaner`
+   `worksheet.py init`, then **`company_list.py tag-event --run-dir <run_dir> --working <cleaner run_dir>`**
+   (Event Name on every contact at an event company; unmatched companies →
+   ask), then steps 1–6.
+
+**Branch B — job titles but no names: Claude finds the people**
+1. `titles.py search-plan --run-dir <run_dir>` → one ZoomInfo `search_contacts`
+   per company + title (no credits; retry without `companyWebsite` if empty);
+   save each and `titles.py search-ingest --run-dir <run_dir> --target <T…> --response <file>`.
+2. `titles.py candidates --run-dir <run_dir>` — show the user every company's
+   candidates. **The user always chooses** (several people, someone with a
+   better title, or nobody). `{"<T…>": ["<personId>", …]}` →
+   `titles.py choose --run-dir <run_dir> --decisions <file>`.
+3. Titles with nobody: `titles.py finder --run-dir <run_dir> --title "<event>"`
+   and open `<run_dir>/title_finder.html` next to the Cowork browser — the card
+   shows the title and company; **Search Google / Search LinkedIn** open in the
+   same tab; the user pastes the LinkedIn URL and **types the first and last
+   name**; Can't find leaves it unfilled. Code → `titles.py finder-apply --code …`
+   (preview) → after the OK `--confirm`.
+4. `titles.py enrich-plan --run-dir <run_dir>` → **maximum credits** (chosen
+   people + finder people); after the OK run `enrich_contacts` per batch and
+   `titles.py enrich-ingest --run-dir <run_dir> --batch <n> --response <file>`.
+5. `titles.py build-contacts --run-dir <run_dir> --out <run_dir>/title_contacts.csv`
+   (company data from the research, Event Name on every row; a finder person's
+   title becomes ZoomInfo's only when it's the same job) →
+   `outbound-list-cleaner` `worksheet.py init --contacts …`, then steps 1–6.
+
+**Mixed lists** (titles for some companies only): branch B for the titled
+companies, branch A for the rest, in the same run.
