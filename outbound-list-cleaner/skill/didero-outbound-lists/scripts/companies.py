@@ -12,7 +12,7 @@ companies apart), then HQ — which is what makes the ZoomInfo match work later.
            Writes the values to every row of that company (website cleaned to the
            site itself). Low-confidence ones are listed for the user to confirm.
   export   --run-dir <run_dir> --out <file.csv>
-           The file linkedin-list-screening reads (its column names), so the
+           The file the screening step reads (its column names), so the
            event list goes through the same company / contact review.
 """
 import argparse
@@ -27,7 +27,7 @@ from intake import load, save
 FREE_MAIL = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com", "icloud.com", "live.com",
              "msn.com", "me.com", "comcast.net", "protonmail.com", "proton.me", "gmx.com", "mail.com", "ymail.com",
              "qq.com", "163.com", "139.com", "126.com"}
-# Not a company website (same list as outbound-list-cleaner step 2's website cleaning).
+# Not a company website (same list as step 2's website cleaning in references/zoominfo-lists.md).
 NOT_A_WEBSITE = ("bit.ly", "bitly.com", "tinyurl.com", "lnkd.in", "t.co", "ow.ly", "linktr.ee", "linktree.com",
                  "linkedin.com", "facebook.com", "instagram.com", "twitter.com", "x.com", "youtube.com",
                  "greenhouse.io", "lever.co", "myworkdayjobs.com", "indeed.com", "glassdoor.com", "wixsite.com")
@@ -110,7 +110,7 @@ def export(args):
         w.writeheader()
         w.writerows(out)
     print(f"{args.out}: {len(out)} people at {len({r['Company'] for r in rows})} companies, ready for "
-          "linkedin-list-screening init")
+          "screen.py init --event")
 
 
 def main():

@@ -30,7 +30,7 @@ per company + title; no person names).
   guide     --run-dir <run_dir> [--title "<event>"] [--filters <json>]  Branch A:
             zoominfo_guide.html, the step-by-step page shown next to ZoomInfo.
             Filters: config.json defaults, changed by the user for this run.
-  tag-event --run-dir <run_dir> --working <outbound-list-cleaner run>  Branch A:
+  tag-event --run-dir <run_dir> --working <working-file run_dir>  Branch A:
             after the ZoomInfo export is loaded, write Event Name on every
             contact whose company is on this event's list.
 """
@@ -43,7 +43,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SIBLING = HERE.parents[1] / "linkedin-list-screening" / "scripts"
+SIBLING = HERE  # all scripts live in one folder
 CONFIG = json.loads((HERE.parent / "config.json").read_text())
 COMPANY_COLS = ["Company ID", "Company", "Website", "City", "State", "Country", "Employees", "Revenue",
                 "Status", "Status Note", "Event Name", "Source", "Research Source", "Confidence"]
@@ -339,7 +339,7 @@ def zoominfo(args):
 
 
 def tag_event(args):
-    sys.path.insert(0, str(HERE.parents[1] / "outbound-list-cleaner" / "scripts"))
+    sys.path.insert(0, str(HERE))
     import worksheet as ws
     companies = [c for c in read_csv(p_companies(args.run_dir), COMPANY_COLS) if c["Status"] != "excluded"]
     names = {norm(c["Company"]): c["Event Name"] for c in companies}

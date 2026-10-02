@@ -486,7 +486,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("init"); p.add_argument("--input", required=True); p.add_argument("--out-dir", required=True)
-    p.add_argument("--event", action="store_true", help="event list (from event-list-intake)")
+    p.add_argument("--event", action="store_true", help="event list (from the event steps)")
     p.set_defaults(func=init)
     p = sub.add_parser("check"); p.add_argument("--run-dir", required=True)
     p.add_argument("--company-countries", nargs="*"); p.add_argument("--contact-countries", nargs="*")

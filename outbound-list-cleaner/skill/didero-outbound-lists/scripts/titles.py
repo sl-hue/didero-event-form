@@ -16,7 +16,7 @@ the user searches the web, pastes the LinkedIn URL and types the name.
   enrich-ingest  --run-dir <run_dir> --batch <n> --response <file>
   build-contacts --run-dir <run_dir> --out <file.csv>
                  One contact file in ZoomInfo's column names (company data from the
-                 web research, Event Name on every row) for outbound-list-cleaner:
+                 web research, Event Name on every row) for the working file:
                  worksheet.py init --contacts <file.csv>, then steps 1–6.
 """
 import argparse
@@ -33,7 +33,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from company_list import COMPANY_COLS, TARGET_COLS, number, p_companies, p_targets, read_csv  # noqa: E402
 
-sys.path.insert(0, str(HERE.parents[1] / "outbound-list-cleaner" / "scripts"))
+sys.path.insert(0, str(HERE))
 from zoominfo_merge import TITLE_ABBR, first_val, name_ok, paired_records, same_query, same_title, walk_records  # noqa: E402
 
 BATCH = 10
@@ -261,7 +261,7 @@ def build_contacts(args):
         w.writerows(rows)
     print(f"{args.out}: {len(rows)} contacts at {len({r['Company Name'] for r in rows})} companies "
           f"({len(used_finder)} found through the finder page)")
-    print(f"next: python3 <outbound-list-cleaner>/scripts/worksheet.py init --contacts {args.out} --out-dir <run_dir>, "
+    print(f"next: python3 scripts/worksheet.py init --contacts {args.out} --out-dir <run_dir>, "
           "then steps 1–6")
 
 

@@ -1,16 +1,14 @@
----
-name: event-list-intake
-description: Turn an event list into Didero's outbound list format. Two kinds — (1) a contact list (attendees, speakers, registrants already named, from a file, the event's website, screenshots or PDFs): fill first name / last name / job title / company, find each company's website and HQ by web research, then screening, ZoomInfo matching, LinkedIn URL finding, cleaning, HubSpot, Clay, BDRs; (2) a company-only list (exhibitors, sponsors): research website / HQ / size / revenue, drop non-target countries, clean names, then either build the contact list in ZoomInfo with a guide page (no titles) or find the people for listed job titles (titles but no names). Use whenever someone brings a conference / trade show / webinar / event list to prospect.
----
+# Event-list steps (contact lists and company-only lists)
 
-# Event list intake
+Part of the `didero-outbound-lists` skill — `SKILL.md` says when to use these steps. Scripts are in `scripts/`, settings in `config.json`.
+
 
 **Contact lists** (people named) use steps 1–5 below. **Company-only lists**
 (exhibitors, sponsors — no names) use the section at the end. The
-orchestrator (`outbound-list-orchestrator`) runs these stages, then hands over
-to `linkedin-list-screening` and `outbound-list-cleaner`.
+`SKILL.md` runs these stages, then hands over
+to `references/screening.md` and `references/zoominfo-lists.md`.
 
-Scripts are in this skill's `scripts/` folder. Create a run folder per event
+Scripts are in the skill's `scripts/` folder. Create a run folder per event
 in the user's working folder (`<event>_<date>/`). The list holds personal data:
 keep it on the user's device; never publish it.
 
@@ -59,7 +57,7 @@ keep it on the user's device; never publish it.
 
 **4. Hand over to screening**
 - `python3 scripts/companies.py export --run-dir <run_dir> --out <run_dir>/event_for_screening.csv`
-- Then `linkedin-list-screening`: `screen.py init --input <run_dir>/event_for_screening.csv --out-dir <run_dir>/screening --event`
+- Then `references/screening.md`: `screen.py init --input <run_dir>/event_for_screening.csv --out-dir <run_dir>/screening --event`
   (skip its multiple-jobs step — event lists have no job count), company
   research + review (based / present in the target countries), contacts
   (titles). Event attendees' own location isn't known: run
@@ -67,15 +65,15 @@ keep it on the user's device; never publish it.
   name cleaning) and step 7 hand-off with `--list-type Event`.
 
 **5. Event property in HubSpot**
-At the import (outbound-list-cleaner step 4), the **Event Name** column maps to
+At the import (references/zoominfo-lists.md step 4), the **Event Name** column maps to
 the property the user chose. In Didero's HubSpot: **Event name** (text, any
 value), **Lead Source - Event** (dropdown like `Events_2026_IMTS` — a new
 event's option must be added in HubSpot first) and **LEAD SOURCE** = `Events`.
 Confirm with the user every run.
 
 The rest of the flow (ZoomInfo search → pick → enrich, LinkedIn URL finder,
-source priority, cleaning, HubSpot) is in `outbound-list-cleaner` — the
-orchestrator lists the order.
+source priority, cleaning, HubSpot) is in `references/zoominfo-lists.md` — the
+`SKILL.md` lists the order.
 
 
 ## Company-only event lists (exhibitors, sponsors — no contact names)
@@ -131,7 +129,7 @@ company cleaning: `company_list.py clean --run-dir <run_dir>` → `names_review.
    **Suppression** / limits: **4 contacts per company, prioritized by
    seniority** → wait 10–15 minutes → give Claude the file. (Suppression lists
    live in HubSpot; nothing else to set up.)
-4. The export is a **normal ZoomInfo list**: `outbound-list-cleaner`
+4. The export is a **normal ZoomInfo list**: `references/zoominfo-lists.md`
    `worksheet.py init`, then **`company_list.py tag-event --run-dir <run_dir> --working <cleaner run_dir>`**
    (Event Name on every contact at an event company; unmatched companies →
    ask), then steps 1–6.
@@ -156,7 +154,7 @@ company cleaning: `company_list.py clean --run-dir <run_dir>` → `names_review.
 5. `titles.py build-contacts --run-dir <run_dir> --out <run_dir>/title_contacts.csv`
    (company data from the research, Event Name on every row; a finder person's
    title becomes ZoomInfo's only when it's the same job) →
-   `outbound-list-cleaner` `worksheet.py init --contacts …`, then steps 1–6.
+   `references/zoominfo-lists.md` `worksheet.py init --contacts …`, then steps 1–6.
 
 **Mixed lists** (titles for some companies only): branch B for the titled
 companies, branch A for the rest, in the same run.

@@ -1,7 +1,7 @@
 """Stage 4 — clean job titles and company names (LinkedIn's free text).
 
 Runs on the contacts that stay (Decision isn't "exclude") after the screening
-review. Person names are NOT cleaned here: outbound-list-cleaner step 2 does
+review. Person names are NOT cleaned here: step 2 of the ZoomInfo-list steps does
 that for every list type.
 
   prepare   Writes <run_dir>/fields_review.json: every title and company name

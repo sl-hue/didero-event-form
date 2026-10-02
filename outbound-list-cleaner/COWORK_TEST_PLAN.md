@@ -4,7 +4,8 @@ Tick each item as it passes. Anything that fails: paste what Claude said/did
 into the build chat so the skill can be fixed.
 
 ## 0. Setup
-- [ ] Upload `outbound-list-cleaner-skill.zip` as a skill (don't unzip it).
+- [ ] Remove the old separate skills (outbound-list-cleaner, linkedin-list-screening, event-list-intake, outbound-list-orchestrator) if they were uploaded.
+- [ ] Upload `didero-outbound-lists-skill.zip` as a skill (don't unzip it).
 - [ ] Create a Cowork project; add `PROJECT.md` and `SPEC.md` as project files.
 - [ ] Share a folder with the sample files (CBM M&A raw contacts + companies, Grata file).
 - [ ] HubSpot connector connected in Cowork.
@@ -77,7 +78,7 @@ into the build chat so the skill can be fixed.
 - [ ] The run ends after step 6.
 
 ## 9. LinkedIn list (Sales Nav / Evaboot) — orchestrator flow
-- [ ] `outbound-list-orchestrator` guesses "LinkedIn" from the columns and asks you to confirm.
+- [ ] the skill guesses "LinkedIn" from the columns and asks you to confirm.
 - [ ] Load: locations split into city/state/country (metro areas → main city + state).
 - [ ] Multiple jobs page opens in the Cowork panel; Open LinkedIn reuses one tab; Confirm and next; code → preview → your OK → saved.
 - [ ] Company review (based / present in), then contacts grouped by company; Finish → code → preview → OK.
@@ -88,7 +89,7 @@ into the build chat so the skill can be fixed.
 - [ ] Consistency report (3 levels); prune lists the removed columns; steps 1–2 again show only new items.
 
 ## 10. Event contact list — orchestrator flow
-- [ ] Orchestrator says "event list", asks whether the people are named (company-only lists stop: not built yet).
+- [ ] The skill says "event list", asks whether the people are named (company-only lists stop: not built yet).
 - [ ] Asks for every source; for pages with dropdowns / contact pages it asks you for screenshots instead of clicking through.
 - [ ] event.csv has first / last / title / company; screenshot people merged without duplicates; gaps listed.
 - [ ] Websites then HQ found by web research; low-confidence ones shown to you.
@@ -98,7 +99,7 @@ into the build chat so the skill can be fixed.
 - [ ] HubSpot import maps Event Name to the event property you choose.
 
 ## 11. Company-only event list
-- [ ] Orchestrator asks whether people are named; company-only goes to company_list.py; branch A/B counts shown.
+- [ ] The skill asks whether people are named; company-only goes to company_list.py; branch A/B counts shown.
 - [ ] Research re-checks list values; differences and low-confidence finds shown.
 - [ ] Non-target countries: preview, your OK, unknown countries asked.
 - [ ] Name cleaning: safe fixes + judgment calls.

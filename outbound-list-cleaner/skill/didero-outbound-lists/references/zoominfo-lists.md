@@ -1,9 +1,7 @@
----
-name: outbound-list-cleaner
-description: Didero's outbound list workflow, end to end — clean and standardize a raw prospect list (ZoomInfo, LinkedIn, Clay, HubSpot exports) into a contact file and a matching company file, fix email domains, check HubSpot for duplicate companies and contacts, prepare the HubSpot import, fix associations and leftover duplicates after import, guide the Clay enrichment, and assign BDR owners. Use whenever someone gives you a raw contact or company export to clean or prepare for HubSpot, asks to dedupe a list against HubSpot, prepare or check an import, run the Clay enrichment step, or assign a new list to BDRs.
----
+# ZoomInfo-list steps (and the shared steps 1–6)
 
-# Outbound list cleaner
+Part of the `didero-outbound-lists` skill — `SKILL.md` says which list type uses which steps. Scripts are in `scripts/`, settings in `config.json` (both at the skill's root).
+
 
 ## Steps and sub-agents
 
@@ -608,7 +606,7 @@ anyone else (AEs, managers, …), say this workflow doesn't cover it and stop.
 
 ## LinkedIn lists: ZoomInfo pull, source priority, consistency, prune
 
-Only for lists that came through `linkedin-list-screening` (the orchestrator
+Only for lists that came through `references/screening.md` (`SKILL.md`
 says when). They run after steps 1–2, then steps 1–2 run again, then 3–6.
 Script: `scripts/zoominfo_merge.py`. Stop after each stage, show what changed
 and wait for the user's OK.
@@ -670,7 +668,7 @@ for everything else. Then steps 3–6.
 
 ## Event lists: ZoomInfo search, LinkedIn URL finder
 
-Only for lists that came through `event-list-intake` (the orchestrator says
+Only for lists that came through `references/event-lists.md` (`SKILL.md` says
 when). Event attendees have no LinkedIn URL to match on, so ZoomInfo is
 searched first (free) and only the best candidates are enriched. Company HQ
 already came from web research, so **no company enrichment** for event lists.

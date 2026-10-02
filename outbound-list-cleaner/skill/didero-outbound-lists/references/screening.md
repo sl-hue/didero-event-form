@@ -1,19 +1,17 @@
----
-name: linkedin-list-screening
-description: Screen a LinkedIn-sourced prospect list (LinkedIn, Sales Navigator, Evaboot or similar exports) before it goes into Didero's outbound-list-cleaner — research and review every company and job title, check companies and contacts against the target countries, and let the user keep or exclude each contact in a flashcard review. Use whenever someone brings a list that did not come from ZoomInfo, or asks to screen, filter, qualify or review a LinkedIn list's companies, titles or geography.
----
+# Screening steps (LinkedIn lists; also event lists)
 
-# LinkedIn list screening
+Part of the `didero-outbound-lists` skill — `SKILL.md` says when to use these steps. Scripts are in `scripts/`, settings in `config.json`.
+
 
 The first stage for any list that wasn't built in ZoomInfo. It decides **who
-stays on the list**; `outbound-list-cleaner` then cleans and imports the
-survivors (see the orchestrator for the full LinkedIn sequence).
+stays on the list**; `references/zoominfo-lists.md` then cleans and imports the
+survivors (see `SKILL.md` for the full LinkedIn sequence).
 
 ## Before you start
 
-Same as `outbound-list-cleaner`: run on Opus 5.x or Fable (stop and ask the
+Same as `references/zoominfo-lists.md`: run on Opus 5.x or Fable (stop and ask the
 user to switch otherwise), and check that web search is available (the
-company research needs it). Scripts are in this skill's `scripts/` folder;
+company research needs it). Scripts are in the skill's `scripts/` folder;
 defaults are in `config.json`. Create a run folder per list in the user's
 working folder (`<list>_<date>/`). The list contains personal data: keep it
 on the user's device; never publish it.
@@ -134,7 +132,7 @@ company and title can be wrong. Check these before any company research.
 
 **6. Clean job titles and company names** — `field-cleaner` (subagent)
 Only for contacts that stay. (Person names are cleaned later, in
-outbound-list-cleaner step 2, for every list type — not here.)
+references/zoominfo-lists.md step 2, for every list type — not here.)
 - `python3 scripts/fields.py prepare --run-dir <run_dir>` writes
   `fields_review.json`: each title / company name that would change, with a
   proposal. **auto** = safe formatting (spacing, ®/™, ALL CAPS or all-lower
@@ -150,14 +148,14 @@ outbound-list-cleaner step 2, for every list type — not here.)
   `python3 scripts/fields.py apply --run-dir <run_dir> --decisions <file>`,
   show the before → after tables (`fields_changes.json`) and wait for the OK.
 
-**7. Hand-off to outbound-list-cleaner**
+**7. Hand-off to references/zoominfo-lists.md**
 - `python3 scripts/handoff.py --run-dir <run_dir> --out <run_dir>/handoff_contacts.csv`
   writes the kept contacts in the working file's columns (ZoomInfo's names):
   contact and company LinkedIn URLs in standard form, Person City / State /
   Country, company location, size, revenue range, industry. IDs are
   `LI-<Row ID>` / `LIC-<n>` (never imported).
-- Then `python3 <outbound-list-cleaner>/scripts/worksheet.py init --contacts <run_dir>/handoff_contacts.csv --out-dir <cleaner run_dir>`
-  and continue with the orchestrator's next stage (outbound-list-cleaner
+- Then `python3 scripts/worksheet.py init --contacts <run_dir>/handoff_contacts.csv --out-dir <cleaner run_dir>`
+  and continue with `SKILL.md`'s next stage (references/zoominfo-lists.md
   steps 1–2).
 
 `screening.csv` is the state carried to the next stage: only rows with

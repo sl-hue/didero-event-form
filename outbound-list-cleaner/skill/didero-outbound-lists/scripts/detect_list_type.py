@@ -24,11 +24,11 @@ SIGNS = {
 }
 LABEL = {"zoominfo": "ZoomInfo export", "linkedin": "LinkedIn (Sales Nav / Evaboot) export", "event": "event list"}
 FLOW = {
-    "zoominfo": "outbound-list-cleaner, steps 1–6",
-    "linkedin": "linkedin-list-screening (multiple jobs → companies → contacts → title/company cleaning), "
-                "then outbound-list-cleaner steps 1–2, ZoomInfo pull, source priority, consistency, prune, "
+    "zoominfo": "references/zoominfo-lists.md, steps 1–6",
+    "linkedin": "references/screening.md (multiple jobs → companies → contacts → title/company cleaning), "
+                "then references/zoominfo-lists.md steps 1–2, ZoomInfo pull, source priority, consistency, prune, "
                 "steps 1–2 again, then steps 3–6",
-    "event": "event-list-intake — contact list (people named) or company-only list (branch A: ZoomInfo "
+    "event": "references/event-lists.md — contact list (people named) or company-only list (branch A: ZoomInfo "
              "list build; branch B: job titles without names)",
 }
 

@@ -1,11 +1,11 @@
-"""Stage 5 — hand the screened LinkedIn list to outbound-list-cleaner.
+"""Stage 5 — hand the screened list to the working file (references/zoominfo-lists.md).
 
   python3 handoff.py --run-dir <screening run> --out <file.csv>
 
 Writes the contacts that stay (Decision = keep) as one CSV in the column
-names outbound-list-cleaner's working file uses (ZoomInfo's), with company
+names the working file uses (ZoomInfo's), with company
 columns on every row. Then:
-  python3 <outbound-list-cleaner>/scripts/worksheet.py init --contacts <file.csv> --out-dir <cleaner run>
+  python3 scripts/worksheet.py init --contacts <file.csv> --out-dir <cleaner run>
 
 IDs: LinkedIn has no ZoomInfo IDs, so each contact gets "LI-<Row ID>" and each
 company "LIC-<n>" (stable within the run). They are never imported to HubSpot.
@@ -112,7 +112,7 @@ def main():
         w.writerows(out)
     print(f"{args.out}: {len(out)} contacts at {len(company_ids)} companies"
           + (f" ({open_} contacts had no decision and were left out — check with the user)" if open_ else ""))
-    print(f"next: python3 <outbound-list-cleaner>/scripts/worksheet.py init --contacts {args.out} --out-dir <run_dir>")
+    print(f"next: python3 scripts/worksheet.py init --contacts {args.out} --out-dir <run_dir>")
 
 
 if __name__ == "__main__":

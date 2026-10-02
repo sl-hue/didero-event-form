@@ -16,8 +16,8 @@ on unclear rows through multiple-choice prompts in chat.
 | Path | What |
 |------|------|
 | `SPEC.md` | Process spec and confirmed decision rules — source of truth |
-| `skill/outbound-list-cleaner/` | Self-contained skill (SKILL.md + scripts). Zip this folder to install in Cowork |
-| `skill/outbound-list-cleaner/scripts/email_domain.py` | Step 1 script (`prepare` / `apply`) |
+| `skill/didero-outbound-lists/` | The one skill (merged 2026-10-02 from outbound-list-cleaner, linkedin-list-screening, event-list-intake and the orchestrator): SKILL.md (list type + order), references/ (zoominfo-lists, screening, event-lists), scripts/, config.json. Zip this folder to install in Cowork |
+| `skill/didero-outbound-lists/scripts/email_domain.py` | Step 1 script (`prepare` / `apply`) |
 | `samples/MANIFEST.md` | What each sample file is. **Sample data is local-only, never committed** |
 | `runs/` | Run outputs (git-ignored; contain personal data) |
 
@@ -232,7 +232,7 @@ it's the same job. Tested with fictional data.
 - Set `HUBSPOT_PRIVATE_APP_TOKEN` on the device and connect the HubSpot
   connector before the first run.
 - Test plan: `COWORK_TEST_PLAN.md`.
-- Install the skill: zip `skill/outbound-list-cleaner/` and upload it as a
+- Install the skill: zip `skill/didero-outbound-lists/` and upload it as a
   skill.
 - Put sample/input files in the project's local folder, not in the repo.
 - At the end of each session, update the Status, Next up, Open questions and

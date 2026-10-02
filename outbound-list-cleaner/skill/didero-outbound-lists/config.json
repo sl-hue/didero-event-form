@@ -1,0 +1,166 @@
+{
+  "exclusion_lists": [
+    {
+      "name": "Exclusion List A- Open Deals, Closed Lost Last 6 Mths, Customers, Not Persona",
+      "list_id": "1511"
+    },
+    {
+      "name": "Exclusion List B_Actively Worked On",
+      "list_id": "1515"
+    },
+    {
+      "name": "Exclusion List C_Contacts_Not ICP Companies",
+      "list_id": "2605"
+    },
+    {
+      "name": "Exclusion list D_Irrelevant titles (Retired, student, intern, SWE)",
+      "list_id": "1184"
+    },
+    {
+      "name": "Exclusion List E_Product Research Panel_Refined List",
+      "list_id": "1633"
+    },
+    {
+      "name": "Exclusion List F_Contacts_Vendor, Partners, Resellers",
+      "list_id": "2613"
+    }
+  ],
+  "clay_workbooks": {
+    "europe": {
+      "url": "https://app.clay.com/workspaces/335212/workbooks/wb_0tm51ojyxYJGkNquEsG",
+      "use_for": "European contacts (often missing from ZoomInfo)"
+    },
+    "americas_global": {
+      "url": "https://app.clay.com/workspaces/335212/workbooks/wb_0tm51n2tsmYgWNj6Gui",
+      "use_for": "American and other global contacts (providers proven for these regions)"
+    }
+  },
+  "bdr_pool": [
+    "Noah",
+    "Davis",
+    "Bart"
+  ],
+  "bdr_balance_flag": {
+    "percent_of_average": 10,
+    "min_contacts": 3
+  },
+  "hubspot_portal_id": "46366931",
+  "default_company_countries": [
+    "United States",
+    "Canada",
+    "United Kingdom",
+    "Ireland"
+  ],
+  "default_contact_countries": [
+    "United States",
+    "Canada",
+    "United Kingdom",
+    "Ireland"
+  ],
+  "uk_includes": [
+    "England",
+    "Scotland",
+    "Wales",
+    "Northern Ireland"
+  ],
+  "target_title_keywords": [
+    "procurement",
+    "purchasing",
+    "sourcing",
+    "supply chain",
+    "buyer",
+    "buying",
+    "category",
+    "materials",
+    "supplier",
+    "vendor",
+    "logistics",
+    "operations",
+    "planning",
+    "s&op",
+    "inventory",
+    "replenishment",
+    "merchandising"
+  ],
+  "min_seniority_keywords": [
+    "chief",
+    "cpo",
+    "coo",
+    "cfo",
+    "vp",
+    "vice president",
+    "svp",
+    "evp",
+    "head",
+    "director",
+    "manager",
+    "lead",
+    "president",
+    "owner",
+    "founder"
+  ],
+  "exclude_title_keywords": [
+    "intern",
+    "student",
+    "retired",
+    "assistant to",
+    "software engineer",
+    "recruiter"
+  ],
+  "target_countries": [
+    "United States",
+    "Canada",
+    "United Kingdom",
+    "Ireland"
+  ],
+  "zoominfo_filters": {
+    "company_hq_countries": [
+      "United States",
+      "Canada",
+      "United Kingdom",
+      "Ireland"
+    ],
+    "contact_countries": [
+      "United States",
+      "Canada",
+      "United Kingdom",
+      "Ireland"
+    ],
+    "management_levels": [
+      "C-Level",
+      "VP-Level",
+      "Director"
+    ],
+    "titles_include": [
+      "procurement",
+      "purchasing",
+      "sourcing",
+      "supply chain",
+      "buyer",
+      "category manager",
+      "materials",
+      "operations",
+      "planning",
+      "inventory",
+      "logistics",
+      "supplier"
+    ],
+    "titles_exclude": [
+      "intern",
+      "assistant",
+      "recruiter",
+      "software engineer",
+      "student",
+      "retired",
+      "sales",
+      "marketing",
+      "hr",
+      "human resources",
+      "talent",
+      "people"
+    ],
+    "contacts_per_company": 4,
+    "prioritize": "seniority",
+    "_note": "Defaults only: ask the user each run (show these, let them change any)."
+  }
+}
