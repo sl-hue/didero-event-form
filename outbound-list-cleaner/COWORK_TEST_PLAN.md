@@ -76,6 +76,17 @@ into the build chat so the skill can be fixed.
 - [ ] After approval: writes contact owners then company owners, verifies every record. (Try on a small test list first.)
 - [ ] The run ends after step 6.
 
+## 9. LinkedIn list (Sales Nav / Evaboot) — orchestrator flow
+- [ ] `outbound-list-orchestrator` guesses "LinkedIn" from the columns and asks you to confirm.
+- [ ] Load: locations split into city/state/country (metro areas → main city + state).
+- [ ] Multiple jobs page opens in the Cowork panel; Open LinkedIn reuses one tab; Confirm and next; code → preview → your OK → saved.
+- [ ] Company review (based / present in), then contacts grouped by company; Finish → code → preview → OK.
+- [ ] Title / company name cleaning: safe fixes listed, judgment calls asked.
+- [ ] Hand-off → `worksheet.py init` → steps 1–2 run as for ZoomInfo lists.
+- [ ] ZoomInfo: maximum credits shown and your OK asked before any call; good / outdated / review / none shown; outdated records ignored.
+- [ ] Source priority: names from ZoomInfo, title from LinkedIn, extra matching email in Additional Emails; ties asked.
+- [ ] Consistency report (3 levels); prune lists the removed columns; steps 1–2 again show only new items.
+
 ## Known limits
 - Setting the token needs your own terminal or the Cowork file route; the token never goes in chat.
 - The Clay connector can't run workbooks; step 5 is always manual.

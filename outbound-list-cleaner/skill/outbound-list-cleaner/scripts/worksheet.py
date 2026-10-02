@@ -61,7 +61,7 @@ ADDED_COLUMNS = ["Company Domain", "Additional Domains", "Type", "HubSpot Compan
 
 CONTACT_EXPORT = [
     CONTACT_ID, "First Name", "Last Name", "Job Title", "Management Level", "Job Function",
-    "Department", "Direct Phone Number", "Email Address", "Email Domain", "Mobile phone",
+    "Department", "Direct Phone Number", "Email Address", "Additional Emails", "Email Domain", "Mobile phone",
     "ZoomInfo Contact Profile URL", "LinkedIn Contact Profile URL", "Person Street", "Person City",
     "Person State", "Person Zip Code", "Country", "Company Name", "Website", "Company HQ Phone",
     "HubSpot Contact Record ID", "New Contact Outbound Personalization",

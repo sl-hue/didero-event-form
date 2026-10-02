@@ -34,7 +34,7 @@ Source rules (agreed with the user):
   email ................... every email whose domain is the company's (LinkedIn's
                             and ZoomInfo's); others cleared; with two, the one on
                             the domain most of the company's contacts use is the
-                            primary, the other goes in Secondary Email
+                            primary, the other goes in Additional Emails
   person city/state/country ZoomInfo when it has them, else the LinkedIn values
   website ................. ZoomInfo, else LinkedIn; then cleaned (no shorteners,
                             Linktree, careers pages, subpages)
@@ -139,14 +139,19 @@ def clean_li(url, kind="in"):
     return f"https://www.linkedin.com/{kind}/{m.group(2).rstrip('/')}" if m else (url or "").strip()
 
 
+SKIP_KEYS = {"input", "inputCriteria", "retryInfo", "warnings"}
+
+
 def walk_records(obj, keys):
-    """Every dict in a ZoomInfo response that has any of `keys` (the response shape varies)."""
+    """Every dict in a ZoomInfo response that has any of `keys` (the response shape varies).
+    The echoed request ("input", "inputCriteria") is never a record."""
     out = []
     if isinstance(obj, dict):
         if any(k in obj for k in keys):
             out.append(obj)
-        for v in obj.values():
-            out += walk_records(v, keys)
+        for k, v in obj.items():
+            if k not in SKIP_KEYS:
+                out += walk_records(v, keys)
     elif isinstance(obj, list):
         for v in obj:
             out += walk_records(v, keys)
@@ -218,6 +223,22 @@ def name_ok(first, last, zf, zl):
     return "yes" if last_ok and first_ok else ("partly" if last_ok or (first_ok and f) else "no")
 
 
+def paired_records(data):
+    """enrich_contacts returns {"contact_1": {"input": {...}, "data": {...}}, ...}: pair each
+    answer with the request it answers (exact), instead of guessing by name."""
+    pairs = []
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if re.match(r"(contact|company)_\d+$", k) and isinstance(v, dict) and isinstance(v.get("input"), dict):
+                pairs.append((v["input"], v.get("data") if v.get("success", True) else None))
+    return pairs
+
+
+def same_query(a, b):
+    keys = ("email", "firstName", "lastName", "companyName", "externalURL", "domain")
+    return all((a.get(k) or "").lower() == (b.get(k) or "").lower() for k in keys if a.get(k) or b.get(k))
+
+
 def best_contact(q, recs):
     best, score = None, -1
     for z in recs:
@@ -248,10 +269,17 @@ def attach(args):
         if not f.exists():
             missing.append(f"contacts {i}")
             continue
-        recs = walk_records(json.loads(f.read_text()), ("firstName", "lastName"))
+        data = json.loads(f.read_text())
+        pairs, recs = paired_records(data), walk_records(data, ("firstName", "lastName"))
         for item in batch:
             r, q = by_row[item["row"]], item["query"]
-            z = best_contact(q, recs)
+            if pairs:
+                hit = [d for inp, d in pairs if same_query(inp, q)]
+                if not hit:
+                    continue  # this contact wasn't in the call (e.g. a partial test batch)
+                z = hit[0] if hit[0] and hit[0].get("success", True) is not False else None
+            else:
+                z = best_contact(q, recs)
             if not z:
                 r["ZI Match"], r["ZI Match Note"] = "none", "not found in ZoomInfo"
                 continue
@@ -262,8 +290,9 @@ def attach(args):
                     "ZI LinkedIn URL": next((u for u in first_val(z, "externalUrls").split("; ")
                                              if "linkedin.com/in/" in u.lower()), ""),
                     "ZI Management Level": first_val(z, "managementLevel"),
-                    "ZI Job Function": first_val(z, "jobFunction"), "ZI Direct Phone": first_val(z, "phone"),
-                    "ZI Mobile Phone": first_val(z, "mobilePhone"),
+                    "ZI Job Function": first_val(z, "jobFunction"), # a number marked Do Not Call is never copied
+                    "ZI Direct Phone": "" if z.get("directPhoneDoNotCall") is True else first_val(z, "phone"),
+                    "ZI Mobile Phone": "" if z.get("mobilePhoneDoNotCall") is True else first_val(z, "mobilePhone"),
                     "ZI Accuracy Score": first_val(z, "contactAccuracyScore"),
                     "ZI Person City": first_val(z, "city", "personCity"),
                     "ZI Person State": first_val(z, "state", "personState"),
@@ -327,7 +356,7 @@ def flag(r, reason):
 def merge(args):
     run = Path(args.run_dir)
     fields, rows = ws.load(run)
-    for col in ("Secondary Email", "Management Level", "Job Function", "Direct Phone Number", "Mobile phone",
+    for col in ("Additional Emails", "Management Level", "Job Function", "Direct Phone Number", "Mobile phone",
                 "Company HQ Phone", "Company Street Address", "Flag", "Flag Reason"):
         if col not in fields:
             fields.append(col)
@@ -377,7 +406,7 @@ def merge(args):
                 changes.append({"row": r[CONTACT_ID], "contact": f"{r.get('First Name', '')} {r.get('Last Name', '')}",
                                 "company": r.get("Company Name", ""), "field": "Email Address",
                                 "from": r["Email Address"], "to": "", "why": "no email on the company's domain"})
-            r["Email Address"], r["Secondary Email"] = "", ""
+            r["Email Address"], r["Additional Emails"] = "", ""
         elif ok:
             current = (r.get("Email Address") or "").lower()
             ok.sort(key=lambda e: (-usage[r[COMPANY_ID]][email_domain(e)],
@@ -385,7 +414,7 @@ def merge(args):
                                    0 if e == current else 1))
             put(r, "Email Address", ok[0], "on the company's domain" +
                 (" — most-used domain/address format at this company" if len(ok) > 1 else ""))
-            r["Secondary Email"] = ok[1] if len(ok) > 1 else ""
+            r["Additional Emails"] = ok[1] if len(ok) > 1 else ""
         if r.get("Email Address"):
             r["Email Domain"] = email_domain(r["Email Address"])
 

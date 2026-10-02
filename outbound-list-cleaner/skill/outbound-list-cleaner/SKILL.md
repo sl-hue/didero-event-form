@@ -630,13 +630,19 @@ and wait for the user's OK.
    person at another company — the whole ZoomInfo record is ignored),
    **review** (name differs — show the user both versions and ask), **none**.
    Nothing in the list's own columns changes yet.
+   What ZoomInfo returns (checked on a real call): name, email (sometimes
+   none), title, company + ZoomInfo company ID, management level, job function,
+   phones with Do-Not-Call flags (a Do-Not-Call number is never copied),
+   accuracy score, LinkedIn URLs. It does **not** return the person's city /
+   state / country (neither does search), so contact location stays as worked
+   out from LinkedIn.
 
 **Stage 8 — pick the source per field** — `zoominfo_merge.py merge --run-dir <run_dir>`
 Rules (from the user): names → ZoomInfo; job title → LinkedIn; contact
 LinkedIn URL → LinkedIn (format only); emails → every email on the company's
 domains from either source, others cleared; with two, the one on the
 company's most-used domain / address format is primary, the other goes in
-**Secondary Email**; person city/state/country → ZoomInfo when it has them;
+**Additional Emails** (HubSpot "Additional email addresses"); person city/state/country → ZoomInfo when it has them;
 website → ZoomInfo then cleaned; company name → ZoomInfo's when it's the same
 company as LinkedIn's; company LinkedIn URL → LinkedIn; company location,
 phone, industry, size, revenue, management level, job function, phones →

@@ -72,6 +72,7 @@ CONTACT_MAPPING = {
     "Department": ("Department", "department"),  # dropdown; values checked in step 2
     "Direct Phone Number": ("Work Direct Phone", "work_direct_phone"),
     "Email Address": ("Email", "email"),
+    "Additional Emails": ("Additional email addresses", "hs_additional_emails"),
     "Email Domain": ("Company Domain", "company_domain"),
     "Mobile phone": ("Mobile Phone Number", "mobilephone"),
     "ZoomInfo Contact Profile URL": ("ZoomInfo Contact Profile URL", "zoominfo_contact_profile_url"),
