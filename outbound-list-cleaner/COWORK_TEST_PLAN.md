@@ -87,6 +87,16 @@ into the build chat so the skill can be fixed.
 - [ ] Source priority: names from ZoomInfo, title from LinkedIn, extra matching email in Additional Emails; ties asked.
 - [ ] Consistency report (3 levels); prune lists the removed columns; steps 1–2 again show only new items.
 
+## 10. Event contact list — orchestrator flow
+- [ ] Orchestrator says "event list", asks whether the people are named (company-only lists stop: not built yet).
+- [ ] Asks for every source; for pages with dropdowns / contact pages it asks you for screenshots instead of clicking through.
+- [ ] event.csv has first / last / title / company; screenshot people merged without duplicates; gaps listed.
+- [ ] Websites then HQ found by web research; low-confidence ones shown to you.
+- [ ] Company + contact review page (no contact geography), cleaning, hand-off.
+- [ ] ZoomInfo: free searches, picks shown, unclear ones asked, max credits = picked people only; no company credits.
+- [ ] LinkedIn finder page next to the Cowork browser: search opens in one tab, paste URL, Enter; Can't find works; code → preview → OK.
+- [ ] HubSpot import maps Event Name to the event property you choose.
+
 ## Known limits
 - Setting the token needs your own terminal or the Cowork file route; the token never goes in chat.
 - The Clay connector can't run workbooks; step 5 is always manual.

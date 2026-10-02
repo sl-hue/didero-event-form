@@ -90,6 +90,22 @@ still needs checking (response shape, person location fields). Open: where a
 second matching email goes in HubSpot ("Secondary Email" column for now, not
 in the upload yet); event-list flow (user to design).
 
+## Event list flow (agreed with the user, 2026-10-02)
+
+Only lists where the people are already named (attendees, speakers,
+registrants). Company-only event lists (exhibitors/sponsors → find who to
+contact) are a separate skill, not built yet. Flow: orchestrator (type) →
+event-list-intake (all sources; screenshots of dropdowns / contact pages /
+sub-pages instead of clicking through; first/last/title/company; website then
+HQ by web research only) → linkedin-list-screening (company + contact review,
+`--event`, `--skip-contact-geo`; title/company cleaning; hand-off
+`--list-type Event`) → outbound-list-cleaner steps 1–2 → ZoomInfo free search
+→ pick (unclear → user) → enrich picked only, no company enrichment → LinkedIn
+URL finder page for the unmatched (can't find = stays unenriched) → stages
+8–10 → steps 1–2 again → steps 3–6 (existing record IDs in the upload; Event
+Name mapped to the event property the user picks: Event name / Lead Source -
+Event + LEAD SOURCE = Events). Tested on a fictional 6-person list.
+
 ## Open questions
 
 - Cowork review 2.4–2.13 (LinkedIn global pages, noisy phone matches, stale

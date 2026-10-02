@@ -171,7 +171,8 @@ def init(args):
         r.update({"Row ID": pick(r, "id") or f"R{i:04d}", "Contact": name, "Title": pick(r, "title"),
                   "Company": pick(r, "company"),
                   "Current Jobs": pick(r, "jobs"), "Jobs Check": "",
-                  **contact_location(r),
+                  **(contact_location(r) if not args.event else
+                     {"Contact City": "", "Contact State": "", "Contact Country": "", "Location Note": ""}),
                   "Company Country": country_of(pick(r, "company_country"), pick(r, "company_location"))})
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -179,6 +180,10 @@ def init(args):
     save(out, fields, rows)
     print(f"screening.csv: {len(rows)} contacts at {len({r['Company'] for r in rows})} companies. "
           f"Columns used: " + ", ".join(f"{k}={v}" for k, v in found.items() if v))
+    if args.event:
+        print("event list: no multiple-jobs check and no contact location (companies are screened instead; "
+              "run check with --skip-contact-geo)")
+        return
     multi = sum(1 for r in rows if (r["Current Jobs"] or "1").isdigit() and int(r["Current Jobs"] or 1) > 1)
     print(f"{multi} contacts have more than one current job (next: jobs.py build)" if found["jobs"] else
           "no current-jobs column in this file: ask the user whether to check for people with several jobs")
@@ -279,12 +284,15 @@ def check(args):
             problems.append("company country unknown")
         elif not presence & set(companies):
             problems.append(f"company in {cc or ', '.join(sorted(presence))}, no presence in the target countries")
-        if not pc:
+        if args.skip_contact_geo:
+            pass  # event lists: attendees' own location isn't known; companies are screened instead
+        elif not pc:
             problems.append("contact country unknown")
         elif pc not in contacts:
             problems.append(f"contact in {pc}")
         if not problems:
-            r["Geo Fit"], r["Geo Reason"] = "fit", f"company {cc}, contact {pc}"
+            r["Geo Fit"], r["Geo Reason"] = "fit", (f"company {cc}" if args.skip_contact_geo
+                                                    else f"company {cc}, contact {pc}")
         elif any("unknown" in p for p in problems) and not any(" in " in p for p in problems):
             r["Geo Fit"], r["Geo Reason"] = "unclear", "; ".join(problems)
         else:
@@ -478,9 +486,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("init"); p.add_argument("--input", required=True); p.add_argument("--out-dir", required=True)
+    p.add_argument("--event", action="store_true", help="event list (from event-list-intake)")
     p.set_defaults(func=init)
     p = sub.add_parser("check"); p.add_argument("--run-dir", required=True)
     p.add_argument("--company-countries", nargs="*"); p.add_argument("--contact-countries", nargs="*")
+    p.add_argument("--skip-contact-geo", action="store_true",
+                   help="event lists: don't judge the contact's own country (it isn't known)")
     p.set_defaults(func=check)
     for name, func in (("apply-research", apply_research), ("set-title", set_title), ("set-location", set_location)):
         p = sub.add_parser(name); p.add_argument("--run-dir", required=True); p.add_argument("--file", required=True)

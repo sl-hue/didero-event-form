@@ -26,7 +26,7 @@ OUT_COLUMNS = [
     "ZoomInfo Company ID", "Company Name", "Website", "LinkedIn Company Profile URL", "Founded Year",
     "Revenue Range (in USD)", "Employees", "Employee Range", "Primary Industry",
     "Company City", "Company State", "Company Zip Code", "Company Country", "Full Address",
-    "Source List Type", "LinkedIn Headline", "Jobs Check",
+    "Source List Type", "LinkedIn Headline", "Jobs Check", "Event Name",
 ]
 FIRST, LAST = ["First Name", "first_name", "firstName"], ["Last Name", "last_name", "lastName"]
 
@@ -60,6 +60,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--list-type", default="LinkedIn", choices=["LinkedIn", "Event"])
     args = ap.parse_args()
     _, rows = load(args.run_dir)
     keep = [r for r in rows if r.get("Decision") == "keep"]
@@ -80,7 +81,7 @@ def main():
         zip_m = re.search(r",\s*([0-9]{5}(?:-[0-9]{4})?|[A-Z][0-9][A-Z] ?[0-9][A-Z][0-9])\s*,", full)
         founded = first_of(r, ["Company Year Founded", "Founded Year"])
         out.append({
-            "ZoomInfo Contact ID": f"LI-{r['Row ID']}",
+            "ZoomInfo Contact ID": f"{'EV' if args.list_type == 'Event' else 'LI'}-{r['Row ID']}",
             "First Name": first, "Last Name": last, "Job Title": r["Title"],
             "Email Address": email, "Email Domain": email.split("@")[-1].lower() if "@" in email else "",
             "LinkedIn Contact Profile URL": clean_li(pick(r, "linkedin")),
@@ -100,7 +101,8 @@ def main():
             "Company City": hq["city"], "Company State": hq["state"],
             "Company Zip Code": zip_m.group(1) if zip_m else "",
             "Company Country": r.get("Company Country") or hq["country"], "Full Address": full,
-            "Source List Type": "LinkedIn", "LinkedIn Headline": first_of(r, ["Profile Headline", "Headline"]),
+            "Source List Type": args.list_type, "LinkedIn Headline": first_of(r, ["Profile Headline", "Headline"]),
+            "Event Name": first_of(r, ["Event Name"]),
             "Jobs Check": r.get("Jobs Check", ""),
         })
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)

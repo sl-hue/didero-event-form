@@ -668,6 +668,44 @@ each `prepare`, run `zoominfo_merge.py diff-review --old <pass-1 file> --new <ne
 and bring the user **only the new entries** — reuse the first pass's decisions
 for everything else. Then steps 3–6.
 
+## Event lists: ZoomInfo search, LinkedIn URL finder
+
+Only for lists that came through `event-list-intake` (the orchestrator says
+when). Event attendees have no LinkedIn URL to match on, so ZoomInfo is
+searched first (free) and only the best candidates are enriched. Company HQ
+already came from web research, so **no company enrichment** for event lists.
+
+**ZoomInfo** (`zoominfo-puller`)
+1. `python3 scripts/zoominfo_merge.py search-plan --run-dir <run_dir>` → one
+   `search_contacts` per person (name + company + company website; no credits).
+   Run each (if nothing comes back, retry once without `companyWebsite`), save
+   the result, and `zoominfo_merge.py search-ingest --run-dir <run_dir> --row <row> --response <file>`.
+2. `zoominfo_merge.py pick --run-dir <run_dir>`: a candidate with the same name
+   at the same company is picked; anything less clear is a **REVIEW** line —
+   ask the user (show the candidates: name, title, company), write
+   `{"<row>": "<personId>|none"}` and re-run `pick --decisions <file>`.
+3. `zoominfo_merge.py plan --run-dir <run_dir> --from-picks --no-companies`
+   shows the **maximum credits** (one per picked person). Get the user's OK,
+   then run the batches with `enrich_contacts` (`personId` queries) and
+   `ingest` / `attach` exactly as in stage 7 above.
+
+**LinkedIn URL finder** — for everyone still without a LinkedIn URL (no good
+ZoomInfo match)
+1. `python3 scripts/linkedin_finder.py build --run-dir <run_dir> --title "<list name>"`
+   and open `<run_dir>/linkedin_finder.html` for the user next to the Cowork
+   browser. One person per card: name, title, company, website, HQ; **Search
+   Google** / **Search LinkedIn** open in the same browser tab each time; they
+   paste the profile URL and press Enter (Save and next), or **Can't find** —
+   that person just stays unenriched for now. Finish gives a code.
+2. `linkedin_finder.py apply --run-dir <run_dir> --code "<code>"` previews;
+   after the user's OK, `--confirm` writes the URLs.
+
+Then stages 8–10 (source per field, consistency, prune), steps 1–2 again, and
+steps 3–6. At step 3 the HubSpot duplicate check puts existing company and
+contact record IDs into the upload; at step 4 map **Event Name** to the event
+property the user chose (Event name / Lead Source - Event, plus LEAD SOURCE =
+Events).
+
 ## Data handling
 
 These files contain personal contact data. Never commit them to a repository

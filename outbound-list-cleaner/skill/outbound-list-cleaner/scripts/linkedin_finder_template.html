@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--fg:#1d1b18;--mut:#6f6a62;--line:#e4e1da;--fit:#1f7a4d;--fitbg:#e3f3ea;
+--unc:#8a5a00;--uncbg:#fbf0d9;--no:#b3261e;--nobg:#fbe4e2;--acc:#2f5bd3;--accbg:#e6ecfb;--hl:#fff1a8;--shadow:0 6px 24px rgba(0,0,0,.06)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#161513;--card:#22201d;--fg:#f1eee8;--mut:#a39d93;
+--line:#3a3631;--fit:#6fd3a0;--fitbg:#163527;--unc:#f0c46a;--uncbg:#3a2e14;--no:#ff8a80;--nobg:#3d1a17;--acc:#8fb0ff;--accbg:#1d2740;--hl:#4a4012;--shadow:none}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 110px}
+h1{font-size:19px;margin:0 0 4px}.mut{color:var(--mut)}.sm{font-size:13px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);margin:12px 0}
+button{font:inherit;font-weight:600;border-radius:9px;border:1px solid var(--line);padding:8px 12px;cursor:pointer;background:var(--card);color:var(--fg)}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.link{border:0;background:none;color:var(--acc);padding:0;font-weight:500}
+input[type=text]{font:inherit;padding:8px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:8px 12px;font-weight:500}.seg button.on{background:var(--acc);color:#fff}
+.seg.big button{padding:9px 18px;font-weight:600}
+.msg{margin-top:10px;padding:9px 11px;border-radius:9px;background:var(--uncbg);font-size:14px}.msg.ok{background:var(--fitbg)}
+.msg button{padding:4px 10px;margin:4px 6px 0 0;font-size:13px}
+.rule{display:inline-flex;align-items:center;gap:6px;background:var(--accbg);border-radius:99px;padding:3px 4px 3px 10px;margin:8px 6px 0 0;font-size:13px}
+.rule button{border:0;background:none;padding:0 6px;font-size:15px;color:var(--mut)}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;white-space:nowrap}
+.c-keep{background:var(--fitbg);color:var(--fit)}.c-exclude{background:var(--nobg);color:var(--no)}.c-review{background:var(--uncbg);color:var(--unc)}
+.list{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}.item.chg{background:var(--hl)}
+.co-head{cursor:pointer}.co-name{font-weight:650}.caret{display:inline-block;width:14px;color:var(--mut)}
+.person{padding-left:38px;background:color-mix(in srgb,var(--bg) 45%,var(--card))}.person.chg{background:var(--hl)}
+.pname{font-weight:600}.pname a{color:inherit}.meta{font-size:13px;color:var(--mut)}.why{font-size:13px;color:var(--unc);margin-top:2px}
+.tog{display:flex;gap:6px;align-items:center}
+.tog button{padding:6px 12px;font-size:14px}.tog button.on.k{background:var(--fit);border-color:var(--fit);color:#fff}
+.tog button.on.x{background:var(--no);border-color:var(--no);color:#fff}
+.state{font-size:12px;color:var(--mut);text-align:right;margin-top:3px}
+.foot{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px}
+.foot .in{max-width:980px;margin:0 auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.foot b{font-size:17px}
+.steps{display:flex;gap:6px;margin:12px 0 4px}.steps button{border-radius:99px;padding:7px 16px;font-weight:600}
+.steps button.on{background:var(--acc);border-color:var(--acc);color:#fff}.steps button:disabled{opacity:.45;cursor:default}
+.about{font-size:13px;color:var(--mut);margin-top:2px}.pres b{color:var(--fg);font-weight:600}
+button:disabled{opacity:.45;cursor:default}.legend{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--hl);border:1px solid var(--line);vertical-align:-1px;margin-right:4px}
+textarea{width:100%;font:13px ui-monospace,Menlo,monospace;padding:10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-height:64px;margin-top:8px}
+@media (max-width:640px){.item{grid-template-columns:1fr}.state{text-align:left}.person{padding-left:22px}}
+.keys{font-size:12px;color:var(--mut);text-align:center;margin-top:8px}
+.person-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow);margin:12px 0}
+.big{font-size:22px;font-weight:650}.jobs{display:inline-block;background:var(--uncbg);color:var(--unc);font-weight:600;font-size:13px;padding:2px 10px;border-radius:99px;margin-left:6px}
+.hl{margin:8px 0 2px;font-size:14px}.hl b{font-size:12px;color:var(--mut);font-weight:600;margin-right:6px}
+label.f{display:block;font-size:12px;color:var(--mut);font-weight:600;margin:12px 0 4px}
+label.f input{display:block;width:100%;margin-top:4px;font-size:15px}
+input.edited{border-color:var(--acc);background:var(--accbg)}
+.acts{display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:8px;margin-top:16px}.acts button{padding:11px}
+button.k{background:var(--fit);border-color:var(--fit);color:#fff}button.x{background:var(--no);border-color:var(--no);color:#fff}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.plist{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.pi{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 14px;border-top:1px solid var(--line);cursor:pointer;font-size:14px}
+.pi:first-child{border-top:0}.pi.cur{background:var(--accbg)}.pi .meta{font-size:12px}
+.st{font-size:12px;font-weight:600}.st.ok{color:var(--fit)}.st.chg{color:var(--acc)}.st.ex{color:var(--no)}.st.open{color:var(--mut)}
+.st.nf{color:var(--mut)}input.bad{border-color:var(--no);background:var(--nobg)}
+</style></head><body><div class="wrap" id="app"></div>
+<script>
+const PEOPLE = __PEOPLE__;
+const KEY = "lf-__ID__";
+let state = {i: 0, a: {}, finished: false};
+try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.a) state = Object.assign(state, s); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const app = document.getElementById("app");
+const LI = /linkedin\.com\/in\/[^\/?#\s]+/i;
+const clean = u => { const m = (u || "").match(/linkedin\.com\/in\/([^\/?#\s]+)/i); return m ? "https://www.linkedin.com/in/" + m[1].replace(/\/$/, "") : ""; };
+const status = p => { const a = state.a[p.row]; if (!a) return ["open", "not done"]; return a.url ? ["ok", "found"] : ["nf", "can't find"]; };
+const searchUrl = (p, where) => where === "li"
+  ? "https://www.linkedin.com/search/results/people/?keywords=" + encodeURIComponent(`${p.first} ${p.last} ${p.company}`)
+  : "https://www.google.com/search?q=" + encodeURIComponent(`site:linkedin.com/in "${p.first} ${p.last}" "${p.company}"`);
+const openSearch = (p, where) => window.open(searchUrl(p, where), "linkedin-search");
+
+function render() {
+  const n = PEOPLE.length, done = PEOPLE.filter(x => state.a[x.row]).length;
+  if (!n) { app.innerHTML = `<h1>__TITLE__</h1><p class="mut">Everyone already has a LinkedIn URL. Nothing to find.</p>`; return; }
+  const p = PEOPLE[state.i], a = state.a[p.row] || {};
+  const fin = `<button class="p fin">Finish — get the code</button>`;
+  app.innerHTML = `<div class="row" style="justify-content:space-between"><h1>__TITLE__</h1>${fin}</div>
+  <div class="mut">${n} people have no LinkedIn URL yet (no ZoomInfo match). Search for each one in the browser, paste the profile URL, and go to the next. If you can't find someone, mark it — they just stay unenriched for now. ${done} of ${n} done.</div>
+  ${state.finished ? finishBox() : ""}
+  <div class="person-card">
+    <div class="nav"><button id="pv" ${state.i === 0 ? "disabled" : ""}>← Previous</button><span class="sm mut">${state.i + 1} / ${n} · <span class="st ${status(p)[0]}">${status(p)[1]}</span></span><button id="nx" ${state.i === n - 1 ? "disabled" : ""}>Next →</button></div>
+    <div><span class="big">${esc(p.first)} ${esc(p.last)}</span></div>
+    <div class="hl">${esc(p.title) || '<span class="mut">no title</span>'} · <b style="color:var(--fg)">${esc(p.company)}</b></div>
+    <div class="meta">${[p.website, p.hq].filter(Boolean).map(esc).join(" · ")}${p.note ? " · " + esc(p.note) : ""}</div>
+    <div class="row" style="margin-top:12px"><button class="p" id="sg">Search Google ↗</button><button id="sl">Search LinkedIn ↗</button></div>
+    <label class="f">LINKEDIN PROFILE URL<input type="text" id="u" placeholder="https://www.linkedin.com/in/…" value="${esc(a.url || "")}"></label>
+    <div class="sm mut" id="hint">Paste the person's profile link (linkedin.com/in/…).</div>
+    <div class="acts"><button id="nf">Can't find</button><button id="rs">Clear</button><button class="k" id="ok">✓ Save and next</button></div>
+    <div class="keys">Enter = save and next · the search opens in the same browser tab each time</div>
+  </div>
+  <div class="plist">${PEOPLE.map((x, k) => { const s = status(x);
+    return `<div class="pi ${k === state.i ? "cur" : ""}" data-k="${k}"><div><b>${esc(x.first)} ${esc(x.last)}</b> <span class="meta">· ${esc(x.title)} @ ${esc(x.company)}</span></div><span class="st ${s[0]}">${s[1]}</span></div>`; }).join("")}</div>
+  ${state.finished ? finishBox() : ""}
+  <div class="row" style="justify-content:flex-end;margin-top:12px">${fin}</div>`;
+  wire(p);
+}
+function next() { if (state.i < PEOPLE.length - 1) state.i++; save(); render(); }
+function saveUrl(p) {
+  const inp = document.getElementById("u"), u = clean(inp.value);
+  if (!u) { inp.classList.add("bad"); document.getElementById("hint").textContent = "That isn't a LinkedIn profile link — it should contain linkedin.com/in/…"; return; }
+  state.a[p.row] = {url: u}; next();
+}
+function codeNow() {
+  const out = {}; PEOPLE.forEach(p => { const a = state.a[p.row]; if (a) out[p.row] = a.url || ""; });
+  return "LF1:" + btoa(unescape(encodeURIComponent(JSON.stringify(out))));
+}
+function finishBox() {
+  const open = PEOPLE.filter(p => !state.a[p.row]).length;
+  if (open) return `<div class="box finbox"><b>${open} still to do.</b> They're marked “not done” in the list (use “Can't find” if you gave up on someone).</div>`;
+  return `<div class="box finbox"><b>Done.</b> Copy this code and paste it into the chat. Claude shows what will be saved, then saves it after your OK.
+    <textarea class="code" readonly>${esc(codeNow())}</textarea><div class="row" style="margin-top:8px"><button class="p copy">Copy code</button></div></div>`;
+}
+function wire(p) {
+  const $ = id => document.getElementById(id), all = s => document.querySelectorAll(s);
+  const go = k => { state.i = k; save(); render(); };
+  $("pv").onclick = () => go(state.i - 1);
+  $("nx").onclick = () => go(state.i + 1);
+  $("sg").onclick = () => openSearch(p, "g");
+  $("sl").onclick = () => openSearch(p, "li");
+  $("ok").onclick = () => saveUrl(p);
+  $("nf").onclick = () => { state.a[p.row] = {url: ""}; next(); };
+  $("rs").onclick = () => { delete state.a[p.row]; save(); render(); };
+  $("u").oninput = e => e.target.classList.remove("bad");
+  all(".pi").forEach(el => el.onclick = () => go(+el.dataset.k));
+  all(".fin").forEach(b => b.onclick = () => { state.finished = true; save(); render();
+    const boxes = document.querySelectorAll(".finbox"); (b.closest(".row").nextElementSibling ? boxes[0] : boxes[boxes.length - 1]).scrollIntoView({behavior: "smooth", block: "center"}); });
+  all(".copy").forEach(cp => cp.onclick = async () => {
+    const ta = cp.closest(".finbox").querySelector(".code");
+    try { await navigator.clipboard.writeText(codeNow()); cp.textContent = "Copied ✓"; }
+    catch (e) { ta.focus(); ta.select(); cp.textContent = "Selected — press Ctrl/Cmd+C"; } });
+}
+document.addEventListener("keydown", e => {
+  const p = PEOPLE[state.i]; if (!p) return;
+  if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") { e.preventDefault(); saveUrl(p); }
+});
+render();
+</script></body></html>

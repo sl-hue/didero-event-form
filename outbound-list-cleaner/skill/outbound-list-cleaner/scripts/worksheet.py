@@ -64,7 +64,7 @@ CONTACT_EXPORT = [
     "Department", "Direct Phone Number", "Email Address", "Additional Emails", "Email Domain", "Mobile phone",
     "ZoomInfo Contact Profile URL", "LinkedIn Contact Profile URL", "Person Street", "Person City",
     "Person State", "Person Zip Code", "Country", "Company Name", "Website", "Company HQ Phone",
-    "HubSpot Contact Record ID", "New Contact Outbound Personalization",
+    "HubSpot Contact Record ID", "New Contact Outbound Personalization", "Event Name",
 ]
 COMPANY_EXPORT = [
     COMPANY_ID, "Company Name", "Website", "Founded Year", "Company HQ Phone",

@@ -175,7 +175,13 @@ def plan(args):
     _, rows = ws.load(args.run_dir)
     d = zi_dir(args.run_dir)
     contacts, companies, seen = [], [], {}
+    picks = json.loads((d / "picks.json").read_text()) if args.from_picks else None
     for r in rows:
+        if picks is not None:
+            pk = picks.get(r[CONTACT_ID], {})
+            if pk.get("personId"):
+                contacts.append({"row": r[CONTACT_ID], "query": {"personId": str(pk["personId"])}})
+            continue
         q = {"firstName": r.get("First Name", ""), "lastName": r.get("Last Name", ""),
              "companyName": r.get("Company Name", "")}
         if r.get("Email Address"):
@@ -183,6 +189,9 @@ def plan(args):
         if r.get("LinkedIn Contact Profile URL"):
             q["externalURL"] = r["LinkedIn Contact Profile URL"]
         contacts.append({"row": r[CONTACT_ID], "query": q})
+    for r in rows:
+        if args.no_companies:
+            break
         if r[COMPANY_ID] not in seen:
             seen[r[COMPANY_ID]] = True
             cq = {"companyName": r.get("Company Name", "")}
@@ -213,6 +222,92 @@ def ingest(args):
     print(f"saved {args.kind} batch {args.batch}: {len(walk_records(data, keys))} records")
 
 
+# ---------- event lists: free candidate search, then pick ----------
+def search_plan(args):
+    """One ZoomInfo search_contacts per contact (searches use no credits)."""
+    _, rows = ws.load(args.run_dir)
+    d = zi_dir(args.run_dir)
+    out = []
+    for r in rows:
+        q = {"firstName": r.get("First Name", ""), "lastName": r.get("Last Name", ""),
+             "companyName": r.get("Company Name", ""), "pageSize": 10}
+        site = (r.get("Website") or "").strip()
+        if site:
+            q["companyWebsite"] = site
+        out.append({"row": r[CONTACT_ID], "query": q,
+                    "hq": {k: r.get(f"Company {k}", "") for k in ("City", "State", "Country")}})
+    (d / "search_plan.json").write_text(json.dumps(out, indent=1, ensure_ascii=False))
+    todo = [x["row"] for x in out if not (d / f"search_{x['row']}.json").exists()]
+    print(f"{len(out)} contact searches planned (no credits); {len(todo)} still to run -> zi/search_plan.json")
+    print("For each: call search_contacts with the query (if nothing comes back, retry once without "
+          "companyWebsite), save the result, then zoominfo_merge.py search-ingest --row <row> --response <file>.")
+
+
+def search_ingest(args):
+    d = zi_dir(args.run_dir)
+    data = json.loads(Path(args.response).read_text())
+    (d / f"search_{args.row}.json").write_text(json.dumps(data, ensure_ascii=False))
+    print(f"saved search for {args.row}: {len(walk_records(data, ('firstName', 'lastName')))} candidates")
+
+
+def candidate(z):
+    a = z.get("attributes", z)
+    co = a.get("company") if isinstance(a.get("company"), dict) else {}
+    return {"personId": str(z.get("id") or a.get("id") or a.get("personId") or ""),
+            "firstName": a.get("firstName", ""), "lastName": a.get("lastName", ""),
+            "jobTitle": a.get("jobTitle", ""), "company": co.get("name") or a.get("companyName", ""),
+            "accuracy": a.get("contactAccuracyScore", "")}
+
+
+def pick(args):
+    """Score each contact's candidates; clear winners are picked, the rest go to the user."""
+    run = Path(args.run_dir)
+    _, rows = ws.load(run)
+    d = zi_dir(run)
+    decisions = json.loads(Path(args.decisions).read_text()) if args.decisions else {}
+    picks, review = {}, []
+    for r in rows:
+        rid = r[CONTACT_ID]
+        if rid in decisions:
+            v = decisions[rid]
+            picks[rid] = {"personId": "" if v in ("none", "", None) else str(v), "status": "user"}
+            continue
+        f = d / f"search_{rid}.json"
+        if not f.exists():
+            continue
+        data = json.loads(f.read_text())
+        items = data.get("data", data) if isinstance(data, dict) else data
+        cands = [candidate(z) for z in (items if isinstance(items, list) else walk_records(data, ("firstName",)))]
+        scored = []
+        for c in cands:
+            nm = name_ok(r.get("First Name", ""), r.get("Last Name", ""), c["firstName"], c["lastName"])
+            co = same_company(r.get("Company Name", ""), c["company"])
+            s = {"yes": 2, "partly": 1, "no": 0}[nm] + (2 if co else 0)
+            t1, t2 = set(norm_company(r.get("Job Title", "")).split()), set(norm_company(c["jobTitle"]).split())
+            s += 0.5 if t1 and t2 and len(t1 & t2) / max(len(t1), 1) >= 0.5 else 0
+            scored.append((s, c, nm, co))
+        scored.sort(key=lambda x: -x[0])
+        top = [x for x in scored if x[0] == scored[0][0]] if scored else []
+        if scored and scored[0][2] == "yes" and scored[0][3] and len(top) == 1:
+            picks[rid] = {"personId": scored[0][1]["personId"], "status": "picked", "candidate": scored[0][1]}
+        else:
+            picks[rid] = {"personId": "", "status": "none" if not scored else "review",
+                          "candidates": [x[1] for x in scored[:5]]}
+            if scored:
+                review.append((r, [x[1] for x in scored[:5]]))
+    (d / "picks.json").write_text(json.dumps(picks, indent=1, ensure_ascii=False))
+    c = Counter(p["status"] for p in picks.values())
+    print(f"picks: {dict(c)} -> zi/picks.json. Enriching the picked ones uses up to "
+          f"{sum(1 for p in picks.values() if p['personId'])} credits.")
+    for r, cs in review[:40]:
+        print(f"REVIEW {r[CONTACT_ID]} {r.get('First Name')} {r.get('Last Name')} — {r.get('Job Title')} @ "
+              f"{r.get('Company Name')}: " + " | ".join(f"{x['personId']}: {x['firstName']} {x['lastName']}, "
+                                                        f"{x['jobTitle']} @ {x['company']}" for x in cs))
+    if review:
+        print("Ask the user per REVIEW line (pick a candidate or none); write {\"<row>\": \"<personId>|none\"} "
+              "and re-run pick --decisions <file>.")
+
+
 # ---------- attach ----------
 def name_ok(first, last, zf, zl):
     f, l, zf, zl = (x.strip().lower().strip(".") for x in (first, last, zf, zl))
@@ -235,7 +330,7 @@ def paired_records(data):
 
 
 def same_query(a, b):
-    keys = ("email", "firstName", "lastName", "companyName", "externalURL", "domain")
+    keys = ("personId", "email", "firstName", "lastName", "companyName", "externalURL", "domain")
     return all((a.get(k) or "").lower() == (b.get(k) or "").lower() for k in keys if a.get(k) or b.get(k))
 
 
@@ -576,8 +671,17 @@ def diff_review(args):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name, func in (("plan", plan), ("attach", attach), ("merge", merge), ("consistency", consistency)):
+    for name, func in (("attach", attach), ("merge", merge), ("consistency", consistency),
+                       ("search-plan", search_plan)):
         p = sub.add_parser(name); p.add_argument("--run-dir", required=True); p.set_defaults(func=func)
+    p = sub.add_parser("plan"); p.add_argument("--run-dir", required=True)
+    p.add_argument("--from-picks", action="store_true", help="event lists: enrich only the picked personIds")
+    p.add_argument("--no-companies", action="store_true", help="skip company enrichment (event lists: HQ from web)")
+    p.set_defaults(func=plan)
+    p = sub.add_parser("search-ingest"); p.add_argument("--run-dir", required=True); p.add_argument("--row", required=True)
+    p.add_argument("--response", required=True); p.set_defaults(func=search_ingest)
+    p = sub.add_parser("pick"); p.add_argument("--run-dir", required=True); p.add_argument("--decisions")
+    p.set_defaults(func=pick)
     p = sub.add_parser("ingest"); p.add_argument("--run-dir", required=True)
     p.add_argument("--kind", choices=["contacts", "companies"], required=True)
     p.add_argument("--batch", type=int, required=True); p.add_argument("--response", required=True)

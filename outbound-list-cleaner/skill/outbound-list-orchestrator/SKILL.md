@@ -42,7 +42,24 @@ itself.
 Stop after each stage, show the user what changed and wait for their OK
 before the next one.
 
-**Event list** → not built yet. Tell the user and stop.
+**Event list** — first ask: are the **people already named** (attendees,
+speakers, registrants)? If it only names companies (exhibitors, sponsors),
+that's a different skill that isn't built yet: tell the user and stop.
+
+| # | Stage | Skill |
+|---|---|---|
+| 1 | Collect every source; ask for screenshots of dropdowns / contact pages / sub-pages | `event-list-intake` step 1 |
+| 2 | First name, last name, job title, company (+ whatever else is there) | `event-list-intake` step 2 |
+| 3 | Company website, then HQ city / state / country (web research) | `event-list-intake` step 3 |
+| 4 | Screening: companies (based / present in) → contacts (titles), contact geography skipped | `linkedin-list-screening` steps 1, 3–5 (`--skip-contact-geo`) |
+| 5 | Title and company name cleaning | `linkedin-list-screening` step 6 |
+| 6 | Hand-off into the working file | `linkedin-list-screening` step 7 (`--list-type Event`) |
+| 7 | Steps 1–2 (email domains, normalization) | `outbound-list-cleaner` |
+| 8 | ZoomInfo: free candidate search → pick best (unclear → user) → enrich picked (max credits first) | `outbound-list-cleaner` — event lists, ZoomInfo |
+| 9 | LinkedIn URL finder for people ZoomInfo couldn't match (browser + card page) | `outbound-list-cleaner` — event lists, LinkedIn finder |
+| 10 | Source per field, consistency, prune | `outbound-list-cleaner` — LinkedIn lists, stages 8–10 |
+| 11 | Steps 1–2 again (only what changed is shown) | `outbound-list-cleaner` |
+| 12 | HubSpot duplicates (existing record IDs go in the upload) → import with the event property → Clay → BDRs | `outbound-list-cleaner` steps 3–6 |
 
 ## Before you start
 
