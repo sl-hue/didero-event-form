@@ -147,6 +147,55 @@ def mapping_table(kind, fields, rows, mapping):
     return lines, unknown
 
 
+def how_to_import(run_name, out, notes, type_conflicts, tables):
+    """Click-by-click import steps for the user, with the mapping tables (upload/HOW_TO_IMPORT.md)."""
+    counts = {n.split(":")[0]: n.split(":", 1)[1].strip() for n in notes if "records" in n}
+    conflicts = "".join(f"\n   - {c['company']}: HubSpot says {c['hubspot_type']}, the file says {c['file_type']} "
+                        f"({c['url']})" for c in type_conflicts)
+    return f"""# How to import into HubSpot — {run_name}
+
+Two files, **companies first**, then contacts (contacts attach to their
+company through the company domain, so the companies must exist first):
+- `{out / 'companies_upload.csv'}` — {counts.get('companies', '')}
+- `{out / 'contacts_upload.csv'}` — {counts.get('contacts', '')}
+
+## A. Companies
+1. In HubSpot open **CRM → Companies** and click **Import** (top right), then
+   **Start an import**.
+2. Choose **File from computer** → **One file** → **One object** →
+   **Companies** → Next.
+3. Upload `companies_upload.csv` → Next.
+4. **Map the columns** as in the companies table below. HubSpot matches most
+   of them itself; check each one, and set **Don't import column** where the
+   table says so. Tick **Don't overwrite** where the table suggests it (keeps
+   what HubSpot already has).
+5. Import option: **Create and update companies**. Rows with a Record ID
+   update that company; rows without one create a new company.
+6. Name the import `{run_name} companies` → **Finish import**.
+7. When it's done, open the import and check **errors**. Tell Claude about any
+   (fix in the file and re-import those rows, or fix the record in HubSpot).{
+    chr(10) + "8. These existing companies have a different Type than the file — consider ticking "
+    "**Don't overwrite** on Type:" + conflicts if conflicts else ""}
+
+## B. Contacts (after the company import has finished)
+1. **CRM → Contacts** → **Import** → **Start an import** → **File from
+   computer** → **One file** → **One object** → **Contacts** → Next.
+2. Upload `contacts_upload.csv` → Next.
+3. Map the columns as in the contacts table below (same rules as above).
+4. Import option: **Create and update contacts**.
+5. Name the import `{run_name} contacts` and tick **Create a list of contacts
+   from this import** if HubSpot offers it (it makes the next step's segment
+   easy). Confirm the consent box → **Finish import**.
+6. Check the import's **errors** and tell Claude.
+
+Then tell Claude "imported" — the next step builds the segment and checks
+company associations.
+
+## Column mapping
+{chr(10).join(tables)}
+"""
+
+
 def prepare(args):
     out = Path(args.out_dir or Path(args.run_dir) / "upload")
     out.mkdir(parents=True, exist_ok=True)
@@ -187,11 +236,14 @@ def prepare(args):
         new = sum(1 for r in rows if not r.get(record))
         notes.append(f"{kind}: {len(rows) - new} update existing records, {new} create new records")
     type_counts = Counter(c["Type"] for c in companies)
+    steps = how_to_import(Path(args.run_dir).name, out, notes, type_conflicts, lines[4:])
+    (out / "HOW_TO_IMPORT.md").write_text(steps, encoding="utf-8")
     report = {"type_counts": dict(type_counts), "type_conflicts": type_conflicts, "notes": notes}
     (Path(args.run_dir) / "import_mapping.md").write_text("\n".join(lines))
     (Path(args.run_dir) / "report_step4.json").write_text(json.dumps(report, indent=2))
     ws.snapshot_copy(args.run_dir, "04_import_ready")
     print(f"upload files: {out / 'companies_upload.csv'}, {out / 'contacts_upload.csv'}; mapping: import_mapping.md")
+    print(f"UPLOAD INSTRUCTIONS: {out / 'HOW_TO_IMPORT.md'} — send it with the two files AND paste it in the chat.")
     print("Type:", dict(type_counts), f"| {len(type_conflicts)} existing records with a different Type")
     for n in notes:
         print(n)

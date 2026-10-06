@@ -51,7 +51,8 @@ LOCAL_LOG = Path.home() / ".didero-outbound-lists" / "preflight.jsonl"
 SCRIPTS = ["worksheet.py", "email_domain.py", "normalize.py", "hubspot_match.py", "hubspot_import.py",
            "post_import.py", "bdr_assign.py", "zoominfo_merge.py", "linkedin_finder.py", "screen.py",
            "flashcards.py", "jobs.py", "location.py", "fields.py", "handoff.py", "intake.py", "companies.py",
-           "company_list.py", "titles.py", "detect_list_type.py", "hubspot_companies.py"]
+           "company_list.py", "titles.py", "detect_list_type.py", "hubspot_companies.py", "zi_workers.py",
+           "clay_guide.py"]
 TEMPLATES = ["review_template.html", "jobs_template.html", "linkedin_finder_template.html",
              "title_finder_template.html", "zoominfo_guide_template.html"]
 CONFIG_KEYS = ["hubspot_portal_id", "exclusion_lists", "bdr_pool", "target_countries", "zoominfo_filters"]

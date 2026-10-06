@@ -34,11 +34,12 @@ sys.path.insert(0, str(HERE))
 from company_list import COMPANY_COLS, TARGET_COLS, number, p_companies, p_targets, read_csv  # noqa: E402
 
 sys.path.insert(0, str(HERE))
-from zoominfo_merge import TITLE_ABBR, first_val, name_ok, paired_records, same_query, same_title, walk_records  # noqa: E402
+from zoominfo_merge import TITLE_ABBR, ZI_COMPANY_URL, ZI_PERSON_URL, first_val, name_ok, paired_records, same_query, same_title, walk_records  # noqa: E402
 
 BATCH = 10
 ENRICH_FIELDS = ["firstName", "lastName", "email", "jobTitle", "companyName", "zoominfoCompanyId", "externalUrls",
-                 "managementLevel", "jobFunction", "phone", "mobilePhone", "contactAccuracyScore"]
+                 "managementLevel", "jobFunction", "phone", "directPhoneDoNotCall", "mobilePhone",
+                 "mobilePhoneDoNotCall"]
 
 
 def zi(run):
@@ -208,7 +209,7 @@ def enrich_ingest(args):
 
 OUT = ["ZoomInfo Contact ID", "First Name", "Last Name", "Job Title", "Management Level", "Job Function",
        "Email Address", "Email Domain", "Direct Phone Number", "Mobile phone", "LinkedIn Contact Profile URL",
-       "ZoomInfo Company ID", "Company Name", "Website", "Employees", "Revenue (in USD)", "Company City",
+       "ZoomInfo Contact Profile URL", "ZoomInfo Company Profile URL", "ZoomInfo Company ID", "Company Name", "Website", "Employees", "Revenue (in USD)", "Company City",
        "Company State", "Company Country", "Event Name", "Source List Type"]
 
 
@@ -241,6 +242,8 @@ def build_contacts(args):
             li = next((u for u in first_val(z, "externalUrls").split("; ") if "linkedin.com/in/" in u.lower()), "") if z else ""
             email = first_val(z, "email") if z else ""
             p = found.get(item["target"], {}) if item["kind"] == "finder" else {}
+            pid = (first_val(z, "id", "personId") or item["query"].get("personId", "")) if z else ""
+            zco = first_val(z, "zoominfoCompanyId", "companyId") if z else ""
             rows.append({
                 "ZoomInfo Contact ID": f"EVC-{item['target']}-{n}",
                 "First Name": first_val(z, "firstName") if z else p.get("first", ""),
@@ -251,6 +254,8 @@ def build_contacts(args):
                 "Direct Phone Number": "" if (z or {}).get("directPhoneDoNotCall") is True else (first_val(z, "phone") if z else ""),
                 "Mobile phone": "" if (z or {}).get("mobilePhoneDoNotCall") is True else (first_val(z, "mobilePhone") if z else ""),
                 "LinkedIn Contact Profile URL": p.get("linkedin") or li,
+                "ZoomInfo Contact Profile URL": ZI_PERSON_URL.format(pid) if pid else "",
+                "ZoomInfo Company Profile URL": ZI_COMPANY_URL.format(zco) if zco else "",
                 "ZoomInfo Company ID": co["Company ID"], "Company Name": co["Company"], "Website": co["Website"],
                 "Employees": number(co["Employees"], "emp"), "Revenue (in USD)": number(co["Revenue"], "rev"),
                 "Company City": co["City"], "Company State": co["State"], "Company Country": co["Country"],

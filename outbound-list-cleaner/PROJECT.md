@@ -141,6 +141,28 @@ it's the same job. Tested with fictional data.
    and asks about ambiguous matches. Web research covers only the rest.
    Tested against the live HubSpot: Lawson Products, A O Smith, Orgill found.
 
+## Cowork test feedback (2026-10-06)
+
+1. **ZoomInfo too slow** (20–30 min each for companies and contacts):
+   `scripts/zi_workers.py` splits the remaining calls into briefs for 4
+   sub-agents started at once (contacts and companies together). Raw results
+   stay out of the main chat. Used by every ZoomInfo stage. Responses are
+   smaller too (only the fields the merge uses).
+2. **Industry used ";"**: enrichment returns primaryIndustry as [industry,
+   sub-industry] (checked on a real call). Now written
+   `Manufacturing- Building Materials` like the hand-cleaned files.
+3. **ZoomInfo profile URLs missing**: built from the person `id` /
+   company `id` (or the contacts' zoominfoCompanyId):
+   `https://app.zoominfo.com/#/apps/profile/person/<id>` and `/company/<id>`.
+   Also found: the Do-Not-Call flags were never requested, so the "never copy
+   a DNC number" rule couldn't work. Now requested.
+4. **Clay step had no links/instructions**: `scripts/clay_guide.py` prints the
+   checklist from config (both templates, copy/rename, tabs, buttons). SKILL.md
+   makes running it the first thing in step 5.
+5. **No upload instructions**: `hubspot_import.py prepare` writes
+   `upload/HOW_TO_IMPORT.md` (click-by-click import + mapping tables). It must
+   be sent and pasted at step 4.
+
 ## Open questions
 
 - Cowork review 2.4–2.13 (LinkedIn global pages, noisy phone matches, stale

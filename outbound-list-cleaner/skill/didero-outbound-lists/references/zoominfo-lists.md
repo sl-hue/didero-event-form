@@ -384,9 +384,12 @@ The user runs the import in HubSpot; you prepare it and walk them through it.
    `python3 scripts/hubspot_import.py prepare --run-dir <run_dir> --raw-dir <run_dir>/hs_companies --type Prospect`.
    It sets Type on the working file, exports the two import-ready upload
    files into `<run_dir>/upload/` (blank Record ID = create a new record),
-   and writes `import_mapping.md` and `report_step4.json`. Send the user the
-   two files in `upload/` — those are what they import.
-3. **In chat**, paste both tables from `import_mapping.md` and tell the user:
+   and writes `import_mapping.md`, `report_step4.json` and
+   **`upload/HOW_TO_IMPORT.md`** (click-by-click import steps + mapping).
+   **Always** send the user the two upload files **and** `HOW_TO_IMPORT.md`,
+   and paste `HOW_TO_IMPORT.md` in the chat. Never finish step 4 without
+   giving the upload instructions.
+3. The instructions cover (say them again if the user asks):
    - import the company file first, then the contact file;
    - map each column to the HubSpot property shown and set "Don't import
      column" where indicated;
@@ -492,6 +495,10 @@ and you walk them through it one tab at a time. Clay writes results back to
 HubSpot itself — no files are imported or exported, and you don't need to
 check HubSpot afterwards.
 
+0. **First, always:** `python3 scripts/clay_guide.py --run-dir <run_dir> --list-type <type> --segment "<segment>"`
+   and paste its output in the chat as it is: both template links, how to
+   copy and name the workbook, which tabs, the button order. Then walk the
+   user through it one tab at a time (details below).
 1. **Workbook.** Give the user **both** template links from `config.json`
    (`clay_workbooks`) with what each is for, and let them decide which to
    open:
@@ -604,6 +611,19 @@ anyone else (AEs, managers, …), say this workflow doesn't cover it and stop.
 11. **On approval, update HubSpot** as the base skill describes: contacts
    first, then companies, owner only, 10 per call, then verify every record.
 
+## Running ZoomInfo calls (all ZoomInfo stages)
+
+Every ZoomInfo stage (enrich, event-list search, title search, title enrich)
+runs through `scripts/zi_workers.py`. It splits the calls still to do between
+sub-agents (default 4) and writes one brief per sub-agent in `zi/workers/`.
+Start them **in one message**, so they run at the same time, each as
+`zoominfo-puller` with the one-line brief the script prints. Each sub-agent
+calls ZoomInfo, saves the raw result as returned, runs the ingest command and
+replies with one line per call. Raw results never come into the main chat.
+If the host has no sub-agents, work through the brief files yourself, in
+order, without commenting between calls. Tell the user before starting:
+"Running N ZoomInfo calls with 4 helpers in parallel."
+
 ## LinkedIn lists: ZoomInfo pull, source priority, consistency, prune
 
 Only for lists that came through `references/screening.md` (`SKILL.md`
@@ -615,23 +635,24 @@ and wait for the user's OK.
 1. `python3 scripts/zoominfo_merge.py plan --run-dir <run_dir>`: batches of
    10 and the **maximum credits** (contacts + companies). Tell the user the
    maximum and get their OK (multiple-choice tool) before any call.
-2. For each contact batch in `zi/plan.json`: call ZoomInfo `enrich_contacts`
-   with the batch's `query` objects as `contacts` and
-   `contact_required_fields` as `requiredFields`; save the result to a file and
-   run `zoominfo_merge.py ingest --run-dir <run_dir> --kind contacts --batch <n> --response <file>`.
-   Same for company batches with `enrich_companies` (`--kind companies`).
-   One call at a time. If ZoomInfo says to slow down, wait 5 s, then 15 s,
-   then 45 s and retry; if it still refuses, stop and tell the user — `plan`
-   shows which batches are left, so the run can resume later.
+2. **Run the calls in parallel — never one by one in the main chat** (that
+   took 20–30 minutes each for contacts and companies). See "Running ZoomInfo
+   calls" below: `python3 scripts/zi_workers.py --run-dir <run_dir> --job enrich`,
+   then start the sub-agents it lists **all at once** (contacts and companies
+   together). Re-run `zi_workers.py` when they're back; it lists anything
+   missing (a refused call) and writes new briefs for just those.
 3. `zoominfo_merge.py attach --run-dir <run_dir>` adds the "ZI …" columns and
    judges each match: **good** (same person, same company), **outdated** (same
    person at another company — the whole ZoomInfo record is ignored),
    **review** (name differs — show the user both versions and ask), **none**.
    Nothing in the list's own columns changes yet.
-   What ZoomInfo returns (checked on a real call): name, email (sometimes
-   none), title, company + ZoomInfo company ID, management level, job function,
-   phones with Do-Not-Call flags (a Do-Not-Call number is never copied),
-   accuracy score, LinkedIn URLs. It does **not** return the person's city /
+   What ZoomInfo returns (checked on a real call): person ID (→ **ZoomInfo
+   Contact Profile URL**), name, email (sometimes none), title, company +
+   ZoomInfo company ID, management level, job function, phones with
+   Do-Not-Call flags (a Do-Not-Call number is never copied), accuracy score,
+   LinkedIn URLs. Companies: company ID (→ **ZoomInfo Company Profile URL**)
+   and primary industry as [industry, sub-industry], written
+   `Manufacturing- Building Materials` (the hand-cleaned format). It does **not** return the person's city /
    state / country (neither does search), so contact location stays as worked
    out from LinkedIn.
 
@@ -643,7 +664,8 @@ company's most-used domain / address format is primary, the other goes in
 **Additional Emails** (HubSpot "Additional email addresses"); person city/state/country → ZoomInfo when it has them;
 website → ZoomInfo then cleaned; company name → ZoomInfo's when it's the same
 company as LinkedIn's; company LinkedIn URL → LinkedIn; company location,
-phone, industry, size, revenue, management level, job function, phones →
+phone, industry (`Industry- Sub-industry`), size, revenue, management
+level, job function, phones, ZoomInfo contact / company profile URLs →
 ZoomInfo. Only "good" matches are used. Show `merge_report.json` grouped by
 field; ties are flagged — ask the user for each.
 
@@ -676,16 +698,16 @@ already came from web research, so **no company enrichment** for event lists.
 **ZoomInfo** (`zoominfo-puller`)
 1. `python3 scripts/zoominfo_merge.py search-plan --run-dir <run_dir>` → one
    `search_contacts` per person (name + company + company website; no credits).
-   Run each (if nothing comes back, retry once without `companyWebsite`), save
-   the result, and `zoominfo_merge.py search-ingest --run-dir <run_dir> --row <row> --response <file>`.
+   Run them in parallel: `zi_workers.py --run-dir <run_dir> --job search` and
+   start the sub-agents it lists all at once (see "Running ZoomInfo calls").
 2. `zoominfo_merge.py pick --run-dir <run_dir>`: a candidate with the same name
    at the same company is picked; anything less clear is a **REVIEW** line —
    ask the user (show the candidates: name, title, company), write
    `{"<row>": "<personId>|none"}` and re-run `pick --decisions <file>`.
 3. `zoominfo_merge.py plan --run-dir <run_dir> --from-picks --no-companies`
    shows the **maximum credits** (one per picked person). Get the user's OK,
-   then run the batches with `enrich_contacts` (`personId` queries) and
-   `ingest` / `attach` exactly as in stage 7 above.
+   then `zi_workers.py --run-dir <run_dir> --job enrich` (sub-agents, in
+   parallel) and `attach` exactly as in stage 7 above.
 
 **LinkedIn URL finder** — for everyone still without a LinkedIn URL (no good
 ZoomInfo match)

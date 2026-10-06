@@ -17,6 +17,10 @@ into the build chat so the skill can be fixed.
 - [ ] The requirements check runs before anything else and prints each item plus a "log:" line (sent to the team log once `backend.json` is set up; otherwise "saved on this device only").
 - [ ] Event lists: company data comes from HubSpot first ("X of Y filled from HubSpot"); only the rest is researched on the web.
 - [ ] Event uploads have Lead Source = Events and Lead Source Detail 1 = the event name.
+- [ ] ZoomInfo stages say "Running N ZoomInfo calls with 4 helpers in parallel", and finish in a few minutes, not 20–30.
+- [ ] Upload files have ZoomInfo Contact / Company Profile URLs, and Primary Industry like `Manufacturing- Building Materials`.
+- [ ] Step 4 sends the upload files **and** HOW_TO_IMPORT.md, with the steps pasted in the chat.
+- [ ] Step 5 starts with both Clay template links and the tab/button checklist.
 - [ ] First thing it does: model check (Opus 5.x / Fable). Try once on another model — it should stop and ask you to switch.
 - [ ] It asks which step to start from when that's unclear.
 - [ ] It creates a run folder named after the list inside your shared folder.

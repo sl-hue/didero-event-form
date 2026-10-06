@@ -62,17 +62,21 @@ from normalize import clean_website  # noqa: E402
 
 CONTACT_ID, COMPANY_ID = ws.CONTACT_ID, ws.COMPANY_ID
 BATCH = 10
+# Only what the merge uses: smaller responses = faster saving. The Do-Not-Call flags must be asked for,
+# or ZoomInfo doesn't send them. The person / company "id" always comes back (-> ZoomInfo profile URLs).
 CONTACT_FIELDS = ["firstName", "lastName", "email", "jobTitle", "companyName", "zoominfoCompanyId", "externalUrls",
-                  "managementLevel", "jobFunction", "phone", "mobilePhone", "contactAccuracyScore",
-                  "lastUpdatedDate"]
+                  "managementLevel", "jobFunction", "phone", "directPhoneDoNotCall", "mobilePhone",
+                  "mobilePhoneDoNotCall", "contactAccuracyScore"]
 COMPANY_FIELDS_ZI = ["name", "website", "domainList", "street", "city", "state", "zipCode", "country", "phone",
                      "employeeCount", "employeeRange", "revenue", "revenueRange", "primaryIndustry",
                      "socialMediaUrls", "foundedYear"]
+ZI_PERSON_URL = "https://app.zoominfo.com/#/apps/profile/person/{}"
+ZI_COMPANY_URL = "https://app.zoominfo.com/#/apps/profile/company/{}"
 ZI_CONTACT_COLS = ["ZI Match", "ZI Match Note", "ZI First Name", "ZI Last Name", "ZI Email", "ZI Job Title",
                    "ZI Company Name", "ZI Company ID", "ZI LinkedIn URL", "ZI Management Level", "ZI Job Function",
                    "ZI Direct Phone", "ZI Mobile Phone", "ZI Accuracy Score", "ZI Person City", "ZI Person State",
-                   "ZI Person Country"]
-ZI_COMPANY_COLS = ["ZI Co Name", "ZI Co Website", "ZI Co Domains", "ZI Co Street", "ZI Co City", "ZI Co State",
+                   "ZI Person Country", "ZI Person ID"]
+ZI_COMPANY_COLS = ["ZI Co ID", "ZI Co Name", "ZI Co Website", "ZI Co Domains", "ZI Co Street", "ZI Co City", "ZI Co State",
                    "ZI Co Zip", "ZI Co Country", "ZI Co Phone", "ZI Co Employees", "ZI Co Employee Range",
                    "ZI Co Revenue", "ZI Co Revenue Range", "ZI Co Industry", "ZI Co LinkedIn", "ZI Co Founded"]
 HELPER_COLS = ["LinkedIn Headline", "Jobs Check", "Source List Type"]
@@ -194,6 +198,21 @@ def first_val(d, *names):
         if v not in (None, ""):
             return str(v)
     return ""
+
+
+def industry_text(z):
+    """ZoomInfo's primary industry as HubSpot gets it: "Manufacturing- Building Materials".
+    Enrichment returns primaryIndustry as a list [industry, sub-industry] (checked on a real call)."""
+    v = z.get("primaryIndustry")
+    parts = [str(x.get("name", x) if isinstance(x, dict) else x).strip() for x in
+             (v if isinstance(v, list) else [v] if v else [])]
+    if len(parts) < 2:  # fall back on the code fields: [{"id": "mfg", "name": "Manufacturing"}]
+        name = lambda c: next((str(x.get("name", "")) if isinstance(x, dict) else str(x) for x in
+                               (c if isinstance(c, list) else [c]) if x), "")
+        codes = [name(z.get("primaryIndustryCode")), name(z.get("primarySubIndustryCode"))]
+        parts = [c for c in codes if c] or parts
+    parts = [p for p in dict.fromkeys(parts) if p]
+    return "- ".join(parts[:2])
 
 
 # ---------- plan / ingest ----------
@@ -417,7 +436,8 @@ def attach(args):
                     "ZI Accuracy Score": first_val(z, "contactAccuracyScore"),
                     "ZI Person City": first_val(z, "city", "personCity"),
                     "ZI Person State": first_val(z, "state", "personState"),
-                    "ZI Person Country": first_val(z, "country", "personCountry")}
+                    "ZI Person Country": first_val(z, "country", "personCountry"),
+                    "ZI Person ID": first_val(z, "id", "personId")}
             r.update(vals)
             nm = name_ok(r.get("First Name", ""), r.get("Last Name", ""), vals["ZI First Name"], vals["ZI Last Name"])
             co = same_company(r.get("Company Name", ""), vals["ZI Company Name"]) or \
@@ -445,14 +465,14 @@ def attach(args):
             if not z:
                 continue
             company_vals[item["company"]] = {
-                "ZI Co Name": first_val(z, "name"), "ZI Co Website": first_val(z, "website"),
+                "ZI Co ID": first_val(z, "id", "companyId"), "ZI Co Name": first_val(z, "name"), "ZI Co Website": first_val(z, "website"),
                 "ZI Co Domains": first_val(z, "domainList"), "ZI Co Street": first_val(z, "street"),
                 "ZI Co City": first_val(z, "city"), "ZI Co State": first_val(z, "state"),
                 "ZI Co Zip": first_val(z, "zipCode"), "ZI Co Country": first_val(z, "country"),
                 "ZI Co Phone": first_val(z, "phone"), "ZI Co Employees": first_val(z, "employeeCount"),
                 "ZI Co Employee Range": first_val(z, "employeeRange"), "ZI Co Revenue": first_val(z, "revenue"),
                 "ZI Co Revenue Range": first_val(z, "revenueRange"),
-                "ZI Co Industry": first_val(z, "primaryIndustry"),
+                "ZI Co Industry": industry_text(z),
                 "ZI Co LinkedIn": next((u for u in first_val(z, "socialMediaUrls").split("; ")
                                         if "linkedin.com/company" in u.lower()), ""),
                 "ZI Co Founded": first_val(z, "foundedYear")}
@@ -478,6 +498,7 @@ def merge(args):
     run = Path(args.run_dir)
     fields, rows = ws.load(run)
     for col in ("Additional Emails", "Management Level", "Job Function", "Direct Phone Number", "Mobile phone",
+                "ZoomInfo Contact Profile URL", "ZoomInfo Company Profile URL",
                 "Company HQ Phone", "Company Street Address", "Flag", "Flag Reason"):
         if col not in fields:
             fields.append(col)
@@ -523,6 +544,8 @@ def merge(args):
             put(r, "Job Function", r.get("ZI Job Function"), "ZoomInfo")
             put(r, "Direct Phone Number", r.get("ZI Direct Phone"), "ZoomInfo")
             put(r, "Mobile phone", r.get("ZI Mobile Phone"), "ZoomInfo")
+            if r.get("ZI Person ID"):
+                put(r, "ZoomInfo Contact Profile URL", ZI_PERSON_URL.format(r["ZI Person ID"]), "ZoomInfo")
         if not r.get("LinkedIn Contact Profile URL") and good and r.get("ZI LinkedIn URL"):
             put(r, "LinkedIn Contact Profile URL", clean_li(r["ZI LinkedIn URL"]), "LinkedIn blank, ZoomInfo's used")
         elif r.get("LinkedIn Contact Profile URL"):
@@ -567,6 +590,9 @@ def merge(args):
                     flag(r, f"ZoomInfo gives several company names: {', '.join(zi_names)} — pick one")
         else:
             new_name = ""
+        # company profile: the enriched company's ID, else the ZoomInfo company ID on its good contacts
+        zi_co_ids = Counter(r["ZI Company ID"] for r in rs if r.get("ZI Match") == "good" and r.get("ZI Company ID"))
+        co_id = first.get("ZI Co ID") or (zi_co_ids.most_common(1)[0][0] if zi_co_ids else "")
         site_src = "ZoomInfo website, cleaned" if first.get("ZI Co Website") else "website cleaned"
         site, _ = clean_website(first.get("ZI Co Website") or first.get("Website", ""))
         co_vals = {
@@ -578,7 +604,8 @@ def merge(args):
             "Company Country": first.get("ZI Co Country"), "Company HQ Phone": first.get("ZI Co Phone"),
             "Employees": first.get("ZI Co Employees"), "Employee Range": first.get("ZI Co Employee Range"),
             "Revenue (in USD)": first.get("ZI Co Revenue"), "Revenue Range (in USD)": first.get("ZI Co Revenue Range"),
-            "Primary Industry": first.get("ZI Co Industry"), "Founded Year": first.get("ZI Co Founded")}
+            "Primary Industry": first.get("ZI Co Industry"), "Founded Year": first.get("ZI Co Founded"),
+            "ZoomInfo Company Profile URL": ZI_COMPANY_URL.format(co_id) if co_id else ""}
         for r in rs:
             for col, v in co_vals.items():
                 if col not in fields:

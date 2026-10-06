@@ -42,7 +42,8 @@ The detected type picks the flow below directly: `zoominfo`, `linkedin`,
 
 ## The flows
 
-**ZoomInfo export** → `references/zoominfo-lists.md`, steps 1–6.
+**ZoomInfo export** → `references/zoominfo-lists.md`, steps 1–6 (import:
+upload files + `HOW_TO_IMPORT.md`; Clay: `clay_guide.py`).
 
 **LinkedIn (Sales Nav or Evaboot)**:
 
@@ -54,15 +55,23 @@ The detected type picks the flow below directly: `zoominfo`, `linkedin`,
 | 4 | Title and company name cleaning | `references/screening.md` step 6 |
 | 5 | Hand-off into the working file (contacts + companies) | `references/screening.md` step 7 |
 | 6 | Steps 1–2 (email domains, normalization) | `references/zoominfo-lists.md` |
-| 7 | ZoomInfo pull — tell the user the maximum credits first | `references/zoominfo-lists.md` — LinkedIn lists, stage 7 |
+| 7 | ZoomInfo pull — tell the user the maximum credits first; calls in parallel (`zi_workers.py`) | `references/zoominfo-lists.md` — LinkedIn lists, stage 7 |
 | 8 | Pick the source per field | `references/zoominfo-lists.md` — LinkedIn lists, stage 8 |
 | 9 | Consistency: within a contact → across a company's contacts → contacts ↔ companies | `references/zoominfo-lists.md` — LinkedIn lists, stage 9 |
 | 10 | Prune columns | `references/zoominfo-lists.md` — LinkedIn lists, stage 10 |
 | 11 | Steps 1–2 again (only what changed is shown) | `references/zoominfo-lists.md` |
-| 12 | HubSpot duplicates → import → Clay → BDRs (steps 3–6) | `references/zoominfo-lists.md` |
+| 12 | HubSpot duplicates → import (upload files + HOW_TO_IMPORT.md) → Clay (`clay_guide.py`) → BDRs (steps 3–6) | `references/zoominfo-lists.md` |
 
 Stop after each stage, show the user what changed and wait for their OK
 before the next one.
+
+**Rules for every flow** (they were missed in real runs, so they are not optional):
+- **ZoomInfo calls run in parallel** through `scripts/zi_workers.py` and
+  sub-agents started all at once, never one by one in the main chat.
+- **Import (step 4):** always send the two upload files **and**
+  `upload/HOW_TO_IMPORT.md`, and paste the instructions in the chat.
+- **Clay (step 5):** always start by running `scripts/clay_guide.py` and
+  pasting its output: template links, copy/rename, tabs, button order.
 
 **Event company list** (exhibitors, sponsors — no contact names):
 

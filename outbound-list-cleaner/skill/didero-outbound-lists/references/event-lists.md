@@ -167,8 +167,10 @@ company cleaning: `company_list.py clean --run-dir <run_dir>` → `names_review.
 
 **Branch B — job titles but no names: Claude finds the people**
 1. `titles.py search-plan --run-dir <run_dir>` → one ZoomInfo `search_contacts`
-   per company + title (no credits; retry without `companyWebsite` if empty);
-   save each and `titles.py search-ingest --run-dir <run_dir> --target <T…> --response <file>`.
+   per company + title (no credits). Run them in parallel:
+   `zi_workers.py --run-dir <run_dir> --job title-search`, then start the
+   sub-agents it lists all at once (references/zoominfo-lists.md "Running
+   ZoomInfo calls").
 2. `titles.py candidates --run-dir <run_dir>` — show the user every company's
    candidates. **The user always chooses** (several people, someone with a
    better title, or nobody). `{"<T…>": ["<personId>", …]}` →
@@ -180,8 +182,8 @@ company cleaning: `company_list.py clean --run-dir <run_dir>` → `names_review.
    name**; Can't find leaves it unfilled. Code → `titles.py finder-apply --code …`
    (preview) → after the OK `--confirm`.
 4. `titles.py enrich-plan --run-dir <run_dir>` → **maximum credits** (chosen
-   people + finder people); after the OK run `enrich_contacts` per batch and
-   `titles.py enrich-ingest --run-dir <run_dir> --batch <n> --response <file>`.
+   people + finder people); after the OK, `zi_workers.py --run-dir <run_dir> --job title-enrich`
+   and start its sub-agents all at once.
 5. `titles.py build-contacts --run-dir <run_dir> --out <run_dir>/title_contacts.csv`
    (company data from the research, Event Name on every row; a finder person's
    title becomes ZoomInfo's only when it's the same job) →
