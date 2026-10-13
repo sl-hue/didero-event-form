@@ -3,20 +3,28 @@
 Works on the run's working.csv (see worksheet.py). Two stages, with Claude
 (the skill) in between:
 
-  prepare  Normalize names, check LinkedIn slugs against names, and write
+  prepare  Normalize names, check LinkedIn slugs against names, propose clean
+           company names and job titles (same rules as fields.py), and write
            review_step2.json: LinkedIn URLs whose slug doesn't contain the
-           contact's first and last name (for Claude to judge), plus name
-           changes and website conflicts to report in chat.
+           contact's first and last name (for Claude to judge), company names /
+           titles that need judgment, plus name changes and website conflicts
+           to report in chat.
   apply    Apply decisions_step2.json and the formatting rules to working.csv
-           in place (names, LinkedIn, emails, dropdown values, revenue x1000,
-           employee range, industry, one website per company). Column pruning
+           in place (contact names, company names, job titles, LinkedIn, emails,
+           dropdown values, revenue x1000, employee range and industry in
+           HubSpot's own values — hs_values.py — one website per company). Column pruning
            happens only at export (worksheet.py export). What changed goes to
            report_step2.json for the chat.
 
 decisions_step2.json:
   {"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep" | "blank" | "replace",
                                           "url": "<new URL, for replace>", "reason": "..."}},
-   "email":    {"<ZoomInfo Contact ID>": {"action": "keep" | "clear", "reason": "..."}}}
+   "email":    {"<ZoomInfo Contact ID>": {"action": "keep" | "clear", "reason": "..."}},
+   "companies": {"<company name before>": "<after>"},   (the "judgment" ones in review_step2.json)
+   "titles":    {"<title before>": "<after>"},
+   "didero_primary_industry": {"<company name>": "Manufacturing|Distribution|Software|Services|Other"}}
+Safe company-name / title fixes (legal suffix, ALL CAPS, symbols) are applied
+without a decision; the judgment ones stay as they are until decided.
 
   keep     plausible match, or the user chose to keep it
   blank    wrong person (Claude's call for clear cases, the user's otherwise)
@@ -32,6 +40,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import worksheet as ws  # noqa: E402
+import hs_values  # noqa: E402
+from fields import clean_company, clean_title  # noqa: E402
 
 CONTACT_ID = "ZoomInfo Contact ID"
 COMPANY_ID = "ZoomInfo Company ID"
@@ -166,6 +176,18 @@ def prepare(args):
                                  "job_title": r.get("Job Title", ""), "email": email,
                                  "linkedin_slug": slug})
 
+    # Company names and job titles (the contact's company name is the same column).
+    company_changes, title_changes = {}, {}
+    for r in contacts:
+        name = r.get("Company Name", "")
+        new, judge, why = clean_company(name)
+        if (new != name.strip() or judge) and name not in company_changes:
+            company_changes[name] = {"from": name, "to": new, "judgment": judge, "why": why}
+        title = r.get("Job Title", "")
+        new, judge, why = clean_title(title, name)
+        if (new != title.strip() or judge) and title not in title_changes:
+            title_changes[title] = {"from": title, "to": new, "judgment": judge, "why": why}
+
     # Rows of one company that disagree on the website (it's company data).
     websites_fixed = []
     for r in contacts:
@@ -182,11 +204,16 @@ def prepare(args):
     website_conflicts = [{COMPANY_ID: k, "websites": dict(v)} for k, v in sites.items() if len(v) > 1]
 
     review = {"website_fixes": websites_fixed, "name_changes": name_changes, "linkedin_review": linkedin_review,
-              "email_review": email_review, "website_conflicts": website_conflicts}
+              "email_review": email_review, "website_conflicts": website_conflicts,
+              "company_names": list(company_changes.values()), "job_titles": list(title_changes.values())}
     out = Path(args.run_dir)
     (out / "review_step2.json").write_text(json.dumps(review, indent=2))
     print(f"{len(contacts)} contacts: {len(name_changes)} name fixes, "
           f"{len(linkedin_review)} LinkedIn URLs and {len(email_review)} emails to judge; "
+          f"company names: {sum(not c['judgment'] for c in company_changes.values())} safe fixes + "
+          f"{sum(c['judgment'] for c in company_changes.values())} to decide; job titles: "
+          f"{sum(not t['judgment'] for t in title_changes.values())} safe fixes + "
+          f"{sum(t['judgment'] for t in title_changes.values())} to decide; "
           f"{len(website_conflicts)} website conflicts -> {out / 'review_step2.json'}")
 
 
@@ -234,7 +261,9 @@ def apply(args):
     decisions = json.loads(Path(args.decisions).read_text()) if args.decisions else {}
     linkedin_decisions = decisions.get("linkedin", {})
     email_decisions = decisions.get("email", {})
+    company_dec, title_dec = decisions.get("companies", {}), decisions.get("titles", {})
     cleared_emails, blanked, replaced = [], [], []
+    renamed, retitled, undecided = {}, {}, set()
     unmapped_dropdowns = Counter()
 
     # Contact fields.
@@ -250,6 +279,20 @@ def apply(args):
                 unmapped_dropdowns[(col, value)] += 1
         r["First Name"] = normalize_name(r["First Name"])
         r["Last Name"] = normalize_name(r["Last Name"])
+        # company name (also the contact's company) and job title
+        for col, dec, fn, done in (("Company Name", company_dec, lambda v: clean_company(v), renamed),
+                                   ("Job Title", title_dec, lambda v: clean_title(v, r.get("Company Name", "")), retitled)):
+            before = r.get(col) or ""
+            if not before:
+                continue
+            new, judge, _ = fn(before)
+            if before in dec:
+                new = dec[before]
+            elif judge:
+                undecided.add(f"{col}: {before}")
+                continue
+            if new and new != before:
+                r[col], done[before] = new, new
         e = email_decisions.get(r[CONTACT_ID])
         if e and e["action"] == "clear" and r["Email Address"]:
             # The domain stays: it is still the company's domain.
@@ -286,27 +329,35 @@ def apply(args):
         r["Website"] = sites[r[COMPANY_ID]].most_common(1)[0][0] if r[COMPANY_ID] in sites else ""
         if not r.get("Revenue (in USD)"):
             r["Revenue (in USD)"] = times_thousand(r.get("Revenue (in 000s USD)", ""))
-        r["Employee Range"] = re.sub(r"^Employees\.", "", r.get("Employee Range", ""))
-        sub = (r.get("Primary Sub-Industry") or "").strip()
-        industry = (r.get("Primary Industry") or "").strip()
-        if sub and not industry.endswith(f"- {sub}"):
-            r["Primary Industry"] = f"{industry}- {sub}"
+    hs_notes = hs_values.apply_rows(contacts, fields, decisions.get("didero_primary_industry", {}))
 
     ws.save(args.run_dir, fields, contacts)
     seen = set()
     websites_fixed = [w for w in websites_fixed if (w[COMPANY_ID], w["from"]) not in seen and not seen.add((w[COMPANY_ID], w["from"]))]
-    report = {"websites_fixed": websites_fixed, "linkedin_blanked": blanked, "linkedin_replaced": replaced, "emails_cleared": cleared_emails,
+    report = {"company_names_changed": renamed, "job_titles_changed": retitled,
+              "still_to_decide": sorted(undecided), "hubspot_values": hs_notes, "websites_fixed": websites_fixed, "linkedin_blanked": blanked, "linkedin_replaced": replaced, "emails_cleared": cleared_emails,
               "dropdown_values_not_matching": [
                   {"column": col, "value": v, "rows": n, "hubspot_property": DROPDOWNS[col][0],
                    "allowed": sorted(set(DROPDOWNS[col][1].values()))}
                   for (col, v), n in unmapped_dropdowns.items()]}
     (Path(args.run_dir) / "report_step2.json").write_text(json.dumps(report, indent=2))
     ws.log(args.run_dir, {"action": "step2", "linkedin_blanked": len(blanked), "linkedin_replaced": len(replaced),
-                          "emails_cleared": len(cleared_emails)})
+                          "emails_cleared": len(cleared_emails), "companies_renamed": len(renamed),
+                          "titles_cleaned": len(retitled), "undecided": len(undecided)})
     ws.snapshot_copy(args.run_dir, "02_normalize")
     print(f"working.csv updated: {len(contacts)} contacts; {len(websites_fixed)} websites cleaned, {len(blanked)} LinkedIn URLs blanked, "
           f"{len(replaced)} replaced, {len(cleared_emails)} emails cleared, "
-          f"{sum(unmapped_dropdowns.values())} dropdown values with no matching HubSpot option")
+          f"{sum(unmapped_dropdowns.values())} dropdown values with no matching HubSpot option; "
+          f"{len(renamed)} company names and {len(retitled)} job titles cleaned")
+    if undecided:
+        print(f"STILL TO DECIDE ({len(undecided)}): " + "; ".join(sorted(undecided)[:30]) +
+              " — decide them (ask the user when unsure), add to decisions_step2.json and re-run apply.")
+    for k, v in hs_notes.items():
+        print(f"{k.replace('_', ' ')}: {len(v)} — " + "; ".join(v[:15]))
+    if hs_notes.get("primary_industry_other"):
+        print("-> decide Didero Primary Industry for those (Manufacturing / Distribution / Software / Services / Other;"
+              " check the website when unsure, ask the user if still unsure) in decisions_step2.json "
+              "\"didero_primary_industry\", then re-run apply.")
 
 
 def main():

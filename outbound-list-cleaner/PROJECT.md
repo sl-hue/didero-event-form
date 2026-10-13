@@ -163,6 +163,34 @@ it's the same job. Tested with fictional data.
    `upload/HOW_TO_IMPORT.md` (click-by-click import + mapping tables). It must
    be sent and pasted at step 4.
 
+## Cowork test feedback (2026-10-13)
+
+1. **Other list types:** detect_list_type says "unknown" → Claude asks what the
+   data is for and how to handle any contacts in it; prospects to import run
+   the shared steps (`progress.py start --list-type other`).
+2. **Never import through the connector (MCP):** rule in SKILL.md and in
+   every `progress.py next` output. The connector reads only, plus the
+   approved association fixes (step 4) and owner updates (step 6).
+3. **Holding the skill all chat:** `scripts/progress.py` keeps the step order
+   in progress.json, prints each step's instructions fresh from the reference
+   pages when the step starts, and refuses `done` out of order.
+4. **Open HubSpot in the browser window:** at the start, and on every step
+   where the user works in HubSpot (`progress.py next` lists the pages).
+5. **Employee range = HubSpot's options** (`1,001-5,000`, not `1000-5000`):
+   `scripts/hs_values.py`, from the count; ZoomInfo range only if there's no count.
+6. **Industry fills every property:** company Primary industry
+   (Manufacturing/Distribution/Software/Services/Other), Industry, Industry
+   group; contact Primary Industry, Primary Sub-Industry, Company Industry.
+   Works from ZoomInfo or LinkedIn industry names; "Other" ones are decided by
+   Claude/the user in decisions_step2.json. Dropdown values HubSpot lacks
+   are blanked in the upload and listed (options in config.json `hubspot_options`).
+7. **ZoomInfo URLs missing:** the scripts produce them (tested on the real
+   ZoomInfo reply); the run had skipped the merge. The export now refuses when
+   ZoomInfo was pulled but not merged, and prints URL counts.
+8. **Cleaning skipped:** company names and job titles are now cleaned in
+   step 2 (every list type) next to contact names; the export refuses if
+   step 2 didn't run or left decisions open.
+
 ## Open questions
 
 - Cowork review 2.4–2.13 (LinkedIn global pages, noisy phone matches, stale

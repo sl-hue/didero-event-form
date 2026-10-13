@@ -115,7 +115,9 @@ def main():
         out.append({"file": Path(f).name, "guess": LABEL.get(kind, "unknown — ask the user"), "type": kind,
                     "confidence": conf,
                     "do": ("say what it is and carry on (the user can correct it)" if conf == "high"
-                           else "ask the user what kind of list this is"),
+                           else "ask the user what kind of list this is (or none of these)" if kind != "unknown"
+                           else "ask the user what kind of list this is; if none of the types: what the data is "
+                                "for, and how to handle any contacts in it (SKILL.md Step 0, point 4)"),
                     "evidence": evidence, "next": FLOW.get(kind, "ask the user"), "columns": len(cols)})
     print(json.dumps(out, indent=1))
 

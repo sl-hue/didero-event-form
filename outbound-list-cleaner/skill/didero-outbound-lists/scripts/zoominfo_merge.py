@@ -59,6 +59,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import worksheet as ws  # noqa: E402
 from normalize import clean_website  # noqa: E402
+import hs_values  # noqa: E402
 
 CONTACT_ID, COMPANY_ID = ws.CONTACT_ID, ws.COMPANY_ID
 BATCH = 10
@@ -78,7 +79,8 @@ ZI_CONTACT_COLS = ["ZI Match", "ZI Match Note", "ZI First Name", "ZI Last Name",
                    "ZI Person Country", "ZI Person ID"]
 ZI_COMPANY_COLS = ["ZI Co ID", "ZI Co Name", "ZI Co Website", "ZI Co Domains", "ZI Co Street", "ZI Co City", "ZI Co State",
                    "ZI Co Zip", "ZI Co Country", "ZI Co Phone", "ZI Co Employees", "ZI Co Employee Range",
-                   "ZI Co Revenue", "ZI Co Revenue Range", "ZI Co Industry", "ZI Co LinkedIn", "ZI Co Founded"]
+                   "ZI Co Revenue", "ZI Co Revenue Range", "ZI Co Industry", "ZI Co Sub-Industry", "ZI Co LinkedIn",
+                   "ZI Co Founded"]
 HELPER_COLS = ["LinkedIn Headline", "Jobs Check", "Source List Type"]
 SUFFIX = re.compile(r"\b(inc|incorporated|llc|ltd|limited|corp|corporation|co|company|companies|group|holdings|"
                     r"the|plc|lp|llp)\b\.?", re.I)
@@ -472,7 +474,8 @@ def attach(args):
                 "ZI Co Phone": first_val(z, "phone"), "ZI Co Employees": first_val(z, "employeeCount"),
                 "ZI Co Employee Range": first_val(z, "employeeRange"), "ZI Co Revenue": first_val(z, "revenue"),
                 "ZI Co Revenue Range": first_val(z, "revenueRange"),
-                "ZI Co Industry": industry_text(z),
+                "ZI Co Industry": industry_text(z).split("- ")[0],
+                "ZI Co Sub-Industry": "- ".join(industry_text(z).split("- ")[1:]),
                 "ZI Co LinkedIn": next((u for u in first_val(z, "socialMediaUrls").split("; ")
                                         if "linkedin.com/company" in u.lower()), ""),
                 "ZI Co Founded": first_val(z, "foundedYear")}
@@ -604,7 +607,8 @@ def merge(args):
             "Company Country": first.get("ZI Co Country"), "Company HQ Phone": first.get("ZI Co Phone"),
             "Employees": first.get("ZI Co Employees"), "Employee Range": first.get("ZI Co Employee Range"),
             "Revenue (in USD)": first.get("ZI Co Revenue"), "Revenue Range (in USD)": first.get("ZI Co Revenue Range"),
-            "Primary Industry": first.get("ZI Co Industry"), "Founded Year": first.get("ZI Co Founded"),
+            "Primary Industry": first.get("ZI Co Industry"), "Primary Sub-Industry": first.get("ZI Co Sub-Industry"),
+            "Founded Year": first.get("ZI Co Founded"),
             "ZoomInfo Company Profile URL": ZI_COMPANY_URL.format(co_id) if co_id else ""}
         for r in rs:
             for col, v in co_vals.items():
@@ -613,6 +617,7 @@ def merge(args):
                 why = {"LinkedIn Company Profile URL": "LinkedIn (format)", "Website": site_src,
                        "Company Name": "ZoomInfo's name for the same company"}.get(col, "company data: ZoomInfo")
                 put(r, col, v, why)
+    hs_notes = hs_values.apply_rows(rows, fields)  # employee range + every industry property, HubSpot's values
     ws.save(run, fields, rows)
     (run / "merge_report.json").write_text(json.dumps({"changes": changes, "ties": ties}, indent=1, ensure_ascii=False))
     ws.log(run, {"action": "merge_sources", "changes": len(changes), "ties": len(ties)})
@@ -620,7 +625,8 @@ def merge(args):
     site_changes = [c for c in changes if c["field"] == "Website"]
     changes = [c for c in changes if c["field"] != "Website"] + list(
         {c["company"]: dict(c, contact="(company-wide)") for c in site_changes}.values())
-    (run / "merge_report.json").write_text(json.dumps({"changes": changes, "ties": ties, "titles_kept": notes},
+    (run / "merge_report.json").write_text(json.dumps({"changes": changes, "ties": ties, "titles_kept": notes,
+                                                       "hubspot_values": hs_notes},
                                                       indent=1, ensure_ascii=False))
     by_field = Counter(c["field"] for c in changes)
     print(f"merged: {len(changes)} changes ({dict(by_field)}); {len(ties)} ties flagged -> merge_report.json")

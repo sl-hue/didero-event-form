@@ -257,7 +257,11 @@ Everything the user needs to review goes in the chat.
    `python3 scripts/normalize.py prepare --run-dir <run_dir>`.
    It fixes name casing and strips credentials, and writes
    `review_step2.json` listing LinkedIn URLs whose slug doesn't contain the
-   contact's first and last name.
+   contact's first and last name, plus **company names** and **job titles**
+   to clean (`company_names`, `job_titles`). This is the cleaning step for
+   every list type, and it is never skipped: the contact's first and last
+   name, the company name (the contact's company is the same column) and the
+   job title are all rewritten here.
 
 2. **`name-and-linkedin-checker`: judge each LinkedIn slug** (no live check):
    - Nickname (Bill/William, Pat/Patrick), initials (`jbsunderbruch`),
@@ -273,16 +277,46 @@ Everything the user needs to review goes in the chat.
    initials → `keep`; clearly someone else's email → `clear` (the domain
    stays); last name differs → ask the user.
 
+   **Company names and job titles:** entries with `"judgment": false` are
+   safe fixes (legal suffix like Inc./LLC/Co. removed, symbols, spacing,
+   ALL-CAPS titles) and are applied automatically. For `"judgment": true`
+   decide the clean value: ALL-CAPS company names (keep only if the company
+   writes it that way, e.g. NIBCO; otherwise `TCC MATERIALS` → `TCC
+   Materials`), text in brackets, division labels, several roles in one
+   title. Ask the user when unsure.
+
 3. **Write `<run_dir>/decisions_step2.json`:**
    `{"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep|blank|replace", "url": "...", "reason": "..."}},
-     "email": {"<ZoomInfo Contact ID>": {"action": "keep|clear", "reason": "..."}}}`
+     "email": {"<ZoomInfo Contact ID>": {"action": "keep|clear", "reason": "..."}},
+     "companies": {"<name before>": "<after>"}, "titles": {"<title before>": "<after>"},
+     "didero_primary_industry": {"<company name>": "Manufacturing|Distribution|Software|Services|Other"}}`
 
 4. **Apply.** Run
    `python3 scripts/normalize.py apply --run-dir <run_dir> --decisions <run_dir>/decisions_step2.json`.
-   It updates `working.csv` (names, LinkedIn, emails, dropdown values,
-   revenue ×1000 as `Revenue (in USD)`, `Employees.` prefix stripped,
-   industry combined, websites cleaned, one website per company) and writes
-   `report_step2.json`. Upload columns are chosen only at export.
+   It updates `working.csv` (names, company names, job titles, LinkedIn,
+   emails, dropdown values, revenue ×1000 as `Revenue (in USD)`, websites
+   cleaned, one website per company) and writes `report_step2.json`. Upload
+   columns are chosen only at export. If it prints **STILL TO DECIDE**, decide
+   those and re-run apply: the export refuses while any are open.
+   **HubSpot values** (`scripts/hs_values.py`, written exactly as the
+   properties' options, so nothing is remapped by hand):
+   - **Employee range** (`hs_employee_range`): `1-10`, `11-50`, `51-200`,
+     `201-500`, `501-1,000`, `1,001-5,000`, `5,001-10,000`, `10,000+`, from the
+     exact employee count (e.g. 1,000 → `501-1,000`; 4,500 → `1,001-5,000`).
+     With no count, ZoomInfo's range (`Employees.1000to4999`) goes to the
+     HubSpot range covering most of it. **Number of Employees** gets exact
+     counts only.
+   - **Industry**, filled together every time the industry changes:
+     company **Primary industry** (`primary_industry`: Manufacturing /
+     Distribution / Software / Services / Other; column `Didero Primary
+     Industry`), company **Industry** (`industry`: ZoomInfo's top level as a
+     HubSpot option, e.g. Manufacturing, Retail), company **Industry group**
+     (`hs_industry_group`: `Manufacturing- Building Materials`), and on the
+     contact **Primary Industry**, **Primary Sub-Industry** and **Company
+     Industry**. Companies the rule puts in **Other** are listed (`primary
+     industry other`): decide each one (a building-supply "retailer" that
+     sells to contractors is Distribution; check the website when unsure; ask
+     the user if still unsure) in `didero_primary_industry` and re-run apply.
    **Websites** are cut back to the site itself (subpages, index pages,
    `?…` dropped: `acme.com/about/index.html` → `acme.com`), careers
    subdomains become the main site (`careers.acme.com` → `www.acme.com`), and
@@ -290,7 +324,8 @@ Everything the user needs to review goes in the chat.
    blanked (`websites_fixed` in the report); the company's website is then
    the most common cleaned one across its rows.
 
-5. **Report in chat:** dropdown values with no matching HubSpot option
+5. **Report in chat:** company names and job titles changed (from → to),
+   Didero Primary Industry decisions, dropdown values with no matching HubSpot option
    (`dropdown_values_not_matching`, e.g. a Management Level or Department
    value HubSpot's dropdown doesn't have), websites cleaned or blanked
    (company, from → to, reason), name fixes, blanked LinkedIn URLs (name, company,
@@ -380,7 +415,12 @@ The user runs the import in HubSpot; you prepare it and walk them through it.
    don't look like prospects (partners, vendors, existing customers), ask the
    user which Type fits before continuing.
 2. **Settle open flags first** (`worksheet.py flags`) — export refuses
-   while any row is flagged. Then run
+   while any row is flagged. It also refuses when step 2 never ran or left
+   decisions open, or when ZoomInfo was pulled but not merged (no profile
+   URLs). It prints how many rows have ZoomInfo contact / company profile
+   URLs, employee range and industry; show that line to the user. Dropdown
+   values HubSpot doesn't have are left blank in the upload and listed: tell
+   the user (they can add the option in HubSpot and re-export). Then run
    `python3 scripts/hubspot_import.py prepare --run-dir <run_dir> --raw-dir <run_dir>/hs_companies --type Prospect`.
    It sets Type on the working file, exports the two import-ready upload
    files into `<run_dir>/upload/` (blank Record ID = create a new record),

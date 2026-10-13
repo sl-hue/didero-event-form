@@ -46,7 +46,8 @@ COMPANY_FIELDS = {
     COMPANY_ID, "Company Name", "Website", "Founded Year", "Company HQ Phone", "Fax", "Ticker",
     "Revenue (in 000s USD)", "Revenue (in USD)", "Revenue Range (in USD)", "Employees", "Employee Range",
     "SIC Code 1", "SIC Code 2", "SIC Codes", "NAICS Code 1", "NAICS Code 2", "NAICS Codes",
-    "Primary Industry", "Primary Sub-Industry", "All Industries", "All Sub-Industries",
+    "Primary Industry", "Primary Sub-Industry", "Industry Group", "Industry", "Didero Primary Industry",
+    "Company Industry", "All Industries", "All Sub-Industries",
     "Industry Hierarchical Category", "Secondary Industry Hierarchical Category", "Alexa Rank",
     "ZoomInfo Company Profile URL", "LinkedIn Company Profile URL", "Facebook Company Profile URL",
     "Twitter Company Profile URL", "Ownership Type", "Business Model", "Certified Active Company",
@@ -64,13 +65,14 @@ CONTACT_EXPORT = [
     "Department", "Direct Phone Number", "Email Address", "Additional Emails", "Email Domain", "Mobile phone",
     "ZoomInfo Contact Profile URL", "LinkedIn Contact Profile URL", "Person Street", "Person City",
     "Person State", "Person Zip Code", "Country", "Company Name", "Website", "Company HQ Phone",
+    "Primary Industry", "Primary Sub-Industry", "Company Industry",
     "HubSpot Contact Record ID", "New Contact Outbound Personalization", "Lead Source", "Lead Source Detail 1",
 ]
 COMPANY_EXPORT = [
     COMPANY_ID, "Company Name", "Website", "Founded Year", "Company HQ Phone",
     "Revenue (in USD)", "Revenue Range (in USD)", "Employees", "Employee Range",
-    "SIC Code 1", "SIC Code 2", "NAICS Code 1", "NAICS Code 2", "Primary Industry",
-    "ZoomInfo Company Profile URL", "LinkedIn Company Profile URL",
+    "SIC Code 1", "SIC Code 2", "NAICS Code 1", "NAICS Code 2",
+    "Didero Primary Industry", "Industry", "Industry Group", "ZoomInfo Company Profile URL", "LinkedIn Company Profile URL",
     "Facebook Company Profile URL", "Twitter Company Profile URL", "Company City",
     "Company State", "Company Zip Code", "Company Country", "Full Address",
     "Company Domain", "Additional Domains", "Type", "Outbound Personalization Token",
@@ -295,8 +297,55 @@ def export(args):
     export_files(args.run_dir, args.out_dir)
 
 
+def pre_export_checks(run_dir, fields, rows):
+    """Things real runs got wrong. Hard problems stop the export; the rest is printed for the chat."""
+    stop, info = [], []
+    actions = []
+    lp = Path(run_dir) / "changes.jsonl"
+    if lp.exists():
+        actions = [json.loads(x) for x in lp.read_text(encoding="utf-8").splitlines() if x.strip()]
+    step2 = [a for a in actions if a.get("action") == "step2"]
+    if not step2:
+        stop.append("step 2 (normalize.py apply: names, company names, titles, HubSpot values) never ran")
+    elif step2[-1].get("undecided"):
+        stop.append(f"step 2 left {step2[-1]['undecided']} company names / titles undecided "
+                    "(normalize.py apply prints them)")
+    zi = Path(run_dir) / "zi"
+    zi_ran = zi.exists() and (any(zi.glob("contacts_*.json")) or any(zi.glob("companies_*.json")))
+    if zi_ran and not any(a.get("action") == "merge_sources" for a in actions):
+        stop.append("ZoomInfo was pulled but zoominfo_merge.py merge never ran (no ZoomInfo data, no profile URLs)")
+    for col in ("ZoomInfo Contact Profile URL", "ZoomInfo Company Profile URL", "Employee Range", "Industry",
+                "Didero Primary Industry", "Industry Group"):
+        n = sum(1 for r in rows if (r.get(col) or "").strip())
+        info.append(f"{col}: {n}/{len(rows)} rows")
+        if zi_ran and col.startswith("ZoomInfo") and n == 0:
+            stop.append(f"no {col} at all although ZoomInfo was pulled — re-run zoominfo_merge.py merge")
+    return stop, info
+
+
+def check_options(rows, cols):
+    """Dropdown values HubSpot would reject: left blank in the upload, listed for the chat."""
+    cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text())
+    opts = cfg.get("hubspot_options", {})
+    bad = {}
+    for col, key in cols.items():
+        allowed = set(opts.get(key, []))
+        if not allowed:
+            continue
+        for r in rows:
+            v = (r.get(col) or "").strip()
+            if v and v not in allowed:
+                bad.setdefault(col, set()).add(v)
+                r[col] = ""
+    return {k: sorted(v) for k, v in bad.items()}
+
+
 def export_files(run_dir, out_dir=None):
     fields, rows = load(run_dir)
+    stop, info = pre_export_checks(run_dir, fields, rows)
+    print("before export — " + "; ".join(info))
+    if stop:
+        raise SystemExit("export stopped:\n  - " + "\n  - ".join(stop))
     open_rows = [r for r in rows if r.get(FLAG)]
     if open_rows:
         raise SystemExit(f"{len(open_rows)} row(s) still flagged — resolve them with the user first "
@@ -327,6 +376,15 @@ def export_files(run_dir, out_dir=None):
             if (r.get("Event Name") or "").strip():
                 r["Lead Source"], r["Lead Source Detail 1"] = "Events", r["Event Name"].strip()
         fields = list(fields) + [c for c in ("Lead Source", "Lead Source Detail 1") if c not in fields]
+    bad_c = check_options(rows, {"Primary Industry": "contact_primary_industry",
+                                 "Primary Sub-Industry": "contact_primary_sub_industry",
+                                 "Company Industry": "company_industry"})
+    bad_k = check_options(list(companies.values()), {"Didero Primary Industry": "company_primary_industry",
+                                                     "Industry": "company_industry",
+                                                     "Employee Range": "company_employee_range"})
+    for col, vals in {**bad_c, **bad_k}.items():
+        print(f"not a HubSpot option, left blank in the upload: {col} = {', '.join(vals)} "
+              "(add the option in HubSpot and re-export, or leave it blank)")
     contact_cols = [c for c in CONTACT_EXPORT if c in fields]
     company_cols = [c for c in COMPANY_EXPORT if c in fields]
     for name, cols, data in (("contacts_upload.csv", contact_cols, rows),

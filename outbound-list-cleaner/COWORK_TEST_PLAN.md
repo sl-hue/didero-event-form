@@ -21,6 +21,12 @@ into the build chat so the skill can be fixed.
 - [ ] Upload files have ZoomInfo Contact / Company Profile URLs, and Primary Industry like `Manufacturing- Building Materials`.
 - [ ] Step 4 sends the upload files **and** HOW_TO_IMPORT.md, with the steps pasted in the chat.
 - [ ] Step 5 starts with both Clay template links and the tab/button checklist.
+- [ ] A list that isn't one of the types: Claude asks what the data is for and how to handle its contacts.
+- [ ] Every step starts with `progress.py next` output; late steps (import, Clay) are as complete as early ones.
+- [ ] HubSpot opens in the browser window at the start and at each HubSpot step.
+- [ ] Nothing is created in HubSpot through the connector; the user imports the files.
+- [ ] Upload: Employee range like `1,001-5,000`; Primary industry / Industry / Industry group filled; contact Primary Industry / Sub-Industry / Company Industry filled.
+- [ ] Step 2 report lists company names and titles changed; export refuses if step 2 was skipped.
 - [ ] First thing it does: model check (Opus 5.x / Fable). Try once on another model — it should stop and ask you to switch.
 - [ ] It asks which step to start from when that's unclear.
 - [ ] It creates a run folder named after the list inside your shared folder.

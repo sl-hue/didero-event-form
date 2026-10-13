@@ -1,12 +1,24 @@
 ---
 name: didero-outbound-lists
-description: Didero's outbound prospect lists, start to finish — work out what kind of list it is (ZoomInfo export, LinkedIn Sales Navigator / Evaboot export, event contact list, or company-only event list) — announced, or asked only when unclear — then check and log the requirements, screen, research, clean and standardize it, match ZoomInfo, find LinkedIn URLs, check HubSpot for duplicates, prepare the HubSpot import, fix associations after import, guide the Clay enrichment and assign BDR owners. Use whenever someone brings a list, file, export, exhibitor list or attendee list to clean, screen, enrich, dedupe, import into HubSpot, enrich in Clay or hand out to BDRs — even if they don't say where it came from.
+description: Didero's outbound prospect lists, start to finish — work out what kind of list it is (ZoomInfo export, LinkedIn Sales Navigator / Evaboot export, event contact list, or company-only event list) — announced, or asked only when unclear; for any other list, asks what the data is for and how to handle its contacts — then check and log the requirements, track every step, screen, research, clean and standardize it, match ZoomInfo, find LinkedIn URLs, check HubSpot for duplicates, prepare the HubSpot import, fix associations after import, guide the Clay enrichment and assign BDR owners. Use whenever someone brings a list, file, export, exhibitor list or attendee list to clean, screen, enrich, dedupe, import into HubSpot, enrich in Clay or hand out to BDRs — even if they don't say where it came from.
 ---
 
 # Didero outbound lists
 
-One skill for every list type. This page decides the list type and the order
-of the steps; the detailed instructions for each step are in three reference
+One skill for every list type.
+
+**Hold this skill for the whole chat.** Long runs drifted away from the
+instructions (cleaning skipped, ZoomInfo URLs, import and Clay instructions
+left out). So the step order lives in `scripts/progress.py`: right after the
+requirements check run `progress.py start`, and **before every step** run
+`python3 scripts/progress.py next --run-dir <run_dir>` and follow what it
+prints: that step's full instructions, read fresh from the reference page,
+the pages to open in the browser and the standing rules. Never do a step from
+memory. After the user's OK, `progress.py done --step <id>` (it refuses steps
+out of order). After any interruption, or when unsure where the run is, run
+`progress.py status` and `next` again.
+
+This page decides the list type and the order of the steps; the detailed instructions for each step are in three reference
 pages — read the one a step points to before running it:
 
 - `references/zoominfo-lists.md` — the working file, email domains,
@@ -34,7 +46,19 @@ skill's root. Run them with the skill folder's absolute path.
    point.
 3. **Low confidence → ask** (one multiple-choice question: ZoomInfo export /
    LinkedIn (Sales Nav or Evaboot) export / event contact list / event
-   company list), showing the guess and the evidence.
+   company list / none of these), showing the guess and the evidence.
+4. **None of these** (`unknown`, or the user says so; e.g. a partner list, a
+   customer export, a webinar list, a hand-made sheet): don't force it into a
+   flow. Ask the user first:
+   - **What is this data for?** (prospects to import for outbound, an update
+     to records already in HubSpot, research only, something else)
+   - **If it has contacts: how should they be handled?** (import as new
+     contacts, update existing ones only, skip contacts and keep companies,
+     not imported at all)
+   Then say which steps you'll run and get their OK. Prospects to import go
+   through the shared steps (`progress.py start --list-type other`: steps 1–6
+   of `references/zoominfo-lists.md`); anything else, do only what they asked,
+   still never importing through the connector.
 
 The detected type picks the flow below directly: `zoominfo`, `linkedin`,
 `event-contacts`, `event-companies` (no titles → branch A) or
@@ -66,6 +90,22 @@ Stop after each stage, show the user what changed and wait for their OK
 before the next one.
 
 **Rules for every flow** (they were missed in real runs, so they are not optional):
+- **Never import through the connector (MCP).** No creating or updating the
+  list's contacts or companies in HubSpot with `manage_crm_objects` or any
+  other connector tool, not even "just a few". The user imports the upload
+  files through HubSpot's import screen. The connector only reads, plus two
+  approved updates on records that already exist: association fixes (step 4)
+  and owners (step 6), each after the user's OK.
+- **Open HubSpot in the browser window.** At the start of the run open
+  HubSpot (`https://app.hubspot.com/contacts/<portal>`) in the browser
+  (Claude in Chrome / the built-in browser) and keep it open. Whenever the
+  user has to look at or do something in HubSpot (duplicates and merges,
+  import, segment, associations, owners), open that page there; a link in
+  the chat alone is not enough. `progress.py next` lists the pages. No
+  browser tool → paste the link and say so.
+- **Cleaning is step 2, every list type:** contact first/last names, company
+  names (the contact's company too) and job titles are rewritten there; the
+  export refuses if step 2 didn't run or left decisions open.
 - **ZoomInfo calls run in parallel** through `scripts/zi_workers.py` and
   sub-agents started all at once, never one by one in the main chat.
 - **Import (step 4):** always send the two upload files **and**
@@ -106,7 +146,8 @@ Event **contact** lists:
 ## Before you start — requirements check (every run, logged)
 
 Right after Step 0, before any other step, run the requirements check and
-show its output to the user:
+show its output to the user, then `progress.py start --run-dir <run_dir> --list-type <type>`
+(use `other` for "none of these"):
 
 ```
 python3 scripts/preflight.py --list-type <type> --run-dir <run_dir> \

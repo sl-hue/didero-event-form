@@ -45,7 +45,9 @@ COMPANY_MAPPING = {
     "SIC Code 2": ("SIC Code 2", "sic_code_2"),
     "NAICS Code 1": ("NAICS Code 1", "naics_code_1"),
     "NAICS Code 2": ("NAICS Code 2", "naics_code_2"),
-    "Primary Industry": ("Industry group", "hs_industry_group"),
+    "Didero Primary Industry": ("Primary industry", "primary_industry"),  # Manufacturing/Distribution/Software/Services/Other
+    "Industry": ("Industry", "industry"),
+    "Industry Group": ("Industry group", "hs_industry_group"),  # "Manufacturing- Building Materials"
     "ZoomInfo Company Profile URL": ("ZoomInfo Company Profile URL", "zoominfo_company_profile_url"),
     "LinkedIn Company Profile URL": ("LinkedIn Company Page", "linkedin_company_page"),
     "Facebook Company Profile URL": ("Facebook Company Page", "facebook_company_page"),
@@ -73,6 +75,9 @@ CONTACT_MAPPING = {
     "Direct Phone Number": ("Work Direct Phone", "work_direct_phone"),
     "Email Address": ("Email", "email"),
     "Additional Emails": ("Additional email addresses", "hs_additional_emails"),
+    "Primary Industry": ("Primary Industry", "primary_industry"),  # contact property: ZoomInfo's top level
+    "Primary Sub-Industry": ("Primary Sub-Industry", "primary_sub_industry"),
+    "Company Industry": ("Company Industry", "company_industry"),
     # event lists: Lead Source (dropdown) = "Events"; Lead Source Detail 1 (text) = the event name
     "Lead Source": ("Lead Source", "lead_source"),
     "Lead Source Detail 1": ("Lead Source Detail 1", "lead_source_detail_1"),
