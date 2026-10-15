@@ -8,7 +8,7 @@ so they exist as anchors for the contacts). This script:
             two upload files from it (worksheet.py export — refuses while
             rows are flagged),
             checks the Type already on matched HubSpot records, and writes
-            import_mapping.md: for each file, every column -> HubSpot property
+            report_step4.json: counts, Type conflicts and the column -> HubSpot property mapping
             (label + internal name), how many rows have a value, and whether to
             tick "Don't overwrite" for it. Claude shows these tables in chat so
             the user can pick the same fields in the import screen.
@@ -157,22 +157,27 @@ def mapping_table(kind, fields, rows, mapping):
     return lines, unknown
 
 
-def how_to_import(run_name, out, notes, type_conflicts, tables):
-    """Click-by-click import steps for the user, with the mapping tables (upload/HOW_TO_IMPORT.md)."""
+CHAT_START = "=== POST EVERYTHING BELOW IN THE CHAT, AS IT IS (formatted text — never as a file) ==="
+CHAT_END = "=== END ==="
+
+
+def how_to_import(run_name, out, notes, type_conflicts, tips):
+    """Click-by-click import steps, posted in the chat (users found .md files hard to read and they don't open
+    in Notion). tips: the "Don't overwrite" suggestions."""
     counts = {n.split(":")[0]: n.split(":", 1)[1].strip() for n in notes if "records" in n}
     conflicts = "".join(f"\n   - {c['company']}: HubSpot says {c['hubspot_type']}, the file says {c['file_type']} "
                         f"({c['url']})" for c in type_conflicts)
-    return f"""# How to import into HubSpot — {run_name}
+    return f"""**How to import into HubSpot — {run_name}**
 
 Two files, **companies first**, then contacts (contacts attach to their
 company through the company domain, so the companies must exist first):
-- `{out / 'companies_upload.csv'}` — {counts.get('companies', '')}
-- `{out / 'contacts_upload.csv'}` — {counts.get('contacts', '')}
+- **companies_upload.csv** — {counts.get('companies', '')}
+- **contacts_upload.csv** — {counts.get('contacts', '')}
 
 Not for import: `excluded_contacts.csv` and `excluded_companies.csv` list who
 was left out and why (same columns + **Why Rejected**).
 
-## A. Companies
+**A. Companies**
 1. In HubSpot open **CRM → Companies** and click **Import** (top right), then
    **Start an import**.
 2. Choose **File from computer** → **One file** → **One object** →
@@ -180,8 +185,8 @@ was left out and why (same columns + **Why Rejected**).
 3. Upload `companies_upload.csv` → Next.
 4. **Columns map themselves:** every header is a HubSpot field name, checked
    live today. Just confirm none shows "Don't import" (except Email Domain,
-   which HubSpot fills itself). Tick **Don't overwrite** where the table
-   suggests it (keeps what HubSpot already has).
+   which HubSpot fills itself). Tick **Don't overwrite** on the columns listed
+   at the end (keeps what HubSpot already has).
    **Company owner** holds the owner's name, as in HubSpot.
 5. Import option: **Create and update companies**. Rows with a Record ID
    update that company; rows without one create a new company.
@@ -191,7 +196,7 @@ was left out and why (same columns + **Why Rejected**).
     chr(10) + "8. These existing companies have a different Type than the file — consider ticking "
     "**Don't overwrite** on Type:" + conflicts if conflicts else ""}
 
-## B. Contacts (after the company import has finished)
+**B. Contacts** (after the company import has finished)
 1. **CRM → Contacts** → **Import** → **Start an import** → **File from
    computer** → **One file** → **One object** → **Contacts** → Next.
 2. Upload `contacts_upload.csv` → Next.
@@ -206,8 +211,8 @@ was left out and why (same columns + **Why Rejected**).
 Then tell Claude "imported" — the next step builds the segment and checks
 company associations.
 
-## Column mapping
-{chr(10).join(tables)}
+**Tick "Don't overwrite" on:**
+{chr(10).join(tips) if tips else "- nothing in particular"}
 """
 
 
@@ -238,7 +243,7 @@ def prepare(args):
              "Import the company file first, then the contact file. In HubSpot's import "
              "screen, map each column as below. Tick \"Don't overwrite\" for any column "
              "where you'd rather keep the value already in HubSpot.", ""]
-    notes = []
+    notes, tips = [], []
     import hs_fields
     for kind, rows, pairs, record in (("companies", companies, k_pairs, COMPANY_RECORD),
                                       ("contacts", contacts, c_pairs, CONTACT_RECORD)):
@@ -254,17 +259,24 @@ def prepare(args):
             lines.append(f"| {label} | `{internal[col]}` | {filled}/{len(rows)} | "
                          f"{'Suggested — ' + protect if protect else ''} |")
         lines.append("")
+        for col, label in pairs:
+            if PROTECT[kind].get(col):
+                tips.append(f"- {kind} · **{label}** — {PROTECT[kind][col]}")
         new = sum(1 for r in rows if not r.get(record))
         notes.append(f"{kind}: {len(rows) - new} update existing records, {new} create new records")
     type_counts = Counter(c["Type"] for c in companies)
-    steps = how_to_import(Path(args.run_dir).name, out, notes, type_conflicts, lines[4:])
-    (out / "HOW_TO_IMPORT.md").write_text(steps, encoding="utf-8")
-    report = {"type_counts": dict(type_counts), "type_conflicts": type_conflicts, "notes": notes}
-    (Path(args.run_dir) / "import_mapping.md").write_text("\n".join(lines))
+    steps = how_to_import(Path(args.run_dir).name, out, notes, type_conflicts, tips)
+    for old in (out / "HOW_TO_IMPORT.md", Path(args.run_dir) / "import_mapping.md"):  # no .md files for the user
+        old.unlink(missing_ok=True)
+    report = {"type_counts": dict(type_counts), "type_conflicts": type_conflicts, "notes": notes,
+              "column_mapping": lines[4:]}
     (Path(args.run_dir) / "report_step4.json").write_text(json.dumps(report, indent=2))
     ws.snapshot_copy(args.run_dir, "04_import_ready")
-    print(f"upload files: {out / 'companies_upload.csv'}, {out / 'contacts_upload.csv'}; mapping: import_mapping.md")
-    print(f"UPLOAD INSTRUCTIONS: {out / 'HOW_TO_IMPORT.md'} — send it with the two files AND paste it in the chat.")
+    print(f"upload files: {out / 'companies_upload.csv'}, {out / 'contacts_upload.csv'} (send these two + the "
+          "excluded lists; the column mapping is in report_step4.json, not for the user)")
+    print(CHAT_START)
+    print(steps)
+    print(CHAT_END)
     print("Type:", dict(type_counts), f"| {len(type_conflicts)} existing records with a different Type")
     for n in notes:
         print(n)

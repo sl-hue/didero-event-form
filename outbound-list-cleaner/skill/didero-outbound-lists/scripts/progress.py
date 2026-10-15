@@ -102,7 +102,9 @@ RULES = """STANDING RULES (every step):
   done by the user.
 - When the user has to do something in HubSpot or Clay, OPEN the page in the browser window
   (Claude in Chrome / the built-in browser), don't just paste a link.
-- ZoomInfo calls: zi_workers.py + sub-agents started at once."""
+- ZoomInfo calls: zi_workers.py + sub-agents started at once.
+- Instructions and summaries go in the chat as formatted text, never in a file: never send the user
+  a .md file (hard to read, won't open in Notion). Send only CSVs and the HTML pages they work in."""
 def section(key):
     f, start = S[key]
     lines = (REF / f).read_text(encoding="utf-8").splitlines()

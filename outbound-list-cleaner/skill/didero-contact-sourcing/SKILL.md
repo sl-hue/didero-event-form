@@ -23,6 +23,10 @@ read-only.
 (see the script's help). Stop only if HubSpot or ZoomInfo isn't connected or
 the model isn't Opus 5.5 or newer.
 
+Instructions and summaries go in the chat as formatted text, never in a file:
+never send the user a `.md` file (hard to read, won't open in Notion). Send
+only CSVs and the HTML pages they work in.
+
 ## Steps
 
 **1. Collect the companies.** Ask for everything the user has (file, links,

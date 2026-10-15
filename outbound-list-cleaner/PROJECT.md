@@ -274,6 +274,13 @@ industry|sub-industry values (79 judgment calls, sent to the user for review)
 and LinkedIn names by keyword. HubSpot's default `industry` dropdown is no
 longer uploaded.
 
+**Instructions in the chat (2026-10-15):** users found the .md files hard to
+read (Notion opened its home page). `hubspot_import.py prepare` and
+`clay_guide.py` now print their steps for Claude to post in the chat (no
+HOW_TO_IMPORT.md / CLAY_STEPS.md / import_mapping.md); the import steps list
+only the "Don't overwrite" columns instead of the full mapping table (columns
+map themselves). Rule in SKILL.md / progress.py: never send a .md file.
+
 `skill/didero-contact-sourcing/`: the two event-company flows (no titles →
 ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact
 file for v2 (`tag-event` now writes Event Name into the export CSV).

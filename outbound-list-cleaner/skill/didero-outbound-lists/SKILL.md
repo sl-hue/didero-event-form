@@ -129,6 +129,10 @@ Reference pages (`progress.py next` prints the right sections):
   the import updates them.
 - **Excluded lists:** `excluded_contacts.csv` and `excluded_companies.csv`
   come with the upload files: same columns plus **Why Rejected**.
-- **Import step:** always send the two upload files, the two excluded lists, `HOW_TO_IMPORT.md` and
-  (with BDRs) `bdr_assignment.csv`, and paste the instructions in the chat.
-- **Clay step:** start with `scripts/clay_guide.py` and paste its output.
+- **Instructions and summaries go in the chat, never in a file.** Post them as formatted chat text
+  (the import steps, the Clay steps, the end-of-run summary). Never send the user a `.md` file — they
+  are hard to read and don't open in Notion. Files sent are only the CSVs (and HTML pages the user
+  works in).
+- **Import step:** send the two upload files, the two excluded lists and (with BDRs)
+  `bdr_assignment.csv`, and post the import steps that `hubspot_import.py prepare` prints in the chat.
+- **Clay step:** start with `scripts/clay_guide.py` and post its output in the chat.

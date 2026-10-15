@@ -418,16 +418,17 @@ you prepare them and walk them through it.
    - **any other value that isn't valid for its column** → that cell blank.
    Every fix is written to `decisions.md`; contacts with no name and
    companies with no website or domain are kept and listed. It also writes
-   `import_mapping.md`, `report_step4.json` and
-   **`upload/HOW_TO_IMPORT.md`** (click-by-click import steps + mapping).
+   `report_step4.json` (counts, Type conflicts, column mapping — for you, not
+   the user) and **prints the click-by-click import steps** between
+   `=== POST … ===` and `=== END ===`.
    It also writes **`upload/excluded_contacts.csv`** and
    **`upload/excluded_companies.csv`**: everyone left out along the way
    (screening, rows removed by a rule), in the same columns plus **Why
    Rejected** — for the record, not for import.
-   **Always** send the user the two upload files, the two excluded lists,
-   `HOW_TO_IMPORT.md` and (with
-   BDR owners) `bdr_assignment.csv`, paste `HOW_TO_IMPORT.md` in the chat, and
-   open the HubSpot import page in the browser. Never finish this step without
+   **Always** send the user the two upload files, the two excluded lists and
+   (with BDR owners) `bdr_assignment.csv`, **post the printed import steps in
+   the chat as formatted text** (never as a `.md` file), and open the HubSpot
+   import page in the browser. Never finish this step without
    giving the upload instructions. Then wait for the user to say it's imported.
 4. The instructions cover:
    - import the company file first, then the contact file;
@@ -519,7 +520,7 @@ HubSpot itself (that's Clay, not Claude) — no files are imported or exported.
 1. **First:** pick the template yourself — Europe if most contacts are in
    Europe, otherwise Americas / global — then run
    `python3 scripts/clay_guide.py --run-dir <run_dir> --list-type <path> --segment "<segment>"`
-   and paste its output as it is (both template links, copy and rename, the
+   and post its output in the chat as it is (both template links, copy and rename, the
    tabs, the button order), saying which template you picked and why. Open
    the template in the browser.
 2. **Tabs:** Tab 1 "ZoomInfo" only if the list was *not* built in ZoomInfo;
@@ -532,7 +533,7 @@ HubSpot itself (that's Clay, not Claude) — no files are imported or exported.
    **Update Object**; Import Objects tab → **Import Object** → **Mobile
    Phone** → **Update Object**. The user tells you when a column is done or
    shows an error; help with errors.
-4. **End of the run** when the user says Clay is done: post the summary —
+4. **End of the run** when the user says Clay is done: post the summary in the chat (formatted text, not a file) —
    what was decided along the way (`decisions.md`), rows removed and why,
    the HubSpot merge / association lists if any, the files delivered.
 
