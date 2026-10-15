@@ -380,9 +380,9 @@ you prepare them and walk them through it.
    `www.acme.com`, standard LinkedIn / ZoomInfo links, full country and
    US/Canada state names, digits-only numbers and IDs, HubSpot dropdown
    options, lowercase emails), then applies the rules for problems:
-   - **duplicate email** → the contact whose name matches the email more
-     closely (then the one with more data) stays; the other leaves the upload
-     (the same person twice → the rows are combined first);
+   - **duplicate email** → the email stays with the contact whose name
+     matches it more closely (then the one with more data); the other contact
+     stays, without the email (the same person twice → one row, combined);
    - **invalid email** → blanked only when it has no domain; otherwise kept;
    - **Sales Navigator links** → kept as they are;
    - **one website or HubSpot record on two companies** → one company (the

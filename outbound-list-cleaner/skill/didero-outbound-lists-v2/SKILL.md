@@ -112,7 +112,8 @@ Reference pages (`progress.py next` prints the right sections):
 - **Upload format before step 5, every run — checked and fixed by the
   skill itself, never a stop:** same columns in the same order, every value
   in the one format, websites and domains on both files. Duplicate email →
-  the contact whose name matches it more closely (then more data) stays;
+  it stays with the contact whose name matches it more closely (then more
+  data), the other contact stays without it;
   invalid email → blanked only if it has no domain; Sales Navigator links are
   fine; two companies with one website / HubSpot record → one company; any
   other invalid value → blank cell. Every fix goes in `decisions.md`.

@@ -10,8 +10,9 @@
      - websites and domains on both files: company domain from the website; contact email domain from
        the email, else the company's domain
      - invalid email: blanked only when it has no domain (no "@something.tld"); otherwise kept as it is
-     - duplicate email: the contact whose name matches the email more closely, then the one with more data,
-       is kept; the other leaves the upload (if it's the same person, its extra data fills the kept row first)
+     - duplicate email: the email stays with the contact whose name matches it more closely (then the one
+       with more data); the other contact stays, without the email. The same person twice -> one row,
+       combined
      - Sales Navigator links are fine (kept as they are)
      - any other value that isn't valid for its column -> that cell left blank
   3. report      counts printed; contacts with no name and companies with no website/domain listed
@@ -245,9 +246,11 @@ def resolve(contacts, companies, contact_cols, company_cols, options):
         if r.get("Additional Emails"):
             r["Additional Emails"] = ";".join(x.strip() for x in r["Additional Emails"].split(";")
                                               if HAS_DOMAIN.match(x.strip()))
-        if not r.get("Email Domain"):
-            em = r.get("Email Address") or ""
-            r["Email Domain"] = em.split("@")[1] if "@" in em else companies.get(r[COMPANY_ID], {}).get("Company Domain", "")
+        em = r.get("Email Address") or ""
+        if "@" in em:  # the email domain always follows the email
+            r["Email Domain"] = em.split("@")[1]
+        elif not r.get("Email Domain"):
+            r["Email Domain"] = companies.get(r[COMPANY_ID], {}).get("Company Domain", "")
     # duplicate emails: keep the closer name match, then more data
     by_email = {}
     for r in contacts:
@@ -261,14 +264,17 @@ def resolve(contacts, companies, contact_cols, company_cols, options):
         keeper = group[0]
         for other in group[1:]:
             same = who(other).lower() == who(keeper).lower()
-            if same:
+            if same:  # the same person twice: one row, with everything both rows had
                 for c, v in other.items():
                     if v and not keeper.get(c):
                         keeper[c] = v
-            dropped.add(id(other))
-            notes.append(f"email {e} on {who(keeper)} and {who(other)}: kept {who(keeper)} "
-                         f"({'same person, rows combined' if same else 'name matches the email more closely'}); "
-                         f"{'the duplicate row' if same else who(other)} left the upload")
+                dropped.add(id(other))
+                notes.append(f"email {e}: {who(keeper)} was on the list twice — rows combined")
+            else:  # two people: the email stays with the closer name; the other keeps everything but the email
+                other["Email Address"] = ""
+                other["Email Domain"] = companies.get(other.get(COMPANY_ID), {}).get("Company Domain", "")
+                notes.append(f"email {e} on {who(keeper)} and {who(other)}: the email stays with {who(keeper)} "
+                             f"(name matches it more closely); {who(other)} stays as a contact without an email")
     contacts = [r for r in contacts if id(r) not in dropped]
     # any other invalid value -> blank cell
     blanked = {}
