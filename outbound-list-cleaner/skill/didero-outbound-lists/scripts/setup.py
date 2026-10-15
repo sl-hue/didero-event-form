@@ -34,8 +34,8 @@ PRESETS = CONFIG.get("country_presets", {})
 PATH_OF = {"zoominfo": "zoominfo", "linkedin": "linkedin", "event-contacts": "contacts"}
 PATH_LABEL = {"zoominfo": "ZoomInfo export path (steps 1–6, no ZoomInfo calls)",
               "linkedin": "LinkedIn path (screening → ZoomInfo pull for contacts and companies → merge)",
-              "contacts": "named-contacts path (HubSpot + web for companies → screening → ZoomInfo search → "
-                          "enrich the matched people)"}
+              "contacts": "named-contacts path (HubSpot + web for companies → screening → ZoomInfo direct "
+                          "enrich, 10 people per call)"}
 SETUP = "run_setup.json"
 
 
