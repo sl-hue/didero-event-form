@@ -14,3 +14,6 @@ working here. Keep `PROJECT.md` current at the end of each session.
   - `skill/didero-contact-sourcing/` — company-only lists (exhibitors,
     sponsors): finds the contacts, hands the file to v2.
   - `skill/archive/didero-outbound-lists-v1/` — v1, kept for reference; don't develop it.
+- Claude Code finds the skills through links in the repo root's `.claude/skills/`
+  (`didero-outbound-lists`, `didero-contact-sourcing` → `outbound-list-cleaner/skill/…`).
+  Edit the real folders; the links follow.
