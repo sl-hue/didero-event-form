@@ -47,14 +47,21 @@ def tasks(run, job):
                         {"contacts": [x["query"] for x in batch], "requiredFields": p.get("required_fields", ENRICH_FIELDS)},
                         d / f"tenrich_{i}.json",
                         f"python3 {tl} enrich-ingest --run-dir {rd} --batch {i} --response {{resp}}"))
+    elif job.startswith("hs-event-"):  # HubSpot company lookup (read-only query_crm_data)
+        hc = shlex.quote(str(HERE / "hubspot_companies.py"))
+        n = job[-1]
+        for i, q in enumerate(json.loads((run / "hs" / f"plan_{n}.json").read_text())):
+            out.append((f"hs_event_{n}_{i}", "query_crm_data", {"sql": q, "verbosityLevel": "LOW"},
+                        run / "hs" / f"result_{n}_{i}.json",
+                        f"python3 {hc} ingest --run-dir {rd} --pass {n} --batch {i} --response {{resp}}"))
     return out
 
 
 HEAD = """# ZoomInfo worker {k} of {n} — {count} calls ({job})
 
 Do these calls one after another. For each one:
-1. Call the ZoomInfo connector tool named under "tool" with exactly the
-   arguments shown (as JSON).
+1. Call the connector tool named under "tool" (ZoomInfo, or HubSpot for
+   query_crm_data — read-only) with exactly the arguments shown (as JSON).
 2. Save the tool's result **exactly as returned** to the "save to" file with
    the Write tool. Don't reformat, shorten, summarise or re-read it.
 3. Run the "then run" command. It prints one line; keep it.
@@ -74,8 +81,8 @@ SEARCH_NOTE = """   If a search returns nothing, retry it once without "companyW
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run-dir", required=True)
-    ap.add_argument("--job", required=True, choices=["title-search", "title-enrich"])
-    ap.add_argument("--workers", type=int, default=4, help="sub-agents to run at the same time (default 4)")
+    ap.add_argument("--job", required=True, choices=["title-search", "title-enrich", "hs-event-1", "hs-event-2"])
+    ap.add_argument("--workers", type=int, default=6, help="sub-agents to run at the same time (default 6)")
     args = ap.parse_args()
     run = Path(args.run_dir).resolve()
     all_t = tasks(run, args.job)

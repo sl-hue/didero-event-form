@@ -102,15 +102,18 @@ def plan(args):
     if args.pass_ == 2:
         state = json.loads((d / "matches.json").read_text()) if (d / "matches.json").exists() else {}
         todo = [n for n in cos if not state.get(n, {}).get("id")]
-        conds = sorted({f"name LIKE {q('%' + main_word(n) + '%')}" for n in todo if main_word(n)})
+        words = sorted({main_word(n) for n in todo} - {""})
+        # LIKE can't be merged into an IN list; HubSpot refuses a WHERE with more than ~20 OR'ed conditions.
+        sqls = [f"SELECT {PROPS} FROM COMPANY WHERE " + " OR ".join(f"name LIKE {q('%' + w + '%')}" for w in words[i:i + 15])
+                + " LIMIT 500" for i in range(0, len(words), 15)]
     else:
-        conds = []
-        for n, e in cos.items():
-            conds.append(f"name = {q(n)}")
-            conds += [f"domain = {q(dm)}" for dm in sorted(e["domains"]) if dm]
-        conds = list(dict.fromkeys(conds))
-    sqls = [f"SELECT {PROPS} FROM COMPANY WHERE " + " OR ".join(conds[i:i + BATCH]) + " LIMIT 500"
-            for i in range(0, len(conds), BATCH)]
+        names = list(cos)
+        sqls = []
+        for i in range(0, len(names), BATCH):  # one name IN + one domain IN per query (2 conditions)
+            batch = names[i:i + BATCH]
+            doms = sorted({dm for n in batch for dm in cos[n]["domains"] if dm})
+            conds = [f"name IN ({', '.join(q(n) for n in batch)})"] + ([f"domain IN ({', '.join(q(x) for x in doms)})"] if doms else [])
+            sqls.append(f"SELECT {PROPS} FROM COMPANY WHERE " + " OR ".join(conds) + " LIMIT 500")
     (d / f"plan_{args.pass_}.json").write_text(json.dumps(sqls, indent=1, ensure_ascii=False))
     done = [i for i in range(len(sqls)) if (d / f"result_{args.pass_}_{i}.json").exists()]
     print(f"pass {args.pass_}: {len(sqls)} HubSpot queries for {len(cos)} companies -> hs/plan_{args.pass_}.json "

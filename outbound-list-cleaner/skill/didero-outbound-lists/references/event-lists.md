@@ -70,23 +70,23 @@ HubSpot already has most companies we meet at events, and one
 each one on the web. Read-only.
 
 1. `python3 scripts/hubspot_companies.py plan --run-dir <run_dir> --kind event`
-   → `hs/plan_1.json`: SQL queries (exact company name OR domain — website
-   and attendees' email domains — 40 conditions each, `LIMIT 500`).
-2. Run each query with the connector's `query_crm_data`
-   (`verbosityLevel: "LOW"`), save the raw result to a file and run
-   `hubspot_companies.py ingest --run-dir <run_dir> --pass 1 --batch <i> --response <file>`.
+   → `hs/plan_1.json`: SQL queries (one `name IN` + one `domain IN` —
+   website and attendees' email domains — ~40 companies each, `LIMIT 500`).
+2. Run them in parallel: `python3 scripts/zi_workers.py --run-dir <run_dir> --job hs-event-1`
+   and start the `hubspot-searcher` sub-agents it lists all at once (each runs
+   `query_crm_data`, saves and ingests its result, replies with one line).
 3. `hubspot_companies.py apply --run-dir <run_dir> --kind event` — matches by
    domain or same name (sure), writes website, HQ city / state / country,
    employees, revenue and **HubSpot Company Record ID** (source "HubSpot").
 4. If some aren't found: `plan --pass 2` (company name contains its main
-   word — catches "Orgill" for "Orgill Inc"), run + `ingest --pass 2`, then
-   `apply` again.
+   word — catches "Orgill" for "Orgill Inc"), `zi_workers.py ... --job hs-event-2`,
+   then `apply` again.
 5. **ASK lines** (similar names, or more than one record): decide yourself —
    the record whose domain matches the attendees' email domain or website;
    otherwise the one with the same city / country; otherwise none. Write
    `{"<company>": "<record id>" | "none"}` and re-run `apply --decisions <file>`.
 6. Report in one line: X of Y filled from HubSpot, Z go to web research.
 
-The rest of the flow (ZoomInfo search → pick → enrich, source priority,
+The rest of the flow (ZoomInfo direct enrich, source priority,
 cleaning, HubSpot) is in `references/zoominfo-lists.md`; `progress.py` gives
 the order.

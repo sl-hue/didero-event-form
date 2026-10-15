@@ -79,7 +79,7 @@ status` and `next`.
 |---|---|
 | zoominfo | 1 email domains · 2 normalization + cleaning · 3 HubSpot duplicates (read-only) · 4 BDR owners* · **5 import** · **6 segment + checks** · **7 Clay** |
 | linkedin | load · research + titles + countries → keep / exclude · hand-off · 1–2 · ZoomInfo pull · source per field · consistency · prune · 1–2 again · 3 · 4* · **5** · **6** · **7** |
-| contacts | load · website + HQ (HubSpot first) · screening + hand-off · 1–2 · ZoomInfo search → pick → enrich · source per field, consistency, prune · 1–2 again · Lead Source (events) · 3 · 4* · **5** · **6** · **7** |
+| contacts | load · website + HQ (HubSpot first) · screening + hand-off · 1–2 · ZoomInfo direct enrich (10 per call) · source per field, consistency, prune · 1–2 again · Lead Source (events) · 3 · 4* · **5** · **6** · **7** |
 
 \* only when the end state includes BDR owners. **Bold** = the user acts.
 ZoomInfo stages are skipped when credits weren't approved.

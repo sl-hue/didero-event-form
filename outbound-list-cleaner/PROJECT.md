@@ -237,6 +237,18 @@ each run (`hs_fields.py`; export refuses without it). Live check found:
 additional emails = `secondary_email`; contact email domain is HubSpot-set (not
 imported); no importable additional-domains property; LEAD SOURCE labels in caps.
 
+**Speed at the connector steps (2026-10-15):** step 3 reads HubSpot with bulk
+`query_crm_data` SQL (~25 companies per call as IN lists on domain / website /
+ZoomInfo ID / name / LinkedIn page; name LIKE pass only for companies not found;
+contacts by email / LinkedIn / company record IDs) instead of one search per
+company: 127 companies went from ~140 calls to ~6 (+ a few name calls). HubSpot
+refuses a WHERE with >20 OR'ed conditions — the plans stay ≤15 (the event-list
+lookup used 40 and would have failed; fixed in both skills). These SQL plans and
+the event lookup run through `zi_workers.py` (jobs hs-companies / hs-names /
+hs-contacts / hs-event-1/2) with parallel sub-agents, default 6; raw results stay
+out of the main chat. Named-contact lists: ZoomInfo direct enrich, 10 per call
+(no per-person search → pick), `attach` judges the matches.
+
 `skill/didero-contact-sourcing/`: the two event-company flows (no titles →
 ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact
 file for v2 (`tag-event` now writes Event Name into the export CSV).

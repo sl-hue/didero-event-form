@@ -106,17 +106,23 @@ app token already set up on this device), the token commands may be used
 instead — never ask for a token, never set one up during a run. **Claude
 never writes to HubSpot.**
 
-### Connector mode: running searches and saving results
+### Connector mode: bulk SQL, in parallel
 
-Wherever a step says `run-plan` (token mode), in connector mode the
-`hubspot-searcher` sub-agent instead runs each search in the plan file with
-`search_crm_objects` (objectType, properties, limit, filterGroups or query as
-given; `chatInsights` is required; page with `offset` when `total` exceeds
-the results). For each result, save it to a file — when the host has already
-saved a large result to a file, use that path — and run
+Step 3 reads HubSpot with a few bulk `query_crm_data` calls, never one search
+per company or contact: each SQL query checks ~25 companies at once (domain,
+website, ZoomInfo ID, exact name and LinkedIn page as `IN` lists). The plans are
+written by `hubspot_match.py` (`company_sql_plan.json`,
+`company_sql_names.json`, `contact_sql_plan.json`). Run them with
+`python3 scripts/zi_workers.py --run-dir <run_dir> --job hs-companies|hs-names|hs-contacts`
+and start the `hubspot-searcher` sub-agents it lists **all at once**; each
+runs its query, saves the result and ingests it, and replies with one line.
+Raw results never come into the main chat. Re-run `zi_workers.py` afterwards:
+it lists any call still missing. (HubSpot refuses a query with more than ~20
+OR'ed conditions — the plans stay under that; don't hand-write longer ones.)
+Other plans (`*_search_plan.json`, e.g. the post-import duplicate check) run
+with `search_crm_objects` as given (`chatInsights` is required; page with
+`offset` when `total` exceeds the results); save each result and run
 `python3 scripts/hubspot_match.py ingest --response <file> --raw-dir <raw dir>`.
-`ingest` also accepts `query_crm_data` results (call the connector's
-`tool_guidance` for `query_crm_data` once before the first query).
 
 ## Step 1 — Email domain cleaning
 
@@ -267,12 +273,14 @@ and real duplicates go on a list the user merges later (shown at step 6).
 Companies first, then contacts. `S=scripts/hubspot_match.py`.
 
 **Companies**
-1. `python3 $S plan-companies --run-dir <run_dir>`
-   writes `company_search_plan.json`.
-2. **`hubspot-searcher`:** run the plan into `<run_dir>/hs_companies`.
-   Connector mode: run each search with the connector and `ingest` each
-   result (see "Connector mode" above). Token mode:
-   `python3 $S run-plan --plan <run_dir>/company_search_plan.json --raw-dir <run_dir>/hs_companies`.
+1. `python3 $S plan-companies --run-dir <run_dir>` writes
+   `company_sql_plan.json` (~1 call per 25 companies).
+2. **`hubspot-searcher`, in parallel:** `python3 scripts/zi_workers.py --run-dir <run_dir> --job hs-companies`
+   (see "Connector mode" above) → `<run_dir>/hs_companies`. Then
+   `python3 $S match-companies --run-dir <run_dir> --raw-dir <run_dir>/hs_companies`,
+   `python3 $S plan-companies --run-dir <run_dir> --names` (name search, only
+   for the companies not found yet) and `zi_workers.py ... --job hs-names`.
+   Token mode instead: `python3 $S run-plan --plan <run_dir>/company_search_plan.json --raw-dir <run_dir>/hs_companies`.
 3. `python3 $S match-companies --run-dir <run_dir> --raw-dir <run_dir>/hs_companies`
    writes `company_matches.json` (per company: candidates with HubSpot URL,
    strength, reasons, domain, location, employees, revenue, contacts).
@@ -300,14 +308,13 @@ Companies first, then contacts. `S=scripts/hubspot_match.py`.
    This writes `HubSpot Company Record ID` on every row of each company.
 
 **Contacts** — same loop:
-1. `python3 $S plan-contacts --run-dir <run_dir>`
-   (LinkedIn URL on `lgm_linkedinurl`, email, last name, and everyone
-   associated with the list's HubSpot companies).
-2. **`hubspot-searcher`:** run `contact_search_plan.json` into
-   `<run_dir>/hs_contacts` (connector: search + `ingest`; token: `run-plan`).
-   In connector mode, skip the last-name searches for contacts that already
-   matched on LinkedIn URL or email — common surnames return hundreds of
-   unrelated contacts.
+1. `python3 $S plan-contacts --run-dir <run_dir>` writes
+   `contact_sql_plan.json`: emails, LinkedIn URLs (`lgm_linkedinurl`) and
+   everyone already at the list's HubSpot companies (run it after
+   apply-companies so those record IDs are known).
+2. **`hubspot-searcher`, in parallel:** `zi_workers.py --run-dir <run_dir> --job hs-contacts`
+   → `<run_dir>/hs_contacts`. Token mode: `run-plan` on
+   `contact_search_plan.json`.
 3. `python3 $S match-contacts --run-dir <run_dir> --raw-dir <run_dir>/hs_contacts`
 4. **Same person, different company.** A candidate with strength `review`
    matched on LinkedIn URL or email, but HubSpot has the person at a
@@ -523,16 +530,17 @@ HubSpot itself (that's Clay, not Claude) — no files are imported or exported.
 
 ## Running ZoomInfo calls (all ZoomInfo stages)
 
-Every ZoomInfo stage (enrich, event-list search, title search, title enrich)
-runs through `scripts/zi_workers.py`. It splits the calls still to do between
-sub-agents (default 4) and writes one brief per sub-agent in `zi/workers/`.
+Every ZoomInfo stage (enrich, title search, title enrich) and the step-3
+HubSpot reads run through `scripts/zi_workers.py`. It splits the calls still
+to do between sub-agents (default 6) and writes one brief per sub-agent in
+`zi/workers/`.
 Start them **in one message**, so they run at the same time, each as
 `zoominfo-puller` with the one-line brief the script prints. Each sub-agent
 calls ZoomInfo, saves the raw result as returned, runs the ingest command and
 replies with one line per call. Raw results never come into the main chat.
 If the host has no sub-agents, work through the brief files yourself, in
 order, without commenting between calls. Tell the user before starting:
-"Running N ZoomInfo calls with 4 helpers in parallel."
+"Running N ZoomInfo calls with 6 helpers in parallel."
 
 ## LinkedIn lists: ZoomInfo pull, source priority, consistency, prune
 
@@ -608,26 +616,22 @@ everything else. Then steps 3–7.
 
 Only for the named-contacts path (`references/event-lists.md`: attendee lists
 and other lists with names and companies but no ZoomInfo / LinkedIn data).
-They have no LinkedIn URL to match on, so ZoomInfo is searched first (free)
-and only the matched people are enriched. Company HQ already came from
+They're enriched **directly**, 10 people per call, matched on name + company
++ email — no per-person search first (that was one call per person and the
+slowest part of these runs). `attach` then checks every match (same person,
+same company) exactly as for LinkedIn lists. Company HQ already came from
 HubSpot / web research, so **no company enrichment**. Skipped when ZoomInfo
 wasn't approved at the start. No stops.
 
 **ZoomInfo** (`zoominfo-puller`)
-1. `python3 scripts/zoominfo_merge.py search-plan --run-dir <run_dir>` → one
-   `search_contacts` per person (name + company + company website; no credits).
-   Run them in parallel: `zi_workers.py --run-dir <run_dir> --job search` and
-   start the sub-agents it lists all at once (see "Running ZoomInfo calls").
-2. `zoominfo_merge.py pick --run-dir <run_dir>`: a candidate with the same name
-   at the same company is picked; for each **REVIEW** line decide yourself
-   (same person: nickname / initial and same company or email domain → pick;
-   otherwise none), write `{"<row>": "<personId>|none"}` and re-run
-   `pick --decisions <file>`. Note the calls in `decisions.md`.
-3. `zoominfo_merge.py plan --run-dir <run_dir> --from-picks --no-companies`
-   (within the credit cap from the start), then
-   `zi_workers.py --run-dir <run_dir> --job enrich` (sub-agents, in parallel)
-   and `attach` exactly as in stage 7 above. People ZoomInfo couldn't match
-   keep the list's own data (no LinkedIn URL search).
+1. `python3 scripts/zoominfo_merge.py plan --run-dir <run_dir> --no-companies`
+   (within the credit cap from the start; ~1 call per 10 people).
+2. `zi_workers.py --run-dir <run_dir> --job enrich` and start the sub-agents
+   it lists all at once (see "Running ZoomInfo calls").
+3. `zoominfo_merge.py attach --run-dir <run_dir>` and decide the **review**
+   matches exactly as in stage 7 above (nickname / initial at the same company
+   → good; otherwise none). People ZoomInfo couldn't match keep the list's own
+   data.
 
 **Job titles on named-contact lists:** these titles vary in quality, so in
 stage 8 ZoomInfo's title is used **only when it's the same job** as the list's

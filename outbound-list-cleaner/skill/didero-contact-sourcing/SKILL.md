@@ -36,11 +36,12 @@ It says how many companies go to **branch A** (no titles) and **branch B**
 
 **2. HubSpot first, then web research.**
 1. `python3 scripts/hubspot_companies.py plan --run-dir <run_dir> --kind companies`
-   → `hs/plan_1.json` (exact name OR domain, 40 conditions per query, `LIMIT 500`).
-   Run each with the connector's `query_crm_data` (`verbosityLevel: "LOW"`),
-   save the raw result, `hubspot_companies.py ingest --run-dir <run_dir> --pass 1 --batch <i> --response <file>`.
+   → `hs/plan_1.json` (one `name IN` + one `domain IN` per query, ~40
+   companies each). Run them in parallel: `python3 scripts/zi_workers.py --run-dir <run_dir> --job hs-event-1`
+   and start the sub-agents it lists all at once (each runs `query_crm_data`,
+   saves and ingests its result, and replies with one line).
 2. `hubspot_companies.py apply --run-dir <run_dir> --kind companies`. Not found:
-   `plan --pass 2` (name contains its main word), run, ingest, apply again.
+   `plan --pass 2` (name contains its main word), `zi_workers.py ... --job hs-event-2`, apply again.
    ASK lines (similar names, several records): ask the user which record (or
    none) → `apply --decisions <file>`.
 3. `company-researcher` (subagent) for the rest: `company_list.py plan --run-dir <run_dir>`

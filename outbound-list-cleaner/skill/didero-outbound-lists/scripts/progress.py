@@ -86,7 +86,7 @@ FLOWS = {
                  ("ev3", "Company website + HQ: HubSpot first, then web research", ["ev3", "evhs"]),
                  ("ev4", "Screening (countries, titles) and hand-off", ["ev4", "sc3", "sc4", "sc7"]),
                  ("z1a", "Steps 1–2 (email domains, normalization + cleaning)", ["z1", "z2"]),
-                 ("evzi", "ZoomInfo: free search → pick → enrich (parallel)", ["evzi", "zirun", "evtitle"]),
+                 ("evzi", "ZoomInfo: direct enrich, 10 per call (parallel)", ["evzi", "zirun", "evtitle"]),
                  ("st8", "Source per field, consistency, prune", ["st8", "st9", "st10"])] + SECOND + DUPES,
 }
 RULES = """STANDING RULES (every step):

@@ -108,7 +108,7 @@ into the build chat so the skill can be fixed.
 - [ ] event.csv has first / last / title / company; screenshot people merged without duplicates; gaps listed.
 - [ ] Websites then HQ found by web research; low-confidence ones shown to you.
 - [ ] Company + contact review page (no contact geography), cleaning, hand-off.
-- [ ] ZoomInfo: free searches, picks shown, unclear ones asked, max credits = picked people only; no company credits.
+- [ ] ZoomInfo: direct enrich, 10 people per call (no per-person search); review matches decided by Claude; no company credits.
 - [ ] LinkedIn finder page next to the Cowork browser: search opens in one tab, paste URL, Enter; Can't find works; code → preview → OK.
 - [ ] HubSpot import maps Event Name to the event property you choose.
 

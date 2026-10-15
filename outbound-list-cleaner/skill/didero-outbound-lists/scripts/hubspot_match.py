@@ -74,7 +74,7 @@ CHUNK = 100
 
 COMPANY_PROPERTIES = [
     "name", "domain", "website", "city", "state", "country", "location", "zoominfo_company_id",
-    "linkedin_company_page", "numberofemployees", "annualrevenue", "industry",
+    "linkedin_company_page", "numberofemployees", "annualrevenue",
     "num_associated_contacts", "type", "createdate",
 ]
 CONTACT_PROPERTIES = [
@@ -537,12 +537,93 @@ def plan_companies(args):
                 + in_searches("COMPANY", "website", websites, COMPANY_PROPERTIES)
                 + in_searches("COMPANY", "zoominfo_company_id", zi_ids, COMPANY_PROPERTIES)
                 + in_searches("COMPANY", "linkedin_company_page", linkedin, COMPANY_PROPERTIES))
-    # Free-text name search per company catches duplicates filed under another domain.
+    # Free-text name search per company catches duplicates filed under another domain (token mode: fast API).
     for c in companies:
         query = norm_company_name(c["Company Name"]) or c["Company Name"]
         searches.append({"objectType": "COMPANY", "query": query[:200], "properties": COMPANY_PROPERTIES,
                          "limit": 20, "for": c[COMPANY_ID]})
     write_plan(args.run_dir, "company_search_plan.json", searches)
+    # Connector mode: bulk SQL. Pass 1 = keys + exact names for every company; pass 2 = name search, only
+    # for companies pass 1 didn't find (--names, after ingest + match-companies).
+    if getattr(args, "names", False):
+        found = set()
+        mf = Path(args.run_dir) / "company_matches.json"
+        if mf.exists():
+            found = {m[COMPANY_ID] for m in json.loads(mf.read_text()) if m.get("candidates")}
+        todo = [c for c in companies if c[COMPANY_ID] not in found]
+        plan = company_sql(todo, names_only=True)
+        name = "company_sql_names.json"
+    else:
+        plan, name = company_sql(companies), "company_sql_plan.json"
+    (Path(args.run_dir) / name).write_text(json.dumps(plan, indent=0, ensure_ascii=False))
+    print(f"connector mode: {len(plan)} query_crm_data calls -> {name}" +
+          ("" if getattr(args, "names", False) else
+           " (then match-companies, then plan-companies --names for the ones not found)"))
+
+
+# ---------------------------------------------------------------- connector mode: bulk SQL
+# One query_crm_data call checks ~25 companies at once: domains, websites, ZoomInfo IDs, exact names and
+# LinkedIn pages (every URL form HubSpot stores), each as one IN list, OR'ed together. The connector refuses
+# a WHERE with more than ~20 OR'ed conditions ("too deeply nested"), so IN lists are used wherever possible
+# and LIKE groups are capped at MAX_OR. Name searches run only for companies the keys didn't find (pass 2).
+# ~6 calls for 130 companies instead of ~140 searches.
+SQL_BATCH = 25
+MAX_OR = 15
+
+
+def q(v):
+    return "'" + str(v).replace("'", "''") + "'"
+
+
+def sql(obj, cols, conds):
+    assert len(conds) <= MAX_OR, "too many OR'ed conditions for the connector"
+    return f"SELECT {', '.join(['hs_object_id'] + cols)} FROM {obj} WHERE " + " OR ".join(conds) + " LIMIT 500"
+
+
+def linkedin_forms(slug, kind):
+    """The URL forms HubSpot holds for one LinkedIn page (http/https, www or not; seen live 2026-10-15)."""
+    return [f"{p}{w}linkedin.com/{kind}/{slug}" for p in ("https://", "http://") for w in ("www.", "")]
+
+
+# Also too common to search a name by (a LIKE on them returns hundreds of unrelated companies).
+SEARCH_COMMON = GENERIC_WORDS | {
+    "american", "national", "united", "general", "advance", "advanced", "automotive", "aerospace", "energy",
+    "foods", "food", "medical", "health", "healthcare", "technologies", "technology", "tech", "brothers",
+    "company", "companies", "corporation", "north", "south", "east", "west", "pacific", "atlantic", "midwest",
+    "precision", "engineering", "electric", "electronics", "industrial", "packaging", "plastics", "metals",
+    "steel", "chemical", "chemicals", "pharma", "pharmaceuticals", "capital", "home", "homes", "farms",
+    "dairy", "beauty", "brands", "logistics", "power", "water", "machine", "machinery", "tools", "parts",
+    "auto", "city", "climate", "cold", "construction", "label", "lake", "makers", "medicines", "motor", "motors",
+    "produce", "resources", "scientific", "subsidiaries", "view", "white", "bird", "fire", "protection"}
+
+
+def core_word(name):
+    """The name's most distinctive word for a LIKE search ("" if it has none: found by domain or not at all)."""
+    words = [w for w in norm_company_name(name).split() if w not in SEARCH_COMMON and len(w) >= 4]
+    return max(words, key=len) if words else ""
+
+
+def company_sql(companies, names_only=False):
+    out = []
+    if names_only:
+        words = sorted({core_word(c["Company Name"]) for c in companies} - {""})
+        return [sql("COMPANY", COMPANY_PROPERTIES, [f"name LIKE {q('%' + w + '%')}" for w in words[i:i + MAX_OR]])
+                for i in range(0, len(words), MAX_OR)]
+    for i in range(0, len(companies), SQL_BATCH):
+        batch = companies[i:i + SQL_BATCH]
+        domains = sorted({d.lower() for c in batch for d in company_domains(c) + [norm_domain(c.get("Website"))] if d})
+        sites = sorted({x for c in batch if norm_domain(c.get("Website"))
+                        for x in (lambda d: (d, "www." + d, "https://www." + d))(norm_domain(c.get("Website")))})
+        zi = sorted({c.get(COMPANY_ID, "") for c in batch if str(c.get(COMPANY_ID, "")).isdigit()})
+        names = sorted({c["Company Name"] for c in batch if c.get("Company Name")})
+        li = sorted({u for c in batch if linkedin_slug(c.get("LinkedIn Company Profile URL"), "company")
+                     for u in linkedin_forms(linkedin_slug(c.get("LinkedIn Company Profile URL"), "company"), "company")})
+        conds = [f"{prop} IN ({', '.join(q(v) for v in vals)})"
+                 for prop, vals in (("domain", domains), ("website", sites), ("zoominfo_company_id", zi),
+                                    ("name", names), ("linkedin_company_page", li)) if vals]
+        if conds:
+            out.append(sql("COMPANY", COMPANY_PROPERTIES, conds))
+    return out
 
 
 def write_plan(out_dir, name, searches):
@@ -658,6 +739,16 @@ def plan_contacts(args):
                                                                "objectIdValues": [int(i) for i in chunk]}]}],
                          "note": "page through with offset until all results are saved"})
     write_plan(args.run_dir, "contact_search_plan.json", searches)
+    # Connector mode: bulk SQL — emails, LinkedIn slugs, and everyone already at the list's HubSpot companies
+    # (that last one replaces the noisy last-name search).
+    cols = [c for c in CONTACT_PROPERTIES]
+    slugs = sorted({linkedin_slug(r.get("LinkedIn Contact Profile URL"), "in") for r in contacts} - {"", None})
+    plan = [sql("CONTACT", cols, [f"email IN ({', '.join(q(e) for e in chunk)})"]) for chunk in chunks(sorted(set(emails)))]
+    plan += [sql("CONTACT", cols, [f"{HUBSPOT_LINKEDIN} IN ({', '.join(q(u) for s_ in slugs[i:i + 25] for u in linkedin_forms(s_, 'in'))})"])
+             for i in range(0, len(slugs), 25)]
+    plan += [sql("CONTACT", cols, [f"associatedcompanyid IN ({', '.join(q(x) for x in chunk)})"]) for chunk in chunks(record_ids)]
+    (Path(args.run_dir) / "contact_sql_plan.json").write_text(json.dumps(plan, indent=0, ensure_ascii=False))
+    print(f"connector mode: {len(plan)} query_crm_data calls -> contact_sql_plan.json")
 
 
 def match_contacts(args):
@@ -771,7 +862,10 @@ def main():
     ing.set_defaults(func=ingest)
     add("check-token", check_token)
     add("run-plan", run_plan, "plan", "raw-dir")
-    add("plan-companies", plan_companies, "run-dir")
+    pc = sub.add_parser("plan-companies")
+    pc.add_argument("--run-dir", required=True)
+    pc.add_argument("--names", action="store_true", help="connector mode pass 2: name search for companies not found yet")
+    pc.set_defaults(func=plan_companies)
     add("match-companies", match_companies, "run-dir", "raw-dir")
     add("apply-companies", apply_companies, "run-dir", "decisions")
     add("plan-contacts", plan_contacts, "run-dir")
