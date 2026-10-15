@@ -373,18 +373,26 @@ you prepare them and walk them through it.
    `python3 scripts/hubspot_import.py prepare --run-dir <run_dir> --raw-dir <run_dir>/hs_companies --type Prospect`.
    It sets Type on the working file and exports the two import-ready upload
    files into `<run_dir>/upload/` (blank Record ID = create a new record).
-   **Format check, every run:** the export always writes the same columns in
-   the same order (blank where the source had none), puts every value in the
-   one format (`scripts/upload_format.py`: phones `(312) 555-0142`, websites
+   **Format, every run — the skill checks and fixes it itself, nothing stops:**
+   the export always writes the same columns in the same order (blank where
+   the source had none), puts every value in the one format
+   (`scripts/upload_format.py`: phones `(312) 555-0142`, websites
    `www.acme.com`, standard LinkedIn / ZoomInfo links, full country and
    US/Canada state names, digits-only numbers and IDs, HubSpot dropdown
-   options, lowercase emails) and checks both files: unique emails, every
-   contact's company in the company file, no website or HubSpot record on two
-   companies, valid emails and links. **Any error → no files are written**:
-   fix each one in the working file by the step rules (`worksheet.py set` /
-   `remove`, noted in `decisions.md`) and run prepare again. Result:
-   `upload/format_report.json`; show its one-line result. The import step
-   can't be marked done without a passed report. It also writes
+   options, lowercase emails), then applies the rules for problems:
+   - **duplicate email** → the contact whose name matches the email more
+     closely (then the one with more data) stays; the other leaves the upload
+     (the same person twice → the rows are combined first);
+   - **invalid email** → blanked only when it has no domain; otherwise kept;
+   - **Sales Navigator links** → kept as they are;
+   - **one website or HubSpot record on two companies** → one company (the
+     one with more contacts; HubSpot would treat them as one anyway);
+   - every contact gets its company's name and website; the company domain
+     comes from the website, the contact's email domain from the email (else
+     the company's domain);
+   - **any other value that isn't valid for its column** → that cell blank.
+   Every fix is written to `decisions.md`; contacts with no name and
+   companies with no website or domain are kept and listed. It also writes
    `import_mapping.md`, `report_step4.json` and
    **`upload/HOW_TO_IMPORT.md`** (click-by-click import steps + mapping).
    **Always** send the user the two upload files, `HOW_TO_IMPORT.md` and (with

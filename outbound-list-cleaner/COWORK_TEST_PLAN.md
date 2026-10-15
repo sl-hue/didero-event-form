@@ -137,4 +137,5 @@ into the build chat so the skill can be fixed.
 - [ ] `decisions.md` lists Claude's judgment calls; the end summary shows them.
 - [ ] An exhibitor list is sent to didero-contact-sourcing, which hands a contact file back to v2.
 - [ ] Two people running the same list get identical upload files (same columns, same formats; Website + domains on both files).
-- [ ] A messy value (phone, website, state) is fixed; a real problem (duplicate email, missing website) stops the export with the row named.
+- [ ] Messy values are fixed and problems resolved by the rules (duplicate email, no-domain email, invalid cells blanked), each listed in decisions.md; nothing stops the run.
+- [ ] `progress.py done` refuses a step whose script didn't run.

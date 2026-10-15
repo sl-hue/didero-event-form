@@ -1,28 +1,32 @@
-"""The upload files' one format — normalized and checked before step 5, so every run (whoever runs it)
-produces the same files.
+"""The upload files' one format — the skill checks and fixes it itself before step 5, so every run
+(whoever runs it) produces the same files. Nothing here stops the run: every problem has a rule.
 
-Different runs gave different files: columns depended on the source, and values on how each run
-formatted them. Now `worksheet.py export` always writes the same columns in the same order, puts every
-value into the format below (safe, mechanical fixes only), then checks both files. Any error stops the
-export (no upload files are written); warnings are listed. The result is saved as
-upload/format_report.json, and the import step can't be marked done without a passed report.
+`worksheet.py export` always writes the same columns in the same order, then:
+  1. normalize   safe, mechanical formatting (below)
+  2. resolve     the rules for problems, each one logged in <run_dir>/decisions.md:
+     - same website or same HubSpot record on two companies -> one company (HubSpot treats them as one):
+       the one with more contacts (then more data) is kept, the other's contacts move to it
+     - every contact's company name and website come from its company row
+     - websites and domains on both files: company domain from the website; contact email domain from
+       the email, else the company's domain
+     - invalid email: blanked only when it has no domain (no "@something.tld"); otherwise kept as it is
+     - duplicate email: the contact whose name matches the email more closely, then the one with more data,
+       is kept; the other leaves the upload (if it's the same person, its extra data fills the kept row first)
+     - Sales Navigator links are fine (kept as they are)
+     - any other value that isn't valid for its column -> that cell left blank
+  3. report      counts printed; contacts with no name and companies with no website/domain listed
 
 The format (from the hand-cleaned CBM M&A files and Didero's HubSpot properties):
-  names .................. no stray spaces; first letter capital
-  email .................. lowercase, valid address; unique across the contact file
-  email domain ........... lowercase domain
-  phones ................. US / Canada "(312) 555-0142" (+ " ext. 12"); others "+<country code> …"
-  website ................ "www.acme.com" — no https://, no path (subdomains other than www kept)
-  LinkedIn ............... https://www.linkedin.com/in/<slug>  ·  https://www.linkedin.com/company/<slug>
-  ZoomInfo ............... https://app.zoominfo.com/#/apps/profile/person/<id>  ·  …/company/<id>
-  country ................ full name ("United States", "United Kingdom")
-  state .................. full name for the US and Canada ("Illinois", "Ontario")
-  numbers ................ digits only (revenue in USD, employees, founded year, SIC / NAICS)
-  record / owner IDs ..... digits or blank
-  dropdowns .............. HubSpot's options (Type, Employee range, industries, Lead Source = Events)
-  websites + domains ..... always on both files: Website and Email Domain on every contact (the
-                           company's website), Website and Company Domain on every company
-  every contact's company is a row of the company file
+  names .......... no stray spaces; ALL CAPS / all lower -> Capitalized
+  email .......... lowercase
+  phones ......... US / Canada "(312) 555-0142" (+ " ext. 12"); others "+<country code> …"
+  website ........ "www.acme.com" — no https://, no path (subdomains other than www kept)
+  LinkedIn ....... https://www.linkedin.com/in/<slug> · /company/<slug> (Sales Navigator links kept)
+  ZoomInfo ....... https://app.zoominfo.com/#/apps/profile/person/<id> · …/company/<id>
+  country ........ full name ("United States", "United Kingdom")
+  state .......... full name for the US and Canada ("Illinois", "Ontario")
+  numbers / IDs .. digits only
+  dropdowns ...... HubSpot's options (Type, Employee range, industries, Lead Source = Events)
 """
 import re
 
@@ -30,10 +34,11 @@ from location import CA_PROVINCE_CODES, US_STATE_CODES
 
 PLACEHOLDERS = {"nan", "none", "null", "n/a", "na", "-", "--", "not in hubspot", "#n/a", "undefined"}
 TYPE_OPTIONS = {"Prospect", "Partner", "Reseller", "Vendor", "Other", "Customer", "Manually Reviewed, Not Propsect"}
-EMAIL = re.compile(r"^[a-z0-9._%+'-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$")
+HAS_DOMAIN = re.compile(r"^[^@\s]+@[^@\s]+\.[a-z]{2,}$", re.I)
 DIGITS = re.compile(r"^\d+$")
-LI_IN = re.compile(r"^https://www\.linkedin\.com/in/[^/?#\s]+$")
-LI_CO = re.compile(r"^https://www\.linkedin\.com/company/[^/?#\s]+$")
+DOMAIN = re.compile(r"^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$")
+LI_IN = re.compile(r"^https://www\.linkedin\.com/(in|sales/lead|sales/people)/\S+$")
+LI_CO = re.compile(r"^https://www\.linkedin\.com/(company|sales/company)/\S+$")
 ZI_P = re.compile(r"^https://app\.zoominfo\.com/#/apps/profile/person/-?\d+$")
 ZI_C = re.compile(r"^https://app\.zoominfo\.com/#/apps/profile/company/-?\d+$")
 STATES = {**{k.lower(): v for k, v in US_STATE_CODES.items()}, **{v.lower(): v for v in US_STATE_CODES.values()},
@@ -47,13 +52,14 @@ COUNTRY_FIX = {"us": "United States", "usa": "United States", "u.s.": "United St
                "gb": "United Kingdom", "ca": "Canada", "uae": "United Arab Emirates", "the netherlands": "Netherlands",
                "holland": "Netherlands", "republic of ireland": "Ireland", "korea": "South Korea"}
 TWO_LEVEL = re.compile(r"\.(co|com|org|net|ac|gov)\.[a-z]{2}$")
-
 PHONE_COLS = {"Direct Phone Number", "Mobile phone", "Company HQ Phone"}
 NUMBER_COLS = {"Revenue (in USD)", "Employees", "Founded Year", "SIC Code 1", "SIC Code 2", "NAICS Code 1", "NAICS Code 2"}
 ID_COLS = {"HubSpot Contact Record ID", "HubSpot Company Record ID", "Contact Owner", "Company Owner"}
 STATE_COUNTRY = {"Person State": "Country", "Company State": "Company Country"}
+COMPANY_ID = "ZoomInfo Company ID"
 
 
+# ---------- 1. normalize ----------
 def phone(v):
     """US / Canada -> (312) 555-0142 [ext. 12]; +<code> numbers kept; anything else unchanged."""
     m = re.match(r"^(.*?)(?:\s*(?:x|ext\.?|extension)\s*(\d+))?$", v.strip(), re.I)
@@ -70,16 +76,16 @@ def phone(v):
 
 def website(v):
     h = re.sub(r"^[a-z]+://", "", v.strip().lower()).split("/")[0].split("?")[0].split("#")[0].strip(".")
-    if not h:
-        return ""
-    if not h.startswith("www.") and (h.count(".") == 1 or (h.count(".") == 2 and TWO_LEVEL.search(h))):
+    if h and not h.startswith("www.") and (h.count(".") == 1 or (h.count(".") == 2 and TWO_LEVEL.search(h))):
         h = "www." + h
     return h
 
 
 def linkedin(v, kind):
     m = re.search(rf"linkedin\.com/{kind}/([^/?#\s]+)", v, re.I)
-    return f"https://www.linkedin.com/{kind}/{m.group(1).rstrip('/')}" if m else v.strip()
+    if m:
+        return f"https://www.linkedin.com/{kind}/{m.group(1).rstrip('/')}"
+    return re.sub(r"^(https?://)?(www\.)?linkedin\.com", "https://www.linkedin.com", v.strip(), flags=re.I)
 
 
 def zoominfo(v, kind):
@@ -94,12 +100,11 @@ def name_case(v):
 
 
 def normalize(rows, cols):
-    """Safe, mechanical fixes on the rows going into an upload file. Returns {column: n changed}."""
+    """Safe formatting on the rows going into an upload file. Returns {column: n changed}."""
     changed = {}
     for r in rows:
         for c in cols:
-            v = r.get(c)
-            v = "" if v is None else str(v)
+            v = "" if r.get(c) is None else str(r.get(c))
             new = re.sub(r"\s+", " ", v).strip()
             if new.lower() in PLACEHOLDERS:
                 new = ""
@@ -130,7 +135,7 @@ def normalize(rows, cols):
             r[c] = new
             if new != v:
                 changed[c] = changed.get(c, 0) + 1
-    for r in rows:  # state names, once the country is settled
+    for r in rows:
         for sc, cc in STATE_COUNTRY.items():
             if sc in cols and r.get(sc) and (r.get(cc) in NORTH_AMERICA or not r.get(cc)):
                 full = STATES.get(r[sc].lower().strip("."))
@@ -140,109 +145,157 @@ def normalize(rows, cols):
     return changed
 
 
-def fill_links(contacts, companies):
-    """Websites and domains on both files (a run once shipped files without them): the company's domain
-    from its website; each contact's Website from its company; Email Domain from the email, else the
-    company's domain. Returns {what: n filled}."""
-    filled = {}
-    bump = lambda k: filled.__setitem__(k, filled.get(k, 0) + 1)
-    by_name = {}
-    for k in companies:
+# ---------- 2. resolve ----------
+def filled(r):
+    return sum(1 for v in r.values() if v)
+
+
+def name_score(email, first, last):
+    """How closely the email's local part matches the person's name (3 = first + last)."""
+    loc = re.sub(r"[^a-z]", "", (email or "").split("@")[0].lower())
+    f, l = re.sub(r"[^a-z]", "", (first or "").lower()), re.sub(r"[^a-z]", "", (last or "").lower())
+    if f and l and f in loc and l in loc:
+        return 3
+    if f and l and (loc.startswith(f[0] + l) or loc.startswith(f + l[0])):
+        return 2
+    if (l and l in loc) or (f and len(f) > 2 and f in loc):
+        return 1
+    return 0
+
+
+def valid(col, v):
+    if not v:
+        return True
+    if col in NUMBER_COLS | ID_COLS:
+        return bool(DIGITS.match(v))
+    if col in PHONE_COLS:
+        return bool(re.match(r"^\(\d{3}\) \d{3}-\d{4}( ext\. \d+)?$", v)) or (
+            v.startswith("+") and len(re.sub(r"\D", "", v)) >= 7)
+    if col in ("Website", "Email Domain", "Company Domain"):
+        return bool(DOMAIN.match(v))
+    if col == "Additional Domains":
+        return all(DOMAIN.match(x.strip()) for x in v.split(";") if x.strip())
+    if col == "LinkedIn Contact Profile URL":
+        return bool(LI_IN.match(v))
+    if col == "LinkedIn Company Profile URL":
+        return bool(LI_CO.match(v))
+    if col == "ZoomInfo Contact Profile URL":
+        return bool(ZI_P.match(v))
+    if col == "ZoomInfo Company Profile URL":
+        return bool(ZI_C.match(v))
+    if col in ("First Name", "Last Name"):
+        return not re.search(r"[@\d]|https?:", v)
+    if col == "Type":
+        return v in TYPE_OPTIONS
+    return True
+
+
+def resolve(contacts, companies, contact_cols, company_cols, options):
+    """Apply the rules (module docstring). companies: {company id: row}.
+    Returns (contacts, companies, notes, blanked counts, info lines)."""
+    notes = []
+    who = lambda r: f"{r.get('First Name', '')} {r.get('Last Name', '')}".strip() or r.get("Email Address", "")
+    # same website / HubSpot record on two companies -> one company
+    n_contacts = {}
+    for r in contacts:
+        n_contacts[r.get(COMPANY_ID)] = n_contacts.get(r.get(COMPANY_ID), 0) + 1
+    rank = lambda cid: (n_contacts.get(cid, 0), filled(companies[cid]))
+    moved = {}
+    for key in ("Website", "HubSpot Company Record ID"):
+        seen = {}
+        for cid in list(companies):
+            v = companies.get(cid, {}).get(key, "")
+            if not v:
+                continue
+            other = seen.get(v)
+            if other and other in companies and other != cid:
+                keep, drop = (other, cid) if rank(other) >= rank(cid) else (cid, other)
+                for c, val in companies[drop].items():
+                    if val and not companies[keep].get(c):
+                        companies[keep][c] = val
+                notes.append(f"{companies[drop].get('Company Name')} and {companies[keep].get('Company Name')} share "
+                             f"{key.lower()} {v}: kept one company, {companies[keep].get('Company Name')}")
+                moved[drop] = keep
+                n_contacts[keep] = n_contacts.get(keep, 0) + n_contacts.pop(drop, 0)
+                del companies[drop]
+                seen[v] = keep
+            else:
+                seen[v] = cid
+
+    def final(cid):
+        while cid in moved:
+            cid = moved[cid]
+        return cid
+    # contacts take their company's name and website; domains on both files
+    for k in companies.values():
         if not k.get("Company Domain") and k.get("Website"):
             k["Company Domain"] = re.sub(r"^www\.", "", k["Website"])
-            bump("companies · Company Domain from the website")
-        by_name.setdefault((k.get("Company Name") or "").lower(), k)
     for r in contacts:
-        k = by_name.get((r.get("Company Name") or "").lower(), {})
-        if not r.get("Website") and k.get("Website"):
-            r["Website"] = k["Website"]
-            bump("contacts · Website from the company")
-        if not r.get("Email Domain"):
-            e = r.get("Email Address") or ""
-            d = e.split("@")[1] if "@" in e else k.get("Company Domain", "")
-            if d:
-                r["Email Domain"] = d
-                bump("contacts · Email Domain")
-    return filled
-
-
-def check(contacts, contact_cols, companies, company_cols, options):
-    """-> (errors, warnings), each a list of strings naming the row and the value."""
-    errors, warnings = [], []
-    who = lambda r: f"{r.get('First Name', '')} {r.get('Last Name', '')} ({r.get('Company Name', '')})".strip()
-    seen = {}
+        r[COMPANY_ID] = final(r.get(COMPANY_ID))
+        k = companies.get(r[COMPANY_ID], {})
+        for c in ("Company Name", "Website"):
+            if k.get(c):
+                r[c] = k[c]
+    # invalid email: only when it has no domain
     for r in contacts:
-        for c in ("First Name", "Last Name", "Company Name"):
-            if c in contact_cols and not r.get(c):
-                errors.append(f"contact {who(r)}: no {c}")
         e = r.get("Email Address", "")
-        if e:
-            if not EMAIL.match(e):
-                errors.append(f"contact {who(r)}: email not valid: {e}")
-            elif e in seen:
-                errors.append(f"email {e} on two contacts: {seen[e]} and {who(r)}")
-            seen.setdefault(e, who(r))
-        for c, pat in (("LinkedIn Contact Profile URL", LI_IN), ("ZoomInfo Contact Profile URL", ZI_P)):
-            if r.get(c) and not pat.match(r[c]):
-                errors.append(f"contact {who(r)}: {c} isn't a profile link: {r[c]}")
-        for c in ("First Name", "Last Name"):
-            if r.get(c) and not r[c][:1].isupper():
-                warnings.append(f"contact {who(r)}: {c} '{r[c]}' doesn't start with a capital")
-        if r.get("Lead Source") and r["Lead Source"] != "Events":
-            errors.append(f"contact {who(r)}: Lead Source '{r['Lead Source']}' (only 'Events' is written)")
-        if r.get("Lead Source") and not r.get("Lead Source Detail 1"):
-            errors.append(f"contact {who(r)}: Lead Source without Lead Source Detail 1 (the event name)")
-    co_names = set()
-    seen_site, seen_id = {}, {}
-    for k in companies:
-        n = k.get("Company Name", "")
-        if not n:
-            errors.append(f"company row with no name (website {k.get('Website', '')})")
-        co_names.add(n.lower())
-        site = k.get("Website", "")
-        if site:
-            if site in seen_site and seen_site[site] != n:
-                errors.append(f"website {site} on two companies: {seen_site[site]} and {n}")
-            seen_site.setdefault(site, n)
-            if not re.match(r"^[a-z0-9.-]+\.[a-z]{2,}$", site):
-                errors.append(f"company {n}: website not a plain domain: {site}")
-        if not site and not k.get("Company Domain"):
-            errors.append(f"company {n}: no website and no domain — find the website (web research) or "
-                          "remove the company's contacts; HubSpot matches companies and contacts by domain")
-        hid = k.get("HubSpot Company Record ID", "")
-        if hid:
-            if hid in seen_id and seen_id[hid] != n:
-                errors.append(f"HubSpot record {hid} on two companies: {seen_id[hid]} and {n}")
-            seen_id.setdefault(hid, n)
-        for c, pat in (("LinkedIn Company Profile URL", LI_CO), ("ZoomInfo Company Profile URL", ZI_C)):
-            if k.get(c) and not pat.match(k[c]):
-                errors.append(f"company {n}: {c} isn't a profile link: {k[c]}")
-        if k.get("Type") and k["Type"] not in TYPE_OPTIONS:
-            errors.append(f"company {n}: Type '{k['Type']}' isn't a HubSpot option")
-        if k.get("Employee Range") and k["Employee Range"] not in set(options.get("company_employee_range", [])):
-            errors.append(f"company {n}: Employee Range '{k['Employee Range']}' isn't a HubSpot range")
-    for rows, label, cols in ((contacts, "contact", contact_cols), (companies, "company", company_cols)):
+        if e and not HAS_DOMAIN.match(e):
+            notes.append(f"{who(r)}: email '{e}' has no domain — blanked")
+            r["Email Address"] = ""
+        if r.get("Additional Emails"):
+            r["Additional Emails"] = ";".join(x.strip() for x in r["Additional Emails"].split(";")
+                                              if HAS_DOMAIN.match(x.strip()))
+        if not r.get("Email Domain"):
+            em = r.get("Email Address") or ""
+            r["Email Domain"] = em.split("@")[1] if "@" in em else companies.get(r[COMPANY_ID], {}).get("Company Domain", "")
+    # duplicate emails: keep the closer name match, then more data
+    by_email = {}
+    for r in contacts:
+        if r.get("Email Address"):
+            by_email.setdefault(r["Email Address"], []).append(r)
+    dropped = set()
+    for e, group in by_email.items():
+        if len(group) < 2:
+            continue
+        group.sort(key=lambda r: (name_score(e, r.get("First Name"), r.get("Last Name")), filled(r)), reverse=True)
+        keeper = group[0]
+        for other in group[1:]:
+            same = who(other).lower() == who(keeper).lower()
+            if same:
+                for c, v in other.items():
+                    if v and not keeper.get(c):
+                        keeper[c] = v
+            dropped.add(id(other))
+            notes.append(f"email {e} on {who(keeper)} and {who(other)}: kept {who(keeper)} "
+                         f"({'same person, rows combined' if same else 'name matches the email more closely'}); "
+                         f"{'the duplicate row' if same else who(other)} left the upload")
+    contacts = [r for r in contacts if id(r) not in dropped]
+    # any other invalid value -> blank cell
+    blanked = {}
+
+    def blank(r, c, label, why):
+        blanked[f"{label} · {c}"] = blanked.get(f"{label} · {c}", 0) + 1
+        place = r.get("Company Name", "") + (f" / {who(r)}" if label == "contacts" else "")
+        notes.append(f"{place}: {c} '{r[c]}' {why} — left blank")
+        r[c] = ""
+    for rows, cols, label in ((contacts, contact_cols, "contacts"), (list(companies.values()), company_cols, "companies")):
         for r in rows:
-            for c in (NUMBER_COLS | ID_COLS) & set(cols):
-                if r.get(c) and not DIGITS.match(r[c]):
-                    errors.append(f"{label} {r.get('Company Name', '')}: {c} must be digits: {r[c]}")
-            for c in PHONE_COLS & set(cols):
-                v = r.get(c, "")
-                if v and not (re.match(r"^\(\d{3}\) \d{3}-\d{4}( ext\. \d+)?$", v) or v.startswith("+")):
-                    warnings.append(f"{label} {who(r) if label == 'contact' else r.get('Company Name', '')}: "
-                                    f"{c} in an unknown format: {v}")
+            for c in cols:
+                if not valid(c, r.get(c, "")):
+                    blank(r, c, label, "isn't valid")
             for sc, cc in STATE_COUNTRY.items():
                 if sc in cols and r.get(sc) and r.get(cc) in NORTH_AMERICA and r[sc] not in STATES.values():
-                    warnings.append(f"{label} {r.get('Company Name', '')}: {sc} '{r[sc]}' isn't a US state / "
-                                    "Canadian province")
-    site_of = {(k.get("Company Name") or "").lower(): k.get("Website", "") for k in companies}
+                    blank(r, sc, label, "isn't a US state / Canadian province")
+    ranges = set(options.get("company_employee_range", []))
+    for k in companies.values():
+        if ranges and k.get("Employee Range") and k["Employee Range"] not in ranges:
+            blank(k, "Employee Range", "companies", "isn't a HubSpot range")
     for r in contacts:
-        if r.get("Company Name") and r["Company Name"].lower() not in co_names:
-            errors.append(f"contact {who(r)}: company '{r['Company Name']}' isn't in the company file")
-            continue
-        cs = site_of.get((r.get("Company Name") or "").lower(), "")
-        if cs and r.get("Website") != cs:
-            errors.append(f"contact {who(r)}: Website '{r.get('Website', '')}' isn't the company's ({cs})")
-        if "Email Domain" in contact_cols and not r.get("Email Domain"):
-            errors.append(f"contact {who(r)}: no Email Domain (it links the contact to its company in HubSpot)")
-    return errors, sorted(set(warnings))
+        if r.get("Lead Source") and (r["Lead Source"] != "Events" or not r.get("Lead Source Detail 1")):
+            blank(r, "Lead Source", "contacts", "has no event name with it")
+    info = [f"contact with no name (kept): {r.get('Email Address') or r.get('Company Name')}"
+            for r in contacts if not (r.get("First Name") or r.get("Last Name"))]
+    info += [f"company with no website or domain (kept; HubSpot can't link its contacts by domain — step 6 checks "
+             f"the associations): {k.get('Company Name')}" for k in companies.values()
+             if not (k.get("Website") or k.get("Company Domain"))]
+    return contacts, companies, notes, blanked, info

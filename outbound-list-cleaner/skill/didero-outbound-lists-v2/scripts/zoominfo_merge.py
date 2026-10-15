@@ -693,6 +693,7 @@ def consistency(args):
             issues["contacts_vs_company"].append({"company": cid, "issue": "company has no name"})
     ws.save(run, fields, rows)
     (run / "consistency_report.json").write_text(json.dumps(issues, indent=1, ensure_ascii=False))
+    ws.log(run, {"action": "consistency", "issues": {k: len(v) for k, v in issues.items()}})
     ws.snapshot_copy(run, "07_consistency")
     print("consistency: " + ", ".join(f"{k} {len(v)}" for k, v in issues.items()) + " -> consistency_report.json")
 

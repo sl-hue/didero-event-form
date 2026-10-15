@@ -12,7 +12,8 @@ reference pages, right when the step starts.
                                  browser, and the standing rules.
   done    --run-dir <run_dir> --step <id> [--note "..."]   Marks it done and prints the next step.
   status  --run-dir <run_dir>    The checklist.
-  skip    --run-dir <run_dir> --step <id> --reason "..."   Only when a step can't apply (say why).
+  There is no skip: every step in the plan runs, in order. `done` checks the step's own output
+  (the run log / its files) and refuses a step that didn't actually run.
 """
 import argparse
 import datetime
@@ -116,6 +117,44 @@ def section(key):
     return f"--- references/{f} ---\n" + "\n".join(out).strip()
 
 
+# What each reference section leaves behind when it has really run: a run-log action (changes.jsonl;
+# "count" = it must have run as many times as the steps so far that include it) or a file.
+PROOF = {"z1": ("log", "step1"), "z2": ("log", "step2"), "st7": ("log", "zoominfo_attach"),
+         "evzi": ("log", "zoominfo_attach"), "st8": ("log", "merge_sources"), "st9": ("log", "consistency"),
+         "st10": ("log", "prune"), "z3": ("log", "step3_contacts"), "own": ("log", "owners"),
+         "z5": ("file", "upload/contacts_upload.csv"), "z6": ("file", "segment_snapshot.json"),
+         "sc1": ("file", "screen/screening.csv"), "sc4": ("file", "screen/screening_decisions.json"),
+         "sc7": ("log", "init"), "ev2": ("file", "event.csv"), "evhs": ("file", "hs/matches.json"),
+         "ev5": ("event", "")}
+
+
+def verify(run, p, step):
+    actions = []
+    lp = run / "changes.jsonl"
+    if lp.exists():
+        actions = [json.loads(x).get("action") for x in lp.read_text(encoding="utf-8").splitlines() if x.strip()]
+    upto = p["steps"][:p["steps"].index(step) + 1]
+    for ref in step["refs"]:
+        kind, what = PROOF.get(ref, (None, None))
+        if kind == "log":
+            need = sum(1 for x in upto if ref in x["refs"])
+            if actions.count(what) < need:
+                return f"its script hasn't run{' again' if need > 1 else ''} (no '{what}' in the run log)"
+            if ref == "z3" and "step3_companies" not in actions:
+                return "the company part of the duplicate check hasn't run"
+        elif kind == "file" and not (run / what).exists():
+            return f"{what} doesn't exist yet"
+        elif kind == "event":
+            import csv
+            w = run / "working.csv"
+            rows = list(csv.DictReader(open(w, encoding="utf-8"))) if w.exists() else []
+            if rows and not all((r.get("Event Name") or "").strip() for r in rows):
+                return "some rows have no Event Name (setup.py set --event-name, then re-run intake / handoff)"
+        if ref == "z5" and "export" not in actions:
+            return "the upload files weren't exported (hubspot_import.py prepare)"
+    return ""
+
+
 def load(run):
     return json.loads((Path(run) / "progress.json").read_text())
 
@@ -155,13 +194,12 @@ def show(run):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("start", "next", "done", "status", "skip"):
+    for name in ("start", "next", "done", "status"):
         x = sub.add_parser(name)
         x.add_argument("--run-dir", required=True)
-        if name in ("done", "skip"):
+        if name == "done":
             x.add_argument("--step", required=True)
             x.add_argument("--note", default="")
-            x.add_argument("--reason", default="")
     a = ap.parse_args()
     run = Path(a.run_dir)
     if a.cmd == "start":
@@ -188,7 +226,7 @@ def main():
         show(run)
     elif a.cmd == "status":
         for n, s in enumerate(load(run)["steps"], 1):
-            mark = {"todo": "[ ]", "done": "[x]", "skipped": "[-]"}[s["state"]]
+            mark = {"todo": "[ ]", "done": "[x]"}[s["state"]]
             print(f"{mark} {n}. {s['title']}" + (f" — {s.get('note')}" if s.get("note") else ""))
     else:
         p = load(run)
@@ -199,16 +237,13 @@ def main():
         if a.cmd == "done" and first and first["id"] != a.step:
             raise SystemExit(f"step {a.step} isn't the current one — the current step is {first['id']} "
                              f"({first['title']}). Finish it first (progress.py next).")
-        if a.cmd == "done" and a.step == "z5":  # the upload files must have passed the format check
-            rep = next(iter(sorted(run.glob("**/upload/format_report.json"))), None)
-            ok = rep and json.loads(rep.read_text()).get("passed") and (rep.parent / "contacts_upload.csv").exists()
-            if not ok:
-                raise SystemExit("the upload files haven't passed the format check (upload/format_report.json): "
-                                 "run hubspot_import.py prepare, fix every error it lists, and export again")
-        if a.cmd == "skip" and not a.reason:
-            raise SystemExit("skip needs --reason")
-        s["state"] = "done" if a.cmd == "done" else "skipped"
-        s["note"] = a.note or a.reason
+        if a.cmd == "done":
+            missing = verify(run, p, s)
+            if missing:
+                raise SystemExit(f"step {a.step} isn't finished — {missing}. Every step runs, in order: do it "
+                                 "(progress.py next shows how), then mark it done.")
+        s["state"] = "done"
+        s["note"] = a.note
         save(run, p)
         print(f"{a.step} {s['state']}.\n")
         show(run)

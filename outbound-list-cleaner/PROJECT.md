@@ -217,17 +217,16 @@ file, answers everything at the start, and the run is independent.
 - Not yet tested in Cowork. To check on the first import: HubSpot accepts the
   owner ID in the owner columns.
 
-**Upload format check (2026-10-15):** colleagues got inconsistent files (columns
-depended on the source; values on the run; once no websites / domains at all).
-`scripts/upload_format.py`, run by `worksheet.py export`: fixed column set and
-order; safe normalization (phones `(312) 555-0142`, websites `www.acme.com`,
-LinkedIn / ZoomInfo links, full country and US/CA state names, digits-only
-numbers / IDs, lowercase emails); websites + domains filled on both files;
-checks (unique emails, contact companies in the company file, no website /
-record ID on two companies, dropdown options, valid links). Errors → no files.
-Export also refuses if step 1 or 2 never ran; progress.py won't mark the
-import step done without a passed `upload/format_report.json` (which records
-the skill version).
+**Upload format (2026-10-15):** colleagues got inconsistent files. `scripts/upload_format.py`,
+run by `worksheet.py export`, never stops the run: fixed column set and order; safe
+normalization (phones, websites, LinkedIn / ZoomInfo links, countries, US/CA states, numbers,
+IDs, emails); rules (from the user): duplicate email → keep the closer name match, then more
+data, drop the other (same person → combined); invalid email → blank only if no domain; Sales
+Nav links fine; one website / HubSpot record on two companies → one company; any other invalid
+value → blank cell; websites + domains filled on both files. Fixes go to decisions.md (no
+report file).
+**No skipping:** progress.py has no skip; `done` checks each step's output (run log / files)
+and refuses a step that didn't run.
 
 `skill/didero-contact-sourcing/`: the two event-company flows (no titles →
 ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact

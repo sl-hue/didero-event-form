@@ -397,31 +397,23 @@ def export_files(run_dir, out_dir=None):
         print(f"not a HubSpot option, left blank in the upload: {col} = {', '.join(vals)} "
               "(add the option in HubSpot and re-export, or leave it blank)")
     # One format for every run: the same columns in the same order (blank when a source lacks them),
-    # values normalized, then checked. Errors stop the export before any file is written.
+    # values normalized, then the rules for problems applied (upload_format.py). Nothing here stops the
+    # run; every change is written to decisions.md.
     import upload_format as uf
     contact_cols, company_cols = list(CONTACT_EXPORT), list(COMPANY_EXPORT)
-    company_rows = list(companies.values())
     fixed = {f"contacts · {k}": v for k, v in uf.normalize(rows, contact_cols).items()}
-    fixed.update({f"companies · {k}": v for k, v in uf.normalize(company_rows, company_cols).items()})
-    fixed.update(uf.fill_links(rows, company_rows))
+    fixed.update({f"companies · {k}": v for k, v in uf.normalize(list(companies.values()), company_cols).items()})
     opts = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text()).get("hubspot_options", {})
-    errors, warnings = uf.check(rows, contact_cols, company_rows, company_cols, opts)
-    vf = Path(__file__).resolve().parent.parent / "VERSION"
-    report = {"passed": not errors, "skill_version": vf.read_text().strip() if vf.exists() else "",
-              "errors": errors, "warnings": warnings, "normalized": fixed,
-              "contact_columns": contact_cols, "company_columns": company_cols,
-              "contacts": len(rows), "companies": len(company_rows)}
-    for stale in ("contacts_upload.csv", "companies_upload.csv", "HOW_TO_IMPORT.md"):
-        (out / stale).unlink(missing_ok=True)
-    (out / "format_report.json").write_text(json.dumps(report, indent=1, ensure_ascii=False))
+    rows, companies, notes, blanked, info = uf.resolve(rows, companies, contact_cols, company_cols, opts)
+    if notes or info:
+        with open(Path(run_dir) / "decisions.md", "a", encoding="utf-8") as f:
+            f.write("\n## Upload format (before step 5)\n" + "".join(f"- {n}\n" for n in notes + info))
     if fixed:
         print("format: normalized " + "; ".join(f"{k} ({v})" for k, v in sorted(fixed.items())))
-    if errors:
-        raise SystemExit(f"FORMAT CHECK FAILED — {len(errors)} error(s), no upload files written "
-                         "(upload/format_report.json). Fix each in the working file (worksheet.py set / remove, by "
-                         "the step rules) and export again:\n  - " + "\n  - ".join(errors[:40]))
-    print(f"format check passed ({len(warnings)} warning(s)" + (": " + "; ".join(warnings[:10]) if warnings else "") + ")")
-    companies = {i: r for i, r in enumerate(company_rows)}
+    print(f"format: {len(notes)} fixes by the rules (decisions.md)"
+          + (f"; blanked: " + "; ".join(f"{k} ({v})" for k, v in sorted(blanked.items())) if blanked else ""))
+    for line in info:
+        print("  note:", line)
     for name, cols, data in (("contacts_upload.csv", contact_cols, rows),
                              ("companies_upload.csv", company_cols, list(companies.values()))):
         with open(out / name, "w", newline="", encoding="utf-8") as f:
