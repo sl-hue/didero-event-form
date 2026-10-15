@@ -193,7 +193,7 @@ it's the same job. Tested with fictional data.
 
 ## v2 (2026-10-15): start questions, then independent
 
-`skill/didero-outbound-lists-v2/` (v1 kept as is). Goal: the user gives the
+`skill/didero-outbound-lists/`, same skill name as v1 so it replaces it in Cowork (v1 moved to `skill/archive/didero-outbound-lists-v1/`). Goal: the user gives the
 file, answers everything at the start, and the run is independent.
 - **Checks (only reasons to stop before starting):** HubSpot + ZoomInfo
   connected; Opus 5.5 or newer (Fable passes). `preflight.py`.

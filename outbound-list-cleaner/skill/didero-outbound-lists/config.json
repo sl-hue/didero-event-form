@@ -113,56 +113,6 @@
     "United Kingdom",
     "Ireland"
   ],
-  "zoominfo_filters": {
-    "company_hq_countries": [
-      "United States",
-      "Canada",
-      "United Kingdom",
-      "Ireland"
-    ],
-    "contact_countries": [
-      "United States",
-      "Canada",
-      "United Kingdom",
-      "Ireland"
-    ],
-    "management_levels": [
-      "C-Level",
-      "VP-Level",
-      "Director"
-    ],
-    "titles_include": [
-      "procurement",
-      "purchasing",
-      "sourcing",
-      "supply chain",
-      "buyer",
-      "category manager",
-      "materials",
-      "operations",
-      "planning",
-      "inventory",
-      "logistics",
-      "supplier"
-    ],
-    "titles_exclude": [
-      "intern",
-      "assistant",
-      "recruiter",
-      "software engineer",
-      "student",
-      "retired",
-      "sales",
-      "marketing",
-      "hr",
-      "human resources",
-      "talent",
-      "people"
-    ],
-    "contacts_per_company": 4,
-    "prioritize": "seniority",
-    "_note": "Defaults only: ask the user each run (show these, let them change any)."
-  },
   "hubspot_options": {
     "_note": "Dropdown options in Didero's HubSpot (get_properties, 2026-10-13). Values outside these are left blank in the upload and listed. Refresh with the HubSpot connector's get_properties when HubSpot adds options.",
     "company_employee_range": [
@@ -473,6 +423,20 @@
       "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)",
       "Commercial & Residential Construction",
       "Security Software"
+    ]
+  },
+  "country_presets": {
+    "us_ca": [
+      "United States",
+      "Canada"
+    ],
+    "na_english": [
+      "United States",
+      "Canada",
+      "United Kingdom",
+      "Ireland",
+      "Australia",
+      "New Zealand"
     ]
   }
 }

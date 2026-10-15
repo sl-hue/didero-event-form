@@ -35,6 +35,7 @@ import importlib.util
 import json
 import os
 import platform
+import re
 import py_compile
 import socket
 import sys
@@ -48,21 +49,21 @@ ROOT = HERE.parent
 VERSION_FILE = ROOT / "VERSION"
 LOCAL_LOG = Path.home() / ".didero-outbound-lists" / "preflight.jsonl"
 
-SCRIPTS = ["worksheet.py", "email_domain.py", "normalize.py", "hubspot_match.py", "hubspot_import.py",
-           "post_import.py", "bdr_assign.py", "zoominfo_merge.py", "linkedin_finder.py", "screen.py",
-           "flashcards.py", "jobs.py", "location.py", "fields.py", "handoff.py", "intake.py", "companies.py",
-           "company_list.py", "titles.py", "detect_list_type.py", "hubspot_companies.py", "zi_workers.py",
-           "clay_guide.py", "hs_values.py", "progress.py"]
-TEMPLATES = ["review_template.html", "jobs_template.html", "linkedin_finder_template.html",
-             "title_finder_template.html", "zoominfo_guide_template.html"]
-CONFIG_KEYS = ["hubspot_portal_id", "exclusion_lists", "bdr_pool", "target_countries", "zoominfo_filters"]
-MODELS_OK = ("opus", "fable")
-# connector -> list types that need it (Clay is run by hand, so it's never required)
-EVENT = {"event-contacts", "event-companies", "event-companies-titles"}
-NEEDS = {"hubspot": {"zoominfo", "linkedin"} | EVENT,
-         "web_search": {"linkedin"} | EVENT,
-         "zoominfo": {"linkedin"} | EVENT,
-         "clay": set()}
+SCRIPTS = sorted(f.name for f in HERE.glob("*.py"))  # every script in this skill must compile
+TEMPLATES = sorted(f.name for f in HERE.glob("*_template.html"))
+CONFIG_KEYS = ["hubspot_portal_id", "bdr_pool", "target_countries"]
+# The only reasons to stop before doing anything (the user's rule): HubSpot and ZoomInfo connected, and a
+# model at least as capable as Opus 5.5 (Fable counts). Effort can't be read by Claude: reported if known.
+MIN_OPUS = (5, 5)
+NEEDS = {"hubspot": True, "zoominfo": True, "web_search": False, "clay": False}
+
+
+def model_ok(model):
+    m = model.lower()
+    if "fable" in m:
+        return True
+    v = re.search(r"opus[\s_-]*(\d+)(?:[.\s_-]+(\d+))?", m)
+    return bool(v) and (int(v.group(1)), int(v.group(2) or 0)) >= MIN_OPUS
 
 
 def check(name, ok, detail, required=True, by="script"):
@@ -111,14 +112,17 @@ def local_checks(run_dir):
 def observed_checks(observed, list_type):
     out = []
     model = str(observed.get("model") or "")
-    out.append(check("model", any(m in model.lower() for m in MODELS_OK), model or "not reported",
+    out.append(check("model", model_ok(model), (model or "not reported") + " (needs Opus 5.5 or newer)",
                      by="reported by Claude"))
+    effort = str(observed.get("effort") or "").lower()
+    if effort:
+        out.append(check("effort", effort not in ("low", "minimal"), effort + " (needs medium or higher)",
+                         by="reported by Claude"))
     conns = observed.get("connectors") or {}
-    for c, types in NEEDS.items():
-        need = list_type in types
+    for c, need in NEEDS.items():
         have = conns.get(c)
         detail = ("connected" if have else "not connected" if have is False else "not reported") + \
-                 ("" if need else " (not needed for this list)" if c != "clay" else " (Clay is run by hand)")
+                 ("" if need else " (not required; web research / Clay steps work around it)")
         out.append(check(f"connector: {c}", bool(have) or not need, detail, required=need, by="reported by Claude"))
     return out
 
@@ -152,8 +156,7 @@ def send(record):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--list-type", required=True,
-                    choices=["zoominfo", "linkedin", "event-contacts", "event-companies", "event-companies-titles", "unknown"])
+    ap.add_argument("--list-type", required=True)
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--observed", default="{}", help="JSON: what Claude sees (model, connectors)")
     ap.add_argument("--user", default="", help="who is running it (name or email, if known)")

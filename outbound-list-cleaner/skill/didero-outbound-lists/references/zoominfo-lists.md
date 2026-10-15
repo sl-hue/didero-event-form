@@ -1,55 +1,40 @@
-# ZoomInfo-list steps (and the shared steps 1–6)
+# Shared steps 1–7 (and the ZoomInfo stages)
 
 Part of the `didero-outbound-lists` skill — `SKILL.md` says which list type uses which steps. Scripts are in `scripts/`, settings in `config.json` (both at the skill's root).
 
 
 ## Steps and sub-agents
 
-This list is the source of truth for the **order** of the workflow. When a
-step or sub-skill is added, insert it here and renumber — the step sections
-below follow this order. The workflow ends after the last step. Ask the user
-which step to start from if it isn't clear (e.g. a list that is already
-imported starts at step 4's post-import part).
+The order of the workflow; `scripts/progress.py` prints each step when it
+starts. The start questions (end state, countries, BDRs, credits) are already
+answered in `run_setup.json`: **no step asks the user anything**. Judgment
+calls are Claude's, made with the rules in each step and written as one line
+each in `<run_dir>/decisions.md`. The run **stops only where the user acts**
+(steps 5, 6, 7).
 
 **1. Email domain cleaning** — `email_domain.py`
 - `domain-judge` (subagent) — judges each company/email-domain pair
 - `web-domain-finder` (subagent) — finds public inboxes for companies with no email
-- The user decides: doubtful domains, parent/child cases
 
 **2. Normalization** — `normalize.py`
 - `name-and-linkedin-checker` (subagent) — judges LinkedIn slugs and emails against names
-  (more normalization subagents will be added here)
-- The user decides: last-name mismatches
 
-**3. HubSpot duplicate check** — `hubspot_match.py`
+**3. HubSpot duplicate check** — `hubspot_match.py` (read-only)
 - `hubspot-searcher` (subagent) — runs the search plan
-- `duplicate-reviewer` (subagent) — judges candidates, prepares merge questions
-- The user decides: merges (done in HubSpot) and survivor IDs; flagged rows
+- `duplicate-reviewer` (subagent) — picks each company's record; lists duplicates for the user to merge later
 
-**4. HubSpot import and post-import checks** — `hubspot_import.py`, `post_import.py`
-- `import-mapper` (subagent) — upload files and mapping table
-- `segment-guide` (subagent) — exclusion lists and the segment link
-- `association-fixer` (subagent) — primary company fixes
-- `leftover-duplicate-finder` (subagent) — duplicates the import created or missed
-- The user decides: the import, the segment's exclusion lists, association fixes, merges
+**4. BDR owners** — `owners.py` (only when the end state includes BDR owners)
 
-**5. Clay enrichment** — agent: `clay-guide` (walks the user through the workbook)
-- The user decides: template, button runs, "enrichment done"
+**5. HubSpot import** — `hubspot_import.py` — **USER ACTS**: imports the two files
 
-**6. BDR assignment** — `bdr_assign.py`
-- `bdr-assigner` (subagent) — calls the `hubspot-bdr-list-assignment` skill and
-  applies this workflow's rules
-- The user decides: BDR pool, approval of the CSV
+**6. After the import** — `post_import.py` (read-only) — **USER ACTS**: builds the segment; fixes what the checks find
+
+**7. Clay enrichment** — `clay_guide.py` — **USER ACTS**: runs the Clay buttons
 
 All steps read and update the one working file through `worksheet.py`
-(see "One working file").
-
-Each step owns its subagents. Where the host supports subagents (Cowork,
-Claude Code), run them as subagents — always the heavy ones
-(`web-domain-finder`, `hubspot-searcher`, `leftover-duplicate-finder`) so raw
-results stay out of the chat. `clay-guide` is an agent in its own right (step
-5 is a guided conversation, not a sub-task). Name the sub-agent when you start its work
-("Step 3 · hubspot-searcher: …") so the user can follow along.
+(see "One working file"). Run the heavy sub-agents (`web-domain-finder`,
+`hubspot-searcher`) as sub-agents so raw results stay out of the chat. Name
+the sub-agent when you start its work ("Step 3 · hubspot-searcher: …").
 
 ## HubSpot links in chat — always
 
@@ -65,9 +50,7 @@ click. Put the link on the record's name. Portal ID: `hubspot_portal_id` in
 | Deal | `https://app.hubspot.com/contacts/<portal>/record/0-3/<id>` |
 | Segment / list | `https://app.hubspot.com/contacts/<portal>/objectLists/<id>` |
 
-Decision boxes can't hold links, so list the linked records in a message
-right before the question. The scripts put a `url` on every record they
-report; use it.
+The scripts put a `url` on every record they report; use it.
 
 ## Paths
 
@@ -92,85 +75,36 @@ disagree.
 - **Start:** `python3 scripts/worksheet.py init --contacts <contact export> [--companies <company export>] --out-dir <run_dir>`.
   A company export is optional — if given, its company values win. Where a
   company's rows disagree (ZoomInfo sometimes varies per contact), the most
-  common value is used; tell the user what was harmonized
-  (`init_report.json`).
+  common value is used (`init_report.json`, for the summary).
 - **Company values are company-wide:** the scripts write company fields
   (domain, record ID, website, Type …) to every row of that company.
 - **No hand edits — ever.** The user never edits the CSV, and you never edit
   it except through `worksheet.py` or a step's `apply` command.
-- **Flags, never silent drops.** When a row needs the user's judgment (e.g.
-  HubSpot has the person at another company), it is flagged (`Flag`,
-  `Flag Reason` columns) — never removed or changed on your own:
-  1. Pull the row out and show it in the chat window:
-     `python3 scripts/worksheet.py show --run-dir <run_dir> --row <id> --columns "<the relevant columns>"`
-     (a markdown table), with the HubSpot links of the records involved.
-  2. Ask the user what should change (multiple-choice tool where the options
-     are clear; otherwise let them say it).
-  3. Apply exactly that with `worksheet.py set --row <id> --field "Column=value" … --reason "…"`,
-     or `resolve --row <id> --note "…"` if it stays as it is, or — only if
-     the user explicitly says so — `remove --row <id> --reason "…"`.
-  4. **Show the change again** (the before → after table the command prints,
-     or `show` the row) and wait for the user's OK **before** continuing to
-     the next step.
-  `python3 scripts/worksheet.py flags --run-dir <run_dir>` lists open flags.
+- **Flags, never silent drops.** When a row needs a judgment (e.g. HubSpot
+  has the person at another company), Claude decides with the step's rule —
+  never silently: `worksheet.py set --row <id> --field "Column=value" … --reason "…"`,
+  `resolve --row <id> --note "…"` if it stays as it is, or `remove --row <id>
+  --reason "…"` when the rule says the row leaves the list. Every one of these
+  goes in `decisions.md`. `worksheet.py flags --run-dir <run_dir>` lists open
+  flags; export refuses while any is open.
 - **History:** after each step a read-only copy is saved in `history/`
   (`01_email_domains.csv`, `02_normalize.csv`, …); every change is logged in
   `changes.jsonl`. Never read the history copies back as input.
 - **Output:** the two upload files — a contact file and a company file with
   only the list's companies (a sublist gets its own pair) — are generated at
-  step 4 into `upload/` by `worksheet.py export`, and never edited. Export
-  refuses while any row is still flagged, and lists any rows the user chose
-  to remove so the list's owner can be told.
+  step 5 into `upload/` by `worksheet.py export`, and never edited. Export
+  refuses while any row is still flagged, and lists removed rows for the
+  end-of-run summary.
 
-## Before you start (do this first, every run)
+## Before you start
 
-1. **Model check.** This workflow needs a top-tier model: Opus 5 (any 5.x)
-   or Fable. Older or smaller models tend to take shortcuts on the judgment
-   calls. Before running any step, tell the user this, and if you are not
-   running on Opus 5.x or Fable, stop and ask them to switch models (e.g.
-   `/model` in Claude Code, or the model picker in Cowork) and start again.
-2. **First-time connector check (manual, one-time).** Check which
-   connectors this session has, by looking at your available tools:
-   - **HubSpot connector — required.** Tools like `search_crm_objects`,
-     `query_crm_data`, `manage_crm_objects`.
-   - **Web search — required** for step 1's `web-domain-finder`.
-   - Clay and ZoomInfo connectors — optional (step 5 is manual either way).
-   If a required one is missing, stop and tell the user plainly: **connectors
-   can't be added from inside Cowork or this chat — this is a real
-   limitation.** They have to open Claude's settings (Settings → Connectors),
-   connect HubSpot (and turn on web search if it's off), then start a new
-   session. It's a one-time setup: once connected, every future session has
-   it and the rest of the workflow runs without this step.
-3. **Mode: connector mode is the normal way to run.** Everything in this
-   workflow works through the HubSpot connector alone ("connector mode"):
-   the scripts plan the HubSpot searches, the `hubspot-searcher` sub-agent
-   runs them with the connector, and `hubspot_match.py ingest` turns each
-   saved result into the files the scripts read — nothing is typed out by
-   hand. Say once at the start: "Running in connector mode."
-   A **HubSpot private app token** is an optional speed-up for large lists
-   (hundreds of companies: seconds instead of minutes). Only offer it where a
-   script can read it — Claude Code on the user's computer, or Cowork with a
-   shared folder; never in claude.ai chat, where it can't work. Check with
-   `python3 scripts/hubspot_match.py check-token`; if it passes, say
-   "Running in token mode" and use the token commands. To set one up (only if
-   the user wants it):
-   1. Explain: the script reads HubSpot companies, contacts and lists with
-      their team's private app (read scopes `crm.objects.companies.read`,
-      `crm.objects.contacts.read`, `crm.lists.read`); the token stays on
-      their device and is never shown in chat. Ask for consent with the
-      multiple-choice tool.
-   2. **Claude Code on their computer:** run
-      `python3 scripts/hubspot_match.py setup-token --open-terminal`; they
-      paste the token in the terminal window (hidden input).
-      **Cowork with a shared folder:** they save the token alone in
-      `hubspot_token.txt` in that folder; then run
-      `python3 scripts/hubspot_match.py setup-token --from-file <path> --authorized`
-      (checks it, stores it privately, deletes the text file).
-      **Claude Code on the web:** an environment variable
-      `HUBSPOT_PRIVATE_APP_TOKEN` in the environment's settings.
-   **Never** ask for the token in chat, and never read, print or open the
-   token file. If a token is pasted into the chat anyway, don't use it; tell
-   the user to rotate it in HubSpot.
+Done at the start (`SKILL.md`): the requirements check (HubSpot and ZoomInfo
+connected, Opus 5.5 or newer — the only reasons to stop before starting) and
+the start questions. HubSpot is read through the connector ("connector
+mode"); if `python3 scripts/hubspot_match.py check-token` passes (a private
+app token already set up on this device), the token commands may be used
+instead — never ask for a token, never set one up during a run. **Claude
+never writes to HubSpot.**
 
 ### Connector mode: running searches and saving results
 
@@ -208,25 +142,21 @@ HubSpot associates them. The website is **never** used as the email domain.
    - Parent/child (subsidiary or acquired company, e.g. `kodiakbp.com` at
      QXO) → `keep`; it becomes an additional domain unless it is the most
      used one.
-   - Anything doubtful → ask the user (step 3).
+   - Doubtful → check what company the domain belongs to (web search) and
+     decide; still unclear → `clear` (the company's other domains or the web
+     backfill cover it). One line per decision in `decisions.md`.
    If the ZoomInfo company name looks unrelated to the domain, check what
    company the domain actually belongs to before calling it a mismatch.
 
-3. **Ask the user about doubtful rows** (list each company with its HubSpot link if it has one). Use the multiple-choice question tool
-   (up to 4 questions per call; batch in rounds). For each row show: company,
-   email domain, number of contacts, other domains at that company, why you
-   think it does/doesn't match, and any parent/child relationship. Offer
-   options such as keep / clear / map to parent, with your recommendation
-   first. Treat free-text answers as rules to apply going forward.
-
-4. **`web-domain-finder`: web backfill.** For each company with no email at all, search the web for
+3. **`web-domain-finder`: web backfill.** For each company with no email at all, search the web for
    publicly listed general inboxes (info@, sales@, support@, help@, general@,
    marketing@, inquiry@ and variants, including location inboxes such as
    `infomobile@`). Use that domain. If none exists, publicly listed staff
    addresses are acceptable evidence. Always use the ultimate owner's domain.
-   If the answer is unclear, ask the user.
+   If nothing reliable turns up, leave the company without a domain (noted in
+   `decisions.md`; HubSpot matches it by name).
 
-5. **Write decisions.json** in the run dir:
+4. **Write decisions.json** in the run dir:
    ```json
    {
      "pairs": {"<company_id>|<domain>": {"action": "keep|clear|map", "map_to": "...", "reason": "..."}},
@@ -235,17 +165,17 @@ HubSpot associates them. The website is **never** used as the email domain.
    }
    ```
    Every pair in review.json needs an entry; the script refuses to run otherwise.
-   `primary_domains` is only for overrides — e.g. the user's pick when
-   review.json lists a company under `primary_ties`. By default the most used
+   `primary_domains` is only for overrides — e.g. your pick when review.json
+   lists a company under `primary_ties` (the domain on the company's website). By default the most used
    domain is primary.
 
-6. **Apply.** Run
+5. **Apply.** Run
    `python3 scripts/email_domain.py apply --run-dir <run_dir> --decisions <run_dir>/decisions.json`.
    It updates `working.csv`: `Email Address`, `Email Domain`, and on every
    row of each company `Company Domain` (most used) and `Additional Domains`
    (`;`-separated). What changed and why is in `step1_report.json`.
 
-7. **Report** counts (own email / backfilled / web / cleared / fixed) and any
+6. **Report** counts (own email / backfilled / web / cleared / fixed) and any
    company still without a domain.
 
 ## Step 2 — Normalization
@@ -267,15 +197,14 @@ Everything the user needs to review goes in the chat.
    - Nickname (Bill/William, Pat/Patrick), initials (`jbsunderbruch`),
      credentials in the slug, or an obvious typo → `keep`.
    - Clearly a different person (both names differ) → `blank`.
-   - First name matches, last name differs (possibly a married/maiden name)
-     → ask the user with the multiple-choice tool: show name, company, job
-     title and the URL, and offer Keep / Blank (they can type a corrected URL
-     under "Other" → `replace`). The user checks LinkedIn themselves; you
-     don't need to.
+   - First name matches, last name differs (possibly a married/maiden name):
+     `keep` when the email or ZoomInfo also points to this person at this
+     company; otherwise `blank` (a wrong LinkedIn URL is worse than none).
 
    Judge `email_review` the same way on the email's local part: nickname or
    initials → `keep`; clearly someone else's email → `clear` (the domain
-   stays); last name differs → ask the user.
+   stays); last name differs → `keep` if the email's domain is the company's
+   and the first name or initial matches, else `clear`.
 
    **Company names and job titles:** entries with `"judgment": false` are
    safe fixes (legal suffix like Inc./LLC/Co. removed, symbols, spacing,
@@ -283,7 +212,8 @@ Everything the user needs to review goes in the chat.
    decide the clean value: ALL-CAPS company names (keep only if the company
    writes it that way, e.g. NIBCO; otherwise `TCC MATERIALS` → `TCC
    Materials`), text in brackets, division labels, several roles in one
-   title. Ask the user when unsure.
+   title (keep the role at this company / the most procurement-relevant one).
+   When unsure, the safe fix only (the original wording otherwise kept).
 
 3. **Write `<run_dir>/decisions_step2.json`:**
    `{"linkedin": {"<ZoomInfo Contact ID>": {"action": "keep|blank|replace", "url": "...", "reason": "..."}},
@@ -315,8 +245,8 @@ Everything the user needs to review goes in the chat.
      contact **Primary Industry**, **Primary Sub-Industry** and **Company
      Industry**. Companies the rule puts in **Other** are listed (`primary
      industry other`): decide each one (a building-supply "retailer" that
-     sells to contractors is Distribution; check the website when unsure; ask
-     the user if still unsure) in `didero_primary_industry` and re-run apply.
+     sells to contractors is Distribution; check the website when unsure; still
+     unsure → Other) in `didero_primary_industry` and re-run apply.
    **Websites** are cut back to the site itself (subpages, index pages,
    `?…` dropped: `acme.com/about/index.html` → `acme.com`), careers
    subdomains become the main site (`careers.acme.com` → `www.acme.com`), and
@@ -324,17 +254,17 @@ Everything the user needs to review goes in the chat.
    blanked (`websites_fixed` in the report); the company's website is then
    the most common cleaned one across its rows.
 
-5. **Report in chat:** company names and job titles changed (from → to),
-   Didero Primary Industry decisions, dropdown values with no matching HubSpot option
-   (`dropdown_values_not_matching`, e.g. a Management Level or Department
-   value HubSpot's dropdown doesn't have), websites cleaned or blanked
-   (company, from → to, reason), name fixes, blanked LinkedIn URLs (name, company,
-   removed URL, reason), and the user's last-name decisions.
+5. **Report in a few lines** (counts, no stop): company names and job titles
+   changed, Didero Primary Industry decisions, dropdown values with no
+   matching HubSpot option, websites cleaned or blanked, name fixes, blanked
+   LinkedIn URLs. The details go in `decisions.md` for the end-of-run summary.
 
 ## Step 3 — HubSpot duplicate check
 
-Claude cannot merge HubSpot records; the user merges manually and then tells
-you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
+Read-only, no stop. Claude never merges or edits HubSpot records: each
+company and contact gets the record it should update (or none = create),
+and real duplicates go on a list the user merges later (shown at step 6).
+Companies first, then contacts. `S=scripts/hubspot_match.py`.
 
 **Companies**
 1. `python3 $S plan-companies --run-dir <run_dir>`
@@ -351,27 +281,19 @@ you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
    unclear cases.
    - No candidates → `null` (Not in HubSpot).
    - Exactly one strong candidate → record it, no question.
-   - Two or more real candidates, or only a possible match → review with the user.
-5. **Review with the user**, one company at a time:
-   - In a chat message, list each candidate: HubSpot link, name, domain,
-     location, contacts, created date, and why it matches.
-   - Tell the user to open them and merge the duplicates in HubSpot
-     themselves, one by one, into the record they want to keep.
-   - Then ask with the multiple-choice tool: "After merging, which record
-     survived?" Merging in HubSpot usually creates a **new record ID**, so the
-     user typically types it under "Other"; offer "Not a duplicate / keep
-     separate" where relevant. Up to 4 companies per call.
-   - **Verify:** search `hs_object_id IN [new ID + old IDs]` with
-     `hs_merged_object_ids`. The survivor must exist and list the merged-away
-     IDs; if the old IDs still come back on their own, the merge isn't done —
-     tell the user and ask again.
-   - **Check the survivor's values:** HubSpot may keep the other record's
-     name or domain (e.g. SRS Distribution merged into a record still named
-     "Superior Distribution"). If the survivor's name or primary domain
-     doesn't match the list, tell the user to fix it in HubSpot or to leave
-     "Don't overwrite" unticked for those columns on import.
-   - Dismiss name-only hits that are clearly other companies (different
-     place and size, e.g. "EMSI" for EMS) without asking.
+   - Two or more real candidates (duplicates in HubSpot): use the one with
+     the company's primary domain; then the most contacts; then the oldest.
+     Add the group to `<run_dir>/hubspot_duplicates.json`
+     (`[{"company": "...", "keep": "<id>", "others": ["<id>", ...], "why": "..."}]`)
+     — the user merges them after the import; the upload updates the kept one.
+   - Only a possible match (name only, different domain / place / size) →
+     `null` (Not in HubSpot) unless the website or location confirms it.
+   - Dismiss name-only hits that are clearly other companies (e.g. "EMSI"
+     for EMS). One line per non-obvious call in `decisions.md`.
+5. **Check the chosen record's values:** if its name or primary domain
+   doesn't match the list (e.g. a record still named after a merged-away
+   company), note it in `decisions.md`; the import mapping then suggests not
+   ticking "Don't overwrite" on those columns.
 6. Write `<run_dir>/company_decisions.json`
    (`{"<ZoomInfo Company ID>": {"record_id": "..." | null, "note": "..."}}`) and run
    `python3 $S apply-companies --run-dir <run_dir> --decisions <run_dir>/company_decisions.json`.
@@ -387,49 +309,97 @@ you the survivor. Companies first, then contacts. `S=scripts/hubspot_match.py`.
    matched on LinkedIn URL or email — common surnames return hundreds of
    unrelated contacts.
 3. `python3 $S match-contacts --run-dir <run_dir> --raw-dir <run_dir>/hs_contacts`
-4. **Same person, different company → flag.** A candidate with strength
-   `review` matched on LinkedIn URL or email, but HubSpot has the person at a
-   different company than the list (`company_mismatch`). Don't drop it: give
-   the row `"flag": "<reason>"` in `contact_decisions.json` (with its
-   `record_id`), then handle it with the flag workflow ("One working file"):
-   show the row next to the HubSpot contact (company linked, job title,
-   location) and ask what should change —
-   - **List is current** → `resolve` (the import updates the contact);
-   - **HubSpot is current** → the user says what to change (e.g. set the
-     row's company to the HubSpot one) and you `set` it, or — only if they
-     say so — `remove` the row;
-   - **Unsure** → leave it flagged and move on; export will stop until it's
-     settled.
-5. Judge the rest, review with the user (same merge-first flow), write
+4. **Same person, different company.** A candidate with strength `review`
+   matched on LinkedIn URL or email, but HubSpot has the person at a
+   different company (`company_mismatch`). Decide with the enrichment data:
+   if ZoomInfo / LinkedIn (this list's source) has them at the list's
+   company → the list is current: record the `record_id` (the import updates
+   the contact's company). If the sources disagree or point to the HubSpot
+   company → `remove` the row from the list (reason "HubSpot has them at
+   <company>"). One line each in `decisions.md`.
+5. Judge the rest (same rules as companies: one record per person; extra
+   HubSpot duplicates go in `hubspot_duplicates.json`), write
    `contact_decisions.json`, then
    `python3 $S apply-contacts --run-dir <run_dir> --decisions <run_dir>/contact_decisions.json`
-   to write `HubSpot Contact Record ID` (and any flags) on the rows.
+   to write `HubSpot Contact Record ID` on the rows.
 
-## Step 4 — HubSpot import
+## Step 4 — BDR owners
+
+Only when the end state chosen at the start includes BDR owners
+(`run_setup.json` → `bdr_pool`); otherwise skip. No stop, and **nothing is
+written to HubSpot**: the owners become columns in the upload files
+(**Contact Owner** / **Company Owner** = the HubSpot owner ID, plus a
+**… Owner Name** column for reading), so the import sets them.
+`O=scripts/owners.py`.
+1. `python3 $O plan --run-dir <run_dir>` → `hs_owners/plan.json`: read-only
+   `query_crm_data` calls (current owners of the list's existing contacts and
+   companies; contacts per owner on those companies). Run each, save the raw
+   result, `owners.py ingest --run-dir <run_dir> --kind contacts|companies|incumbency --batch <i> --response <file>`.
+2. `search_owners` for each BDR in `run_setup.json` → `owners.json`
+   (`{"Noah": "<owner id>", …}`; a first name that matches several users →
+   the active one in the BDR team; note it in `decisions.md`).
+3. Open deals on the list's existing companies: `search_crm_objects` on
+   DEAL associated with each company, not closed → `deals.json`
+   (`{"<company record id>": [{"name", "stage", "owner"}]}`).
+4. `python3 $O assign --run-dir <run_dir> --owners owners.json --deals deals.json`.
+   Rules: one BDR per company with all its contacts; a company with an open
+   deal keeps its owners; a pool BDR who already has contacts on the company
+   gets it (most contacts wins); a company record owned by a pool BDR stays
+   with them; the rest is the even split (largest company first, to the BDR
+   with the fewest contacts). If the user chose another split at the start,
+   decide the companies with their rule and pass `--company-assign <json>`
+   (`{"<company name>": "<BDR>"}`).
+5. Report the per-BDR totals in one line; `bdr_assignment.csv` (old → new
+   owner per contact and company) goes to the user with the upload files.
+
+## Step 5 — HubSpot import
 
 `import-mapper` prepares the files and the mapping table.
 
-The user runs the import in HubSpot; you prepare it and walk them through it.
+**USER ACTS** — the run stops here: the user imports the files in HubSpot;
+you prepare them and walk them through it.
 
-1. **Choose Type.** Default `Prospect`. Look at the list: if the companies
-   don't look like prospects (partners, vendors, existing customers), ask the
-   user which Type fits before continuing.
+1. **Choose Type.** Default `Prospect`. Companies that clearly aren't
+   prospects (partners, vendors, existing customers in HubSpot) keep their
+   HubSpot Type (suggest "Don't overwrite" on Type); note it in `decisions.md`.
 2. **Settle open flags first** (`worksheet.py flags`) — export refuses
    while any row is flagged. It also refuses when step 2 never ran or left
    decisions open, or when ZoomInfo was pulled but not merged (no profile
-   URLs). It prints how many rows have ZoomInfo contact / company profile
-   URLs, employee range and industry; show that line to the user. Dropdown
-   values HubSpot doesn't have are left blank in the upload and listed: tell
-   the user (they can add the option in HubSpot and re-export). Then run
+   URLs), or when BDR owners were chosen but step 4 didn't run. It prints how
+   many rows have ZoomInfo contact / company profile URLs, employee range and
+   industry; show that line to the user. Dropdown values HubSpot doesn't have
+   are left blank in the upload and listed (the user can add the option in
+   HubSpot and re-export). Then run
    `python3 scripts/hubspot_import.py prepare --run-dir <run_dir> --raw-dir <run_dir>/hs_companies --type Prospect`.
-   It sets Type on the working file, exports the two import-ready upload
-   files into `<run_dir>/upload/` (blank Record ID = create a new record),
-   and writes `import_mapping.md`, `report_step4.json` and
+   It sets Type on the working file and exports the two import-ready upload
+   files into `<run_dir>/upload/` (blank Record ID = create a new record).
+   **Format, every run — the skill checks and fixes it itself, nothing stops:**
+   the export always writes the same columns in the same order (blank where
+   the source had none), puts every value in the one format
+   (`scripts/upload_format.py`: phones `(312) 555-0142`, websites
+   `www.acme.com`, standard LinkedIn / ZoomInfo links, full country and
+   US/Canada state names, digits-only numbers and IDs, HubSpot dropdown
+   options, lowercase emails), then applies the rules for problems:
+   - **duplicate email** → the email stays with the contact whose name
+     matches it more closely (then the one with more data); the other contact
+     stays, without the email (the same person twice → one row, combined);
+   - **invalid email** → blanked only when it has no domain; otherwise kept;
+   - **Sales Navigator links** → kept as they are;
+   - **one website or HubSpot record on two companies** → one company (the
+     one with more contacts; HubSpot would treat them as one anyway);
+   - every contact gets its company's name and website; the company domain
+     comes from the website, the contact's email domain from the email (else
+     the company's domain);
+   - **any other value that isn't valid for its column** → that cell blank.
+   Every fix is written to `decisions.md`; contacts with no name and
+   companies with no website or domain are kept and listed. It also writes
+   `import_mapping.md`, `report_step4.json` and
    **`upload/HOW_TO_IMPORT.md`** (click-by-click import steps + mapping).
-   **Always** send the user the two upload files **and** `HOW_TO_IMPORT.md`,
-   and paste `HOW_TO_IMPORT.md` in the chat. Never finish step 4 without
-   giving the upload instructions.
-3. The instructions cover (say them again if the user asks):
+   **Always** send the user the two upload files, `HOW_TO_IMPORT.md` and (with
+   BDR owners) `bdr_assignment.csv`, paste `HOW_TO_IMPORT.md` in the chat, and
+   open the HubSpot import page in the browser. Never finish this step without
+   giving the upload instructions. Then wait for the user to say it's imported.
+3. The instructions cover:
    - import the company file first, then the contact file;
    - map each column to the HubSpot property shown and set "Don't import
      column" where indicated;
@@ -440,24 +410,25 @@ The user runs the import in HubSpot; you prepare it and walk them through it.
      Type for those.
 4. After the company import, the user can run the contact import; contacts
    associate to companies through the company domain.
-5. **If HubSpot reports import errors**, tell the user to either fix the
+5. **If HubSpot reports import errors** (the user tells you), tell them to either fix the
    value in the file and re-import those rows, or edit the records directly
    in HubSpot. If a dropdown value keeps failing, check the property's
    current options with the HubSpot connector (`get_properties`) and add the
    conversion to `DROPDOWNS` in `scripts/normalize.py` so step 2 fixes it
    next time.
 
-## Step 4 (after the import) — segment, associations, leftover duplicates
+## Step 6 — After the import
 
-Once the user has imported both files, the files are finished: from here
-on the work happens in HubSpot and the files are not updated again.
+Once the user has imported both files, the files are finished. **USER ACTS**
+— the run stops for the segment, and again only if the checks find
+something for the user to fix. Claude only reads HubSpot.
 `P=scripts/post_import.py`.
 
-1. **`segment-guide`: build the segment.** Ask the user to create a
-   contact segment of the contacts they just imported, excluding the six
-   exclusion lists. Show them in chat as a table, each name linked to the list
-   (`exclusion_lists` in `config.json`; link
-   `https://app.hubspot.com/contacts/<portal>/objectLists/<list_id>`):
+1. **`segment-guide`: build the segment** (open the segments page in the
+   browser). The user creates a contact segment of the contacts they just
+   imported, excluding the six exclusion lists (`exclusion_lists` in
+   `config.json`; link `https://app.hubspot.com/contacts/<portal>/objectLists/<list_id>`),
+   each as a "not a member of" filter:
 
    | Exclusion list | Link |
    |---|---|
@@ -468,14 +439,10 @@ on the work happens in HubSpot and the files are not updated again.
    | Exclusion List E — Product Research Panel, Refined List | list 1633 |
    | Exclusion List F — Contacts, Vendor, Partners, Resellers | list 2613 |
 
-   Tell them to add each as a "not a member of" filter and to check
-   themselves that all six are applied — you don't verify membership against
-   the lists.
-2. **Get the segment link.** Ask the user to paste the segment's HubSpot link
-   (e.g. `…/objectLists/2780/filters`). Then ask with the multiple-choice
-   tool: "Are all six exclusion lists applied to this segment?" (Yes / Not
-   yet). Don't continue until they answer Yes.
-3. **Pull it** → `segment_snapshot.json` (every contact in the segment, its
+   They paste the segment's link when it's done (e.g. `…/objectLists/2780/filters`).
+   If the connector can read the segment's filters (read-only), check that
+   all six exclusion lists are there and tell them which is missing, if any.
+2. **Pull it** → `segment_snapshot.json` (every contact in the segment, its
    company associations with the primary flag, and those companies).
    - **Connector mode** — three `query_crm_data` calls, each result saved to
      a file:
@@ -488,168 +455,55 @@ on the work happens in HubSpot and the files are not updated again.
         for the domains of contacts with no company.
      Then `python3 $P build-snapshot --members <1> --associations <2> --companies <3> [<3b>] --segment "<segment link>" --portal <portal id> --out-dir <run_dir>`.
    - **Token mode:** `python3 $P pull-segment --segment "<segment link>" --out-dir <run_dir>`.
-4. **`association-fixer`: fix associations** (Claude proposes, user approves, Claude applies):
+3. **`association-fixer`: check associations (read-only).**
    `python3 $P review-associations --snapshot <run_dir>/segment_snapshot.json --out-dir <run_dir>`
-   → `association_fixes.json`:
-   - **No company** → associate with the company that owns the contact's
-     domain, as primary.
-   - **Several companies** (usually an existing contact that got another
-     company) → make the company owning the contact's domain (the list's
-     company) primary; the others stay as secondary.
-   - `ask_user`: cases the script can't decide (no company with that domain,
-     several candidates). Ask the user with the multiple-choice tool, one
-     contact per question, with contact and company links.
-   Show the proposed fixes as a table (contact, email, current companies,
-   action, company, reason) and get approval, then send `connector_batches`
-   with the connector's `manage_crm_objects` (`updateRequest`, 10 per call).
-   The "Primary" label works through the connector (tested). The contact's
-   `associatedcompanyid` takes about a minute to reflect it — wait before
-   re-checking. Afterwards re-run `pull-segment` + `review-associations` to
-   confirm nothing is left. Two companies can share a domain (e.g. Roche and
-   Genentech on `roche.com`); the script then asks the user rather than
-   guessing.
-5. **`leftover-duplicate-finder`: leftover company duplicates.**
+   → `association_fixes.json`: contacts with **no company** (→ the company
+   owning their domain, as primary) and contacts with **several companies**
+   (→ the list's company primary). For `ask_user` cases (no company with that
+   domain, several candidates, two companies sharing a domain) pick the one
+   that matches the list's company and website. **Never send the fixes to
+   HubSpot** (`connector_batches` is not used): give the user the fix list as
+   a table (contact link, current companies, company to make primary, why)
+   and they make the changes in HubSpot. No fixes → no stop.
+4. **`leftover-duplicate-finder`: company duplicates.**
    Connector mode: `python3 $P plan-dupes --snapshot <run_dir>/segment_snapshot.json --out-dir <run_dir>`,
    run `dupes_search_plan.json` with the connector (search + `ingest` into
    `<run_dir>/hs_dupes`), then
    `python3 $P match-dupes --snapshot <run_dir>/segment_snapshot.json --raw-dir <run_dir>/hs_dupes --out-dir <run_dir>`.
    Token mode: `python3 $P find-dupes --snapshot <run_dir>/segment_snapshot.json --out-dir <run_dir>`.
-   Either way it checks every company associated with the segment's contacts against all
-   of HubSpot: same or variant domain (other TLD, subdomain, hyphen), same
-   LinkedIn page, same phone, similar name in the same location (state codes
-   and names treated as equal, e.g. TX = Texas) → `company_dupes.json`.
-   Tell the user how many companies have possible duplicates, then list each
-   group in chat with HubSpot links, location, size, contacts and reasons.
-   Dismiss obvious false positives yourself. The user merges in HubSpot and
-   gives the survivor ID (usually a new ID); verify via
-   `hs_merged_object_ids` and check the survivor's name/domain, as in step 3.
+   It checks every company of the segment's contacts against all of HubSpot
+   (same or variant domain, same LinkedIn page, same phone, similar name in
+   the same location) → `company_dupes.json`. Dismiss false positives
+   yourself. Together with step 3's `hubspot_duplicates.json`, give the user
+   one merge list (HubSpot links, which record to keep and why); they merge
+   in HubSpot. Nothing found → no stop.
 
-## Step 5 — Enrichment in Clay (user-run, guided)
+## Step 7 — Enrichment in Clay
 
-Agent: `clay-guide`.
+Agent: `clay-guide`. **USER ACTS** — the user runs Clay; Claude guides.
+This step happens in Clay, not HubSpot. The Clay connector can't open,
+duplicate or run workbooks, so the user does it. Clay writes results back to
+HubSpot itself (that's Clay, not Claude) — no files are imported or exported.
 
-Assumes the segment exists, duplicates are merged and every contact is
-associated with its company. This step happens in Clay, not HubSpot. The
-Clay connector can't open, duplicate or run workbooks, so the user does it
-and you walk them through it one tab at a time. Clay writes results back to
-HubSpot itself — no files are imported or exported, and you don't need to
-check HubSpot afterwards.
-
-0. **First, always:** `python3 scripts/clay_guide.py --run-dir <run_dir> --list-type <type> --segment "<segment>"`
-   and paste its output in the chat as it is: both template links, how to
-   copy and name the workbook, which tabs, the button order. Then walk the
-   user through it one tab at a time (details below).
-1. **Workbook.** Give the user **both** template links from `config.json`
-   (`clay_workbooks`) with what each is for, and let them decide which to
-   open:
-   - Europe template — European contacts (often missing from ZoomInfo).
-   - Americas/global template — American and other global contacts
-     (providers proven for those regions).
-   The links are the live templates: the user **duplicates** the one they
-   chose and **renames the copy** as `name_segment_date`. If you're unsure
-   what the name should be, let the user name it. All work happens in the
-   copy — never run buttons in the template. Whenever the user gets lost,
-   send both links again. Remind them each button run spends Clay credits.
-2. **Tabs:**
-   - **Tab 1 "ZoomInfo"** — only if the list was *not* built in ZoomInfo
-     (e.g. pulled from LinkedIn). Skip it for ZoomInfo lists.
-   - **Tab 2 "PDL"** — always; the most reliable provider, so it runs first.
-   - **Tab 3 "Import Objects from HubSpot"** — always, after PDL; a mix of
-     other providers for what PDL didn't find.
-3. **Importing into a tab** (first column of each tab): import objects →
-   select **Contacts** → select the segment → schedule **Manual / one-time
-   import only**, so the list doesn't keep updating in the background.
-4. **Walk the user through the buttons, one at a time.** Wait for each
-   column to finish before the next; ask them to confirm, and to tell you
-   about errors.
-   - **ZoomInfo tab** (only when used): import the segment → **Enrich
-     Contact** → **Update Object**.
-   - **PDL tab:** import the segment again → **Verify Email** → **Work
-     Email** → **Enrich Person** → **LinkedIn URL** → **Update Object**.
-   - **Import Objects from HubSpot tab:** **Import Object** → **Mobile Phone**
-     enrichment → **Update Object**.
-5. **Gate before step 6.** Ask with the multiple-choice tool whether all the
-   enrichments are done (Update Object has run on every tab used). Do not
-   start step 6 until the user confirms. If some contacts didn't change,
-   that's fine — the user ran it.
-
-## Step 6 — Assign BDRs (contact and company owners)
-
-Starts only after the user confirmed step 5. Use the
-**`hubspot-bdr-list-assignment`** skill on the step 4 segment, with the
-rules below. Where this section and that skill differ, **this section wins**.
-
-**Only for BDRs.** This step assigns BDRs only. If the user wants to assign
-anyone else (AEs, managers, …), say this workflow doesn't cover it and stop.
-
-1. **Ask who the BDRs are** for this round. Default pool: `bdr_pool` in
-   `config.json` (currently Noah, Davis, Bart). Everyone must already be a
-   HubSpot user; resolve each to an owner ID (`search_owners`) and confirm
-   any first name that matches more than one user.
-2. **No HubSpot changes until approval.** Everything up to the approval
-   is read-only; results go to the user as a CSV file in chat.
-3. **Read the current owners:** contact owner of every contact in the
-   segment, and company owner of every company associated with them.
-4. **Count the whole account.** For each of those companies, count all the
-   contacts associated with it in HubSpot and who owns them.
-5. **Contacts in the segment:** if a contact is already owned by one of the
-   selected BDRs, that BDR is its starting owner. Any other owner (a
-   non-BDR, or nobody) → it needs a BDR.
-6. **Combine the counts per company:** (a) BDR owners of the segment's
-   contacts on that company **plus** (b) BDR owners of the company's other
-   contacts. Only owners in the selected pool count; contacts owned by
-   anyone else don't. (This differs from the base skill, which subtracts the
-   in-list contacts: here they count.)
-7. **One BDR per company — the priority rule.** The BDR with the most
-   contacts on the company (from 6) gets **all** of the segment's contacts
-   on it **and** the company record. Example: Bart already owns 2 contacts
-   at a company; the 3 new contacts would have gone 2 to Bart and 1 to Noah
-   → all 3 go to Bart, and so does the company. Ties: lightest load, as in
-   the base skill. The company owner is what tells future imports who
-   should get that company's new contacts.
-8. **Companies with no BDR contacts yet:** keep the company with a pool BDR
-   who already owns the company record; otherwise distribute them so that,
-   across this list, each BDR ends up with a roughly equal number of
-   **contacts**, and then of **companies**. To balance, you may move the
-   segment's new contacts on such companies between BDRs (the whole company
-   moves together), but never split a company.
-   **Companies already worked by a BDR stay locked** (their other contacts
-   are BDR-owned) — that's the priority. Only if, after balancing, the gap
-   between the most- and least-loaded BDR is **more than 10% of the average
-   contacts per BDR and more than 3 contacts** (`bdr_balance_flag` in
-   `config.json`), point it out in chat and suggest specific locked
-   companies that could move to even it out: company, contacts in the
-   segment, how many other contacts the current BDR owns there, and who'd
-   take it. Moving one means its other BDR-owned contacts move too, so the
-   company stays with one BDR. The user decides company by company; apply
-   only the ones they approve, then re-deliver the CSV.
-9. **`bdr-assigner`: build the CSV with the script.** Pull the inputs with the connector
-   (read-only), then run `scripts/bdr_assign.py`:
-   - contacts: `query_crm_data` —
-     `SELECT hs_object_id, firstname, lastname, hubspot_owner_id, associatedcompanyid, … FROM CONTACT WHERE hs_crm_search.ilsListIds = '<list id>' LIMIT 500`
-     (pad the SELECT so the result spills to a file; parse it into
-     `{id: properties}` JSON; check the count against `COUNT(*)`);
-   - companies: `get_crm_objects` on the unique `associatedcompanyid`s
-     (≤100 per call) → TSV `id, name, owner_id, domain`;
-   - incumbency: `SELECT associatedcompanyid, hubspot_owner_id, COUNT(*) FROM CONTACT WHERE associatedcompanyid IN (…) GROUP BY associatedcompanyid, hubspot_owner_id`
-     → TSV `company_id, owner_id, count` (segment contacts included);
-   - owners: `search_owners` → `{owner_id: name}` JSON;
-   - deals: `search_crm_objects` on DEAL `associatedWith` the companies;
-     resolve stage names with `SELECT dealstage, COUNT(*) FROM DEAL … GROUP BY dealstage`.
-   `python3 scripts/bdr_assign.py --contacts … --companies … --incumbency … --pool "Noah=<id>,Davis=<id>,Bart=<id>" --owners … --out-dir <run_dir>`
-   writes `bdr_assignment.csv` — columns `Company, Company Record ID, Old
-   Company Owner, New Company Owner, Contact Name, Contact Record ID, Old
-   Contact Owner, New Contact Owner, Reason`, sorted by company A→Z with each
-   company's contacts adjacent and A→Z — and `bdr_summary.json`. Deliver the
-   CSV with `SendUserFile`; in chat give only: per-BDR totals (contacts,
-   companies), how many contacts and company records change hands and from
-   whom, companies moving between BDRs, ties, imbalance suggestions, open
-   deals on these companies with stage, amount and owner (their companies
-   would move to a BDR — the user's call), and company records that are
-   really personal mailboxes (Gmail, Hotmail, 139.com …) to fix.
-10. **Ask for approval or changes.** On changes, re-deliver the CSV.
-11. **On approval, update HubSpot** as the base skill describes: contacts
-   first, then companies, owner only, 10 per call, then verify every record.
+1. **First:** pick the template yourself — Europe if most contacts are in
+   Europe, otherwise Americas / global — then run
+   `python3 scripts/clay_guide.py --run-dir <run_dir> --list-type <path> --segment "<segment>"`
+   and paste its output as it is (both template links, copy and rename, the
+   tabs, the button order), saying which template you picked and why. Open
+   the template in the browser.
+2. **Tabs:** Tab 1 "ZoomInfo" only if the list was *not* built in ZoomInfo;
+   Tab 2 "PDL" always, first; Tab 3 "Import Objects from HubSpot" always,
+   after PDL. Each tab's first column: import objects → **Contacts** → the
+   segment → **Manual / one-time import only**.
+3. **Buttons, one at a time** (each spends Clay credits): ZoomInfo tab →
+   import → **Enrich Contact** → **Update Object**; PDL tab → import →
+   **Verify Email** → **Work Email** → **Enrich Person** → **LinkedIn URL** →
+   **Update Object**; Import Objects tab → **Import Object** → **Mobile
+   Phone** → **Update Object**. The user tells you when a column is done or
+   shows an error; help with errors.
+4. **End of the run** when the user says Clay is done: post the summary —
+   what was decided along the way (`decisions.md`), rows removed and why,
+   the HubSpot merge / association lists if any, the files delivered.
 
 ## Running ZoomInfo calls (all ZoomInfo stages)
 
@@ -667,14 +521,15 @@ order, without commenting between calls. Tell the user before starting:
 ## LinkedIn lists: ZoomInfo pull, source priority, consistency, prune
 
 Only for lists that came through `references/screening.md` (`SKILL.md`
-says when). They run after steps 1–2, then steps 1–2 run again, then 3–6.
-Script: `scripts/zoominfo_merge.py`. Stop after each stage, show what changed
-and wait for the user's OK.
+says when). They run after steps 1–2, then steps 1–2 run again, then 3–7.
+Script: `scripts/zoominfo_merge.py`. No stops: report each stage in a line or
+two and go on. Skipped entirely when ZoomInfo wasn't approved at the start
+(`plan` refuses; carry on with the next stage).
 
 **Stage 7 — ZoomInfo pull** (`zoominfo-puller`)
 1. `python3 scripts/zoominfo_merge.py plan --run-dir <run_dir>`: batches of
-   10 and the **maximum credits** (contacts + companies). Tell the user the
-   maximum and get their OK (multiple-choice tool) before any call.
+   10 and the **maximum credits** (contacts + companies), checked against the
+   cap approved at the start — within it, go on without asking.
 2. **Run the calls in parallel — never one by one in the main chat** (that
    took 20–30 minutes each for contacts and companies). See "Running ZoomInfo
    calls" below: `python3 scripts/zi_workers.py --run-dir <run_dir> --job enrich`,
@@ -684,7 +539,10 @@ and wait for the user's OK.
 3. `zoominfo_merge.py attach --run-dir <run_dir>` adds the "ZI …" columns and
    judges each match: **good** (same person, same company), **outdated** (same
    person at another company — the whole ZoomInfo record is ignored),
-   **review** (name differs — show the user both versions and ask), **none**.
+   **review** (name differs), **none**. Decide each review match: a nickname
+   or shortened surname at the same company → treat as good
+   (`worksheet.py set --row <id> --field "ZI Match=good"`); anything else →
+   `none`. One line each in `decisions.md`.
    Nothing in the list's own columns changes yet.
    What ZoomInfo returns (checked on a real call): person ID (→ **ZoomInfo
    Contact Profile URL**), name, email (sometimes none), title, company +
@@ -706,34 +564,38 @@ website → ZoomInfo then cleaned; company name → ZoomInfo's when it's the sam
 company as LinkedIn's; company LinkedIn URL → LinkedIn; company location,
 phone, industry (`Industry- Sub-industry`), size, revenue, management
 level, job function, phones, ZoomInfo contact / company profile URLs →
-ZoomInfo. Only "good" matches are used. Show `merge_report.json` grouped by
-field; ties are flagged — ask the user for each.
+ZoomInfo. Only "good" matches are used. Ties are flagged: decide each
+(company name → the one on the company's website; otherwise the most recent
+source) with `worksheet.py set` / `resolve`, noted in `decisions.md`.
 
 **Stage 9 — consistency** — `zoominfo_merge.py consistency --run-dir <run_dir>`
 1. within each contact (email on the company's domain, state vs country,
    title present); 2. across a company's contacts (company values agree, email
    domains are the company's, ZoomInfo doesn't put them at different
    companies); 3. contacts vs the company (website vs email domain, HQ vs
-   contact countries, company name present). Show `consistency_report.json`;
-   anything needing a tiebreak is flagged → ask the user, fix with
-   `worksheet.py set`.
+   contact countries, company name present). Anything flagged in
+   `consistency_report.json` → decide it (the company's website and email
+   domain are the tiebreak) and fix with `worksheet.py set`, noted in
+   `decisions.md`.
 
 **Stage 10 — prune** — `zoominfo_merge.py prune --run-dir <run_dir>`
 Removes the ZI and helper columns (copy kept in `zi/zi_columns.csv`); lists
-empty columns (`--drop-empty` removes them, if the user agrees).
+empty columns; run with `--drop-empty` to remove them too.
 
 **Stage 11 — steps 1–2 again.** Before re-running, copy the first pass's
 `review.json` and `review_step2.json` (e.g. to `review_pass1.json`); after
 each `prepare`, run `zoominfo_merge.py diff-review --old <pass-1 file> --new <new file>`
-and bring the user **only the new entries** — reuse the first pass's decisions
-for everything else. Then steps 3–6.
+and judge **only the new entries** — reuse the first pass's decisions for
+everything else. Then steps 3–7.
 
-## Event lists: ZoomInfo search, LinkedIn URL finder
+## Named-contact lists: ZoomInfo search
 
-Only for lists that came through `references/event-lists.md` (`SKILL.md` says
-when). Event attendees have no LinkedIn URL to match on, so ZoomInfo is
-searched first (free) and only the best candidates are enriched. Company HQ
-already came from web research, so **no company enrichment** for event lists.
+Only for the named-contacts path (`references/event-lists.md`: attendee lists
+and other lists with names and companies but no ZoomInfo / LinkedIn data).
+They have no LinkedIn URL to match on, so ZoomInfo is searched first (free)
+and only the matched people are enriched. Company HQ already came from
+HubSpot / web research, so **no company enrichment**. Skipped when ZoomInfo
+wasn't approved at the start. No stops.
 
 **ZoomInfo** (`zoominfo-puller`)
 1. `python3 scripts/zoominfo_merge.py search-plan --run-dir <run_dir>` → one
@@ -741,37 +603,26 @@ already came from web research, so **no company enrichment** for event lists.
    Run them in parallel: `zi_workers.py --run-dir <run_dir> --job search` and
    start the sub-agents it lists all at once (see "Running ZoomInfo calls").
 2. `zoominfo_merge.py pick --run-dir <run_dir>`: a candidate with the same name
-   at the same company is picked; anything less clear is a **REVIEW** line —
-   ask the user (show the candidates: name, title, company), write
-   `{"<row>": "<personId>|none"}` and re-run `pick --decisions <file>`.
+   at the same company is picked; for each **REVIEW** line decide yourself
+   (same person: nickname / initial and same company or email domain → pick;
+   otherwise none), write `{"<row>": "<personId>|none"}` and re-run
+   `pick --decisions <file>`. Note the calls in `decisions.md`.
 3. `zoominfo_merge.py plan --run-dir <run_dir> --from-picks --no-companies`
-   shows the **maximum credits** (one per picked person). Get the user's OK,
-   then `zi_workers.py --run-dir <run_dir> --job enrich` (sub-agents, in
-   parallel) and `attach` exactly as in stage 7 above.
+   (within the credit cap from the start), then
+   `zi_workers.py --run-dir <run_dir> --job enrich` (sub-agents, in parallel)
+   and `attach` exactly as in stage 7 above. People ZoomInfo couldn't match
+   keep the list's own data (no LinkedIn URL search).
 
-**LinkedIn URL finder** — for everyone still without a LinkedIn URL (no good
-ZoomInfo match)
-1. `python3 scripts/linkedin_finder.py build --run-dir <run_dir> --title "<list name>"`
-   and open `<run_dir>/linkedin_finder.html` for the user next to the Cowork
-   browser. One person per card: name, title, company, website, HQ; **Search
-   Google** / **Search LinkedIn** open in the same browser tab each time; they
-   paste the profile URL and press Enter (Save and next), or **Can't find** —
-   that person just stays unenriched for now. Finish gives a code.
-2. `linkedin_finder.py apply --run-dir <run_dir> --code "<code>"` previews;
-   after the user's OK, `--confirm` writes the URLs.
-
-**Job titles on event lists:** event lists' titles vary in quality, so in
-stage 8 ZoomInfo's title is used **only when it's the same job** as the event
-list's (then ZoomInfo's cleaner wording wins, e.g. "Dir. Procurement" →
-"Director, Procurement"); a different job keeps the event list's title, and
-`merge_report.json` → `titles_kept` lists those for the user. A blank event
-title takes ZoomInfo's.
+**Job titles on named-contact lists:** these titles vary in quality, so in
+stage 8 ZoomInfo's title is used **only when it's the same job** as the list's
+(then ZoomInfo's cleaner wording wins, e.g. "Dir. Procurement" →
+"Director, Procurement"); a different job keeps the list's title, and
+`merge_report.json` → `titles_kept` lists those. A blank title takes
+ZoomInfo's.
 
 Then stages 8–10 (source per field, consistency, prune), steps 1–2 again, and
-steps 3–6. At step 3 the HubSpot duplicate check puts existing company and
-contact record IDs into the upload; the export writes **Lead Source** = `Events`
-and **Lead Source Detail 1** = the event name; step 4 maps them to
-`lead_source` and `lead_source_detail_1`.
+steps 3–7. For event lists the export writes **Lead Source** = `Events` and
+**Lead Source Detail 1** = the event name.
 
 ## Data handling
 

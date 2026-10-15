@@ -10,9 +10,12 @@
   apply-research  Write the company-researcher's findings (fit, reason, HQ
                   country) onto every row of each company.
   set-title       Write the title-reviewer's verdicts for given rows.
-  summary         Counts per verdict, for the chat.
-  apply-decisions Apply the code the user pasted from the flashcard review:
-                  Decision = keep / exclude on each row (nothing is deleted).
+  summary         Counts per verdict.
+  decide          v2: Claude decides, no review page. Decision = the recommendation for
+                  keep / exclude rows; every "review" row needs Claude's call in
+                  --file {"<Row ID>": {"decision": "keep|exclude", "note": "..."}}.
+                  Writes Decision + Decision Note (nothing is deleted) and
+                  screening_decisions.json for the end-of-run report.
 """
 import argparse
 import csv
@@ -185,8 +188,9 @@ def init(args):
               "run check with --skip-contact-geo)")
         return
     multi = sum(1 for r in rows if (r["Current Jobs"] or "1").isdigit() and int(r["Current Jobs"] or 1) > 1)
-    print(f"{multi} contacts have more than one current job (next: jobs.py build)" if found["jobs"] else
-          "no current-jobs column in this file: ask the user whether to check for people with several jobs")
+    if multi:
+        print(f"{multi} contacts list more than one current job: v2 keeps the job the file shows "
+              "(ZoomInfo replaces an outdated company only when it confirms the person)")
     unknown = sum(1 for r in rows if r["Location Note"] or not r["Contact Country"])
     metro = sum(1 for r in rows if r["Contact State"] and not r["Contact City"])
     print(f"locations: {len(rows) - unknown} placed ({metro} with state and country but no city); "
@@ -272,8 +276,10 @@ def presence_of(row):
 
 def check(args):
     fields, rows = load(args.run_dir)
-    companies = canonical_countries(args.company_countries) if args.company_countries else CONFIG["default_company_countries"]
-    contacts = canonical_countries(args.contact_countries) if args.contact_countries else CONFIG["default_contact_countries"]
+    from setup import load_setup  # v2: the countries the user chose at the start
+    chosen = load_setup(args.run_dir).get("countries") or CONFIG["default_company_countries"]
+    companies = canonical_countries(args.company_countries) if args.company_countries else canonical_countries(chosen)
+    contacts = canonical_countries(args.contact_countries) if args.contact_countries else canonical_countries(chosen)
     for r in rows:
         if not r.get("Title Fit"):
             r["Title Fit"], r["Title Reason"] = title_fit(r["Title"])
@@ -359,127 +365,37 @@ def summary(args):
 RULE_SCOPE = {"c": "company", "p": "contact", "b": "company and contact"}
 
 
-def parse_rules(text):
-    """'+b:United States|-c:Germany' -> [{"mode": "include", "scope": "b", "country": "United States"}, ...]"""
-    out = []
-    for part in filter(None, (text or "").split("|")):
-        mode, scope, country = part[0], part[1], part[3:]
-        out.append({"mode": "include" if mode == "+" else "exclude", "scope": scope, "country": country})
-    return out
-
-
-def rule_hit(row, rules):
-    """The country rule that excludes this row, if any (same logic as the review page).
-    Company rules: "include only" keeps companies based in OR present in a country;
-    "exclude" drops companies based in it. Contact rules use the contact's country."""
-    hq, contact, presence = row["Company Country"], row["Contact Country"], presence_of(row)
-    for r in rules:
-        if r["mode"] == "exclude" and r["scope"] in ("c", "b") and hq == r["country"]:
-            return f"company rule: exclude companies based in {r['country']}"
-        if r["mode"] == "exclude" and r["scope"] in ("p", "b") and contact == r["country"]:
-            return f"contact rule: exclude contacts in {r['country']}"
-    inc = [r["country"] for r in rules if r["mode"] == "include" and r["scope"] in ("c", "b")]
-    if inc and presence and not presence & set(inc):
-        return f"company rule: not based or present in {', '.join(inc)}"
-    inc = [r["country"] for r in rules if r["mode"] == "include" and r["scope"] in ("p", "b")]
-    if inc and contact and contact not in inc:
-        return f"contact rule: contact not in {', '.join(inc)}"
-    return ""
-
-
-def apply_decisions(args):
-    """Code from the review page: 'LS1;<n cards>;X:<numbers>;K:<numbers>[;CX:<company numbers>][;R:<rules>]'.
-    Without --confirm it only previews: writes decisions_pending.json and prints every
-    change. With --confirm (after the user approves) it writes the pending decisions
-    into screening.csv."""
-    run = Path(args.run_dir)
+def decide(args):
     fields, rows = load(args.run_dir)
-    pending_path = run / "decisions_pending.json"
-    if args.confirm:
-        if not pending_path.exists():
-            raise SystemExit("nothing pending — paste the review code first (apply-decisions --code …)")
-        pending = json.loads(pending_path.read_text())
-        for col in ("Decision", "Decision Note"):
-            if col not in fields:
-                fields.insert(fields.index("Decision") + 1 if col == "Decision Note" else len(fields), col)
-        by_id = {r["Row ID"]: r for r in rows}
-        for rid, d in pending["decisions"].items():
-            by_id[rid]["Decision"], by_id[rid]["Decision Note"] = d["decision"], d["note"]
-        save(args.run_dir, fields, rows)
-        (run / "geo_rules.json").write_text(json.dumps(pending["rules"], indent=2))
-        pending_path.rename(run / "decisions_applied.json")
-        print(f"saved to screening.csv: {sum(d['decision'] == 'keep' for d in pending['decisions'].values())} keep, "
-              f"{sum(d['decision'] == 'exclude' for d in pending['decisions'].values())} exclude")
-        return summary(args)
-    if not args.code:
-        raise SystemExit("give --code (preview) or --confirm (after the user approves)")
-    cards = json.loads((run / "cards.json").read_text())
-    m = re.match(r"LS1;(\d+);X:([\d,\-]*);K:([\d,\-]*)(?:;CX:([\d,\-]*))?(?:;R:(.*))?$", args.code.strip())
-    if not m or int(m.group(1)) != len(cards):
-        raise SystemExit("that code doesn't match this review (wrong list or an old review) — ask the user to copy it again")
-    def num(s):
-        out = set()
-        for part in filter(None, s.split(",")):
-            a, _, b = part.partition("-")
-            out |= set(range(int(a), int(b or a) + 1))
-        return out
-    exclude, keep = num(m.group(2)), num(m.group(3))
-    rules = parse_rules(m.group(5))
-    company_out = num(m.group(4) or "")
-    by_id = {r["Row ID"]: r for r in rows}
-    cos_path = run / "companies.json"
-    companies = {co["n"]: co for co in json.loads(cos_path.read_text())} if cos_path.exists() else {}
-    decisions, changes, open_ = {}, [], []
-    for c in cards:
-        r = by_id[c["row_id"]]
-        rec = c.get("suggestion") or r["Recommendation"]
-        d = "exclude" if c["n"] in exclude else "keep" if c["n"] in keep else ""
-        if not d:
-            open_.append(r)
-            continue
-        hit = rule_hit(r, rules)
-        if c.get("company_n") in company_out and d == "exclude":
-            note = f"company excluded ({hit})" if hit.startswith("company rule") else "company excluded by the reviewer"
-        elif hit and d == "exclude":
-            note = hit
-        elif hit:
-            note = f"reviewer kept, overriding {hit}"
-        elif rec == "review":
-            note = "reviewer (Claude left it to the user)"
-        elif d != rec:
-            note = "reviewer, against Claude's recommendation"
+    calls = json.loads(Path(args.file).read_text()) if args.file else {}
+    for col in ("Decision", "Decision Note"):
+        if col not in fields:
+            fields.append(col)
+    open_rows = []
+    for r in rows:
+        c = calls.get(r["Row ID"])
+        if c:
+            r["Decision"], r["Decision Note"] = c["decision"], c.get("note", "Claude's call")
+        elif r.get("Recommendation") in ("keep", "exclude"):
+            r["Decision"] = r["Recommendation"]
+            r["Decision Note"] = "; ".join(x for x in (r.get("Title Reason"), r.get("Company Reason"), r.get("Geo Reason"))
+                                           if x and r["Recommendation"] == "exclude") or "fits"
         else:
-            note = "Claude's recommendation"
-        decisions[r["Row ID"]] = {"decision": d, "note": note}
-        if c.get("company_n") in company_out:
-            continue  # reported once per company below
-        if d != rec or hit or (r.get("Decision") and r["Decision"] != d):
-            changes.append((r, rec, d, note))
-    pending_path.write_text(json.dumps({"code": args.code.strip(), "rules": rules, "decisions": decisions}, indent=1))
-    print(f"PREVIEW — nothing saved yet. {len(keep)} keep, {len(exclude)} exclude, {len(open_)} not answered")
-    if rules:
-        print("country rules: " + "; ".join(f"{r['mode']} {r['country']} ({RULE_SCOPE[r['scope']]})" for r in rules))
-    if company_out:
-        print(f"\nCompanies excluded ({len(company_out)}) — all their contacts are excluded:")
-        print("Company | Based in | Also present in | Contacts | Claude suggested | Why")
-        sample = {c["company_n"]: by_id[c["row_id"]] for c in cards}
-        for n in sorted(company_out, key=lambda n: companies.get(n, {}).get("name", "").lower()):
-            co, row = companies.get(n, {}), sample[n]
-            hit = rule_hit(row, rules)
-            why = hit if hit.startswith("company rule") else "reviewer"
-            others = ", ".join(x for x in co.get("presence", []) if x != co.get("hq")) or "—"
-            print(f"{co.get('name', row['Company'])} | {co.get('hq', '')} | {others} | {co.get('contacts', '')} | "
-                  f"{co.get('suggestion', '')} | {why}")
-    left = [co["name"] for n, co in companies.items() if n not in company_out and co["suggestion"] != "keep"]
-    if left:
-        print(f"\nCompanies kept that Claude had left to the user or suggested excluding ({len(left)}): {', '.join(sorted(left))}")
-    print(f"\n{len(changes)} contacts (at kept companies) where the result differs from Claude's suggestion or came from a rule:")
-    print("Company | Contact | Title | Claude suggested | Final | Why")
-    for r, rec, d, note in sorted(changes, key=lambda x: (x[0]["Company"].lower(), x[0]["Contact"])):
-        print(f"{r['Company']} | {r['Contact']} | {r['Title']} | {rec} | {d.upper()} | {note}")
-    if open_:
-        print(f"\nnot answered ({len(open_)}): " + ", ".join(f"{r['Contact']} ({r['Company']})" for r in open_))
-    print("\nShow this to the user. After they approve: apply-decisions --run-dir … --confirm")
+            open_rows.append(r)
+    if open_rows:
+        raise SystemExit(f"{len(open_rows)} rows are 'review' and have no call yet — decide each (research the "
+                         "company / contact, the countries from the start, the title rules) in --file: "
+                         + ", ".join(f"{r['Row ID']} ({r['Contact']}, {r['Company']})" for r in open_rows[:30]))
+    save(args.run_dir, fields, rows)
+    kept = [r for r in rows if r["Decision"] == "keep"]
+    by_co = Counter(r["Company"] for r in rows if r["Decision"] == "exclude")
+    (Path(args.run_dir) / "screening_decisions.json").write_text(json.dumps(
+        {"kept": len(kept), "excluded": len(rows) - len(kept),
+         "excluded_rows": [{"row": r["Row ID"], "contact": r["Contact"], "company": r["Company"],
+                            "why": r["Decision Note"]} for r in rows if r["Decision"] == "exclude"],
+         "claude_calls": calls}, indent=1, ensure_ascii=False))
+    print(f"screening decided: {len(kept)} kept, {len(rows) - len(kept)} excluded "
+          f"({len(calls)} by Claude's call) -> screening_decisions.json; carry on (no stop)")
 
 
 def main():
@@ -497,9 +413,8 @@ def main():
         p = sub.add_parser(name); p.add_argument("--run-dir", required=True); p.add_argument("--file", required=True)
         p.set_defaults(func=func)
     p = sub.add_parser("summary"); p.add_argument("--run-dir", required=True); p.set_defaults(func=summary)
-    p = sub.add_parser("apply-decisions"); p.add_argument("--run-dir", required=True); p.add_argument("--code")
-    p.add_argument("--confirm", action="store_true", help="write the previewed decisions into screening.csv")
-    p.set_defaults(func=apply_decisions)
+    p = sub.add_parser("decide"); p.add_argument("--run-dir", required=True); p.add_argument("--file")
+    p.set_defaults(func=decide)
     args = ap.parse_args()
     args.func(args)
 

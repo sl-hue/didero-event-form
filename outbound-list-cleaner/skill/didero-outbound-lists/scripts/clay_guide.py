@@ -20,7 +20,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--list-type", required=True,
-                    choices=["zoominfo", "linkedin", "event-contacts", "event-companies", "event-companies-titles"])
+                    choices=["zoominfo", "linkedin", "contacts"])
     ap.add_argument("--segment", default="", help="the HubSpot segment built in step 4")
     args = ap.parse_args()
     cfg = json.loads((ROOT / "config.json").read_text())
@@ -28,7 +28,7 @@ def main():
     seg = args.segment or "the segment from step 4"
     name = f"{Path(args.run_dir).name}_{datetime.date.today():%Y-%m-%d}"
     # ZoomInfo lists were built in ZoomInfo: its tab adds nothing. Everything else runs it first.
-    zi_tab = args.list_type not in ("zoominfo", "event-companies")
+    zi_tab = args.list_type != "zoominfo"
     tabs = []
     if zi_tab:
         tabs.append(("ZoomInfo", ["Import the segment (first column)", "Enrich Contact", "Update Object"]))

@@ -62,6 +62,8 @@ COMPANY_MAPPING = {
     "Type": ("Type", "type"),
     "Outbound Personalization Token": ("Company Outbound Personalization", "company_outbound_personalization"),
     COMPANY_RECORD: ("Record ID", "hs_object_id"),
+    "Company Owner": ("Company owner", "hubspot_owner_id"),  # HubSpot owner ID
+    "Company Owner Name": None,  # for reading only
 }
 
 CONTACT_MAPPING = {
@@ -94,6 +96,8 @@ CONTACT_MAPPING = {
     "Website": ("Website URL", "website"),  # not "Contact Website URL (Cleaned)"
     "Company HQ Phone": ("Corporate Phone", "corporate_phone"),
     CONTACT_RECORD: ("Record ID", "hs_object_id"),
+    "Contact Owner": ("Contact owner", "hubspot_owner_id"),  # HubSpot owner ID
+    "Contact Owner Name": None,  # for reading only
     "New Contact Outbound Personalization": ("Contact Outbound Personalization", "contact_outbound_personalization"),
 }
 
@@ -173,7 +177,9 @@ company through the company domain, so the companies must exist first):
 4. **Map the columns** as in the companies table below. HubSpot matches most
    of them itself; check each one, and set **Don't import column** where the
    table says so. Tick **Don't overwrite** where the table suggests it (keeps
-   what HubSpot already has).
+   what HubSpot already has). **Company Owner** (if present) maps to **Company
+   owner**: it holds the HubSpot owner ID; Company Owner Name is only for
+   reading (Don't import column).
 5. Import option: **Create and update companies**. Rows with a Record ID
    update that company; rows without one create a new company.
 6. Name the import `{run_name} companies` → **Finish import**.
@@ -187,6 +193,8 @@ company through the company domain, so the companies must exist first):
    computer** → **One file** → **One object** → **Contacts** → Next.
 2. Upload `contacts_upload.csv` → Next.
 3. Map the columns as in the contacts table below (same rules as above).
+   **Contact Owner** (if present) maps to **Contact owner** (HubSpot owner ID);
+   Contact Owner Name is only for reading.
 4. Import option: **Create and update contacts**.
 5. Name the import `{run_name} contacts` and tick **Create a list of contacts
    from this import** if HubSpot offers it (it makes the next step's segment

@@ -8,12 +8,10 @@ sub-agent. The sub-agents run at the same time (contacts and companies
 together), save each raw result and ingest it; the main chat only sees one line
 per call.
 
-  python3 zi_workers.py --run-dir <run_dir> --job enrich|search|title-search|title-enrich [--workers 4]
+  python3 zi_workers.py --run-dir <run_dir> --job enrich|search [--workers 4]
 
   enrich        zi/plan.json            (zoominfo_merge.py plan): enrich_contacts + enrich_companies
   search        zi/search_plan.json     (zoominfo_merge.py search-plan): search_contacts, free
-  title-search  zi/title_search_plan.json (titles.py search-plan): search_contacts, free
-  title-enrich  zi/title_enrich_plan.json (titles.py enrich-plan): enrich_contacts
 
 Writes zi/workers/<job>_<k>.md and prints the brief to give each sub-agent.
 Re-run it after the sub-agents finish: it lists what's still missing (e.g. a
@@ -28,13 +26,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from zoominfo_merge import COMPANY_FIELDS_ZI, CONTACT_FIELDS  # noqa: E402
-from titles import ENRICH_FIELDS  # noqa: E402
 
 
 def tasks(run, job):
     """[(label, tool, arguments, done_file, ingest command with {resp})]"""
     d = run / "zi"
-    zm, tl = shlex.quote(str(HERE / "zoominfo_merge.py")), shlex.quote(str(HERE / "titles.py"))
+    zm = shlex.quote(str(HERE / "zoominfo_merge.py"))
     rd = shlex.quote(str(run))
     out = []
     if job == "enrich":
@@ -50,17 +47,6 @@ def tasks(run, job):
         for x in json.loads((d / "search_plan.json").read_text()):
             out.append((f"search {x['row']}", "search_contacts", x["query"], d / f"search_{x['row']}.json",
                         f"python3 {zm} search-ingest --run-dir {rd} --row {x['row']} --response {{resp}}"))
-    elif job == "title-search":
-        for x in json.loads((d / "title_search_plan.json").read_text()):
-            out.append((f"title search {x['target']}", "search_contacts", x["query"], d / f"tsearch_{x['target']}.json",
-                        f"python3 {tl} search-ingest --run-dir {rd} --target {x['target']} --response {{resp}}"))
-    elif job == "title-enrich":
-        p = json.loads((d / "title_enrich_plan.json").read_text())
-        for i, batch in enumerate(p["batches"]):
-            out.append((f"enrich batch {i}", "enrich_contacts",
-                        {"contacts": [x["query"] for x in batch], "requiredFields": p.get("required_fields", ENRICH_FIELDS)},
-                        d / f"tenrich_{i}.json",
-                        f"python3 {tl} enrich-ingest --run-dir {rd} --batch {i} --response {{resp}}"))
     return out
 
 
@@ -88,7 +74,7 @@ SEARCH_NOTE = """   If a search returns nothing, retry it once without "companyW
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run-dir", required=True)
-    ap.add_argument("--job", required=True, choices=["enrich", "search", "title-search", "title-enrich"])
+    ap.add_argument("--job", required=True, choices=["enrich", "search"])
     ap.add_argument("--workers", type=int, default=4, help="sub-agents to run at the same time (default 4)")
     args = ap.parse_args()
     run = Path(args.run_dir).resolve()

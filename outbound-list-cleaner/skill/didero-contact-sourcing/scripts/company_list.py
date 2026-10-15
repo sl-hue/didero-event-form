@@ -32,7 +32,7 @@ per company + title; no person names).
             Filters: config.json defaults, changed by the user for this run.
   tag-event --run-dir <run_dir> --export <ZoomInfo export .xlsx/.csv> --out <file.csv>
             Branch A: write Event Name on every contact whose company is on this
-            event's list; the CSV then goes to didero-outbound-lists-v2.
+            event's list; the CSV then goes to didero-outbound-lists.
 """
 import argparse
 import csv
@@ -344,7 +344,7 @@ def zoominfo(args):
 
 
 def tag_event(args):
-    """Branch A: write Event Name onto the ZoomInfo export (CSV or Excel) -> a CSV for didero-outbound-lists-v2."""
+    """Branch A: write Event Name onto the ZoomInfo export (CSV or Excel) -> a CSV for didero-outbound-lists."""
     companies = [c for c in read_csv(p_companies(args.run_dir), COMPANY_COLS) if c["Status"] != "excluded"]
     names = {norm(c["Company"]): c["Event Name"] for c in companies}
     sites = {re.sub(r"^www\.", "", c["Website"].lower()): c["Event Name"] for c in companies if c["Website"]}
@@ -364,7 +364,7 @@ def tag_event(args):
     write_csv(args.out, fields, rows)
     print(f"{args.out}: Event Name set on {hit} of {len(rows)} contacts"
           + (f"; companies not on the event list (left untagged): {', '.join(sorted(miss))}" if miss else ""))
-    print(f"Next: start didero-outbound-lists-v2 with {args.out}.")
+    print(f"Next: start didero-outbound-lists with {args.out}.")
 
 
 def guide(args):

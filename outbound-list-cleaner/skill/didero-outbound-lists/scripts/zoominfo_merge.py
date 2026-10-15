@@ -250,6 +250,14 @@ def plan(args):
     p = {"contact_batches": chunk(contacts), "company_batches": chunk(companies),
          "contact_required_fields": CONTACT_FIELDS, "company_required_fields": COMPANY_FIELDS_ZI,
          "max_credits": len(contacts) + len(companies)}
+    from setup import load_setup  # v2: credits were approved (or not) at the start
+    st = load_setup(args.run_dir)
+    if st and not st.get("use_zoominfo"):
+        raise SystemExit("ZoomInfo wasn't approved at the start: skip the ZoomInfo stages (the list keeps its own "
+                         "data) and carry on with the next stage.")
+    if st and p["max_credits"] > st.get("credit_cap", 0):
+        raise SystemExit(f"this pull could use {p['max_credits']} credits, over the {st.get('credit_cap')} approved at "
+                         "the start (the list grew since). Ask the user once to raise the cap; nothing is pulled until then.")
     (d / "plan.json").write_text(json.dumps(p, indent=1, ensure_ascii=False))
     done = lambda kind, n: (d / f"{kind}_{n}.json").exists()
     todo_c = [i for i in range(len(p["contact_batches"])) if not done("contacts", i)]
@@ -257,7 +265,8 @@ def plan(args):
     print(f"ZoomInfo plan: {len(contacts)} contacts in {len(p['contact_batches'])} calls, {len(companies)} companies "
           f"in {len(p['company_batches'])} calls.")
     print(f"MAXIMUM credits: {p['max_credits']} ({len(contacts)} contacts + {len(companies)} companies; anyone "
-          f"enriched in the last year is free, so the real number can be lower). Get the user's OK first.")
+          f"enriched in the last year is free, so the real number can be lower). Within the cap approved at the start: "
+          f"no question, go on.")
     print(f"still to run: contact batches {todo_c or 'none'}; company batches {todo_k or 'none'}")
 
 
@@ -684,6 +693,7 @@ def consistency(args):
             issues["contacts_vs_company"].append({"company": cid, "issue": "company has no name"})
     ws.save(run, fields, rows)
     (run / "consistency_report.json").write_text(json.dumps(issues, indent=1, ensure_ascii=False))
+    ws.log(run, {"action": "consistency", "issues": {k: len(v) for k, v in issues.items()}})
     ws.snapshot_copy(run, "07_consistency")
     print("consistency: " + ", ".join(f"{k} {len(v)}" for k, v in issues.items()) + " -> consistency_report.json")
 

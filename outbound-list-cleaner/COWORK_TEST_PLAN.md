@@ -126,8 +126,8 @@ into the build chat so the skill can be fixed.
 - Connector-only fallback (no token) works but is slow (~10–15 min per 60 companies).
 
 
-## v2 (didero-outbound-lists-v2 + didero-contact-sourcing)
-- [ ] Upload both new zips; remove or disable v1 so it doesn't trigger instead.
+## v2 (didero-outbound-lists + didero-contact-sourcing)
+- [ ] Upload `didero-outbound-lists-skill.zip` (same name as before: it replaces the old skill) and `didero-contact-sourcing-skill.zip`.
 - [ ] Wrong model or a missing HubSpot / ZoomInfo connector stops the run before anything else, with what to fix.
 - [ ] Claude says the list type and path in one line, no question.
 - [ ] All start questions come in one multiple-choice call (end state, countries, BDRs, credits).

@@ -55,7 +55,7 @@ COMPANY_FIELDS = {
     "Recent Funding Round", "Recent Funding Date", "Recent Investors", "All Investors",
     "Company Street Address", "Company City", "Company State", "Company Zip Code", "Company Country",
     "Full Address", "Number of Locations", "Company Domain", "Additional Domains",
-    "HubSpot Company Record ID", "Type", "Outbound Personalization Token", "Company Owner", "Company Owner Name",
+    "HubSpot Company Record ID", "Type", "Outbound Personalization Token",
 }
 ADDED_COLUMNS = ["Company Domain", "Additional Domains", "Type", "HubSpot Company Record ID",
                  "HubSpot Contact Record ID", FLAG, FLAG_REASON]
@@ -66,8 +66,7 @@ CONTACT_EXPORT = [
     "ZoomInfo Contact Profile URL", "LinkedIn Contact Profile URL", "Person Street", "Person City",
     "Person State", "Person Zip Code", "Country", "Company Name", "Website", "Company HQ Phone",
     "Primary Industry", "Primary Sub-Industry", "Company Industry",
-    "HubSpot Contact Record ID", "Contact Owner", "Contact Owner Name",
-    "New Contact Outbound Personalization", "Lead Source", "Lead Source Detail 1",
+    "HubSpot Contact Record ID", "New Contact Outbound Personalization", "Lead Source", "Lead Source Detail 1",
 ]
 COMPANY_EXPORT = [
     COMPANY_ID, "Company Name", "Website", "Founded Year", "Company HQ Phone",
@@ -77,7 +76,7 @@ COMPANY_EXPORT = [
     "Facebook Company Profile URL", "Twitter Company Profile URL", "Company City",
     "Company State", "Company Zip Code", "Company Country", "Full Address",
     "Company Domain", "Additional Domains", "Type", "Outbound Personalization Token",
-    "HubSpot Company Record ID", "Company Owner", "Company Owner Name",
+    "HubSpot Company Record ID",
 ]
 
 
@@ -305,28 +304,18 @@ def pre_export_checks(run_dir, fields, rows):
     lp = Path(run_dir) / "changes.jsonl"
     if lp.exists():
         actions = [json.loads(x) for x in lp.read_text(encoding="utf-8").splitlines() if x.strip()]
-    if not any(a.get("action") == "step1" for a in actions):
-        stop.append("step 1 (email_domain.py apply: email and company domains) never ran")
     step2 = [a for a in actions if a.get("action") == "step2"]
     if not step2:
         stop.append("step 2 (normalize.py apply: names, company names, titles, HubSpot values) never ran")
     elif step2[-1].get("undecided"):
         stop.append(f"step 2 left {step2[-1]['undecided']} company names / titles undecided "
                     "(normalize.py apply prints them)")
-    try:
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from setup import load_setup
-        st = load_setup(run_dir)
-    except Exception:  # noqa: BLE001
-        st = {}
-    if st.get("bdr_pool") and not any((r.get("Contact Owner") or "").strip() for r in rows):
-        stop.append("the end state includes BDR owners but owners.py assign hasn't run")
     zi = Path(run_dir) / "zi"
     zi_ran = zi.exists() and (any(zi.glob("contacts_*.json")) or any(zi.glob("companies_*.json")))
     if zi_ran and not any(a.get("action") == "merge_sources" for a in actions):
         stop.append("ZoomInfo was pulled but zoominfo_merge.py merge never ran (no ZoomInfo data, no profile URLs)")
-    for col in ("Website", "Company Domain", "Email Domain", "ZoomInfo Contact Profile URL",
-                "ZoomInfo Company Profile URL", "Employee Range", "Industry", "Didero Primary Industry", "Industry Group"):
+    for col in ("ZoomInfo Contact Profile URL", "ZoomInfo Company Profile URL", "Employee Range", "Industry",
+                "Didero Primary Industry", "Industry Group"):
         n = sum(1 for r in rows if (r.get(col) or "").strip())
         info.append(f"{col}: {n}/{len(rows)} rows")
         if zi_ran and col.startswith("ZoomInfo") and n == 0:
@@ -396,24 +385,8 @@ def export_files(run_dir, out_dir=None):
     for col, vals in {**bad_c, **bad_k}.items():
         print(f"not a HubSpot option, left blank in the upload: {col} = {', '.join(vals)} "
               "(add the option in HubSpot and re-export, or leave it blank)")
-    # One format for every run: the same columns in the same order (blank when a source lacks them),
-    # values normalized, then the rules for problems applied (upload_format.py). Nothing here stops the
-    # run; every change is written to decisions.md.
-    import upload_format as uf
-    contact_cols, company_cols = list(CONTACT_EXPORT), list(COMPANY_EXPORT)
-    fixed = {f"contacts · {k}": v for k, v in uf.normalize(rows, contact_cols).items()}
-    fixed.update({f"companies · {k}": v for k, v in uf.normalize(list(companies.values()), company_cols).items()})
-    opts = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text()).get("hubspot_options", {})
-    rows, companies, notes, blanked, info = uf.resolve(rows, companies, contact_cols, company_cols, opts)
-    if notes or info:
-        with open(Path(run_dir) / "decisions.md", "a", encoding="utf-8") as f:
-            f.write("\n## Upload format (before step 5)\n" + "".join(f"- {n}\n" for n in notes + info))
-    if fixed:
-        print("format: normalized " + "; ".join(f"{k} ({v})" for k, v in sorted(fixed.items())))
-    print(f"format: {len(notes)} fixes by the rules (decisions.md)"
-          + (f"; blanked: " + "; ".join(f"{k} ({v})" for k, v in sorted(blanked.items())) if blanked else ""))
-    for line in info:
-        print("  note:", line)
+    contact_cols = [c for c in CONTACT_EXPORT if c in fields]
+    company_cols = [c for c in COMPANY_EXPORT if c in fields]
     for name, cols, data in (("contacts_upload.csv", contact_cols, rows),
                              ("companies_upload.csv", company_cols, list(companies.values()))):
         with open(out / name, "w", newline="", encoding="utf-8") as f:

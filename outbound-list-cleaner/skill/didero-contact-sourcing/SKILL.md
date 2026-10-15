@@ -1,15 +1,15 @@
 ---
 name: didero-contact-sourcing
-description: Didero's contact sourcing for company-only lists — exhibitor and sponsor lists, or any list that names companies (with or without job titles) but no people. Researches the companies (HubSpot first, then the web), keeps the target countries, cleans the names, then finds the contacts — branch A, the user builds the list in ZoomInfo from an upload file and a guide page; branch B, ZoomInfo search per job title with the user choosing the people, then enrichment. Ends with a contact file handed to didero-outbound-lists-v2 for cleaning, HubSpot upload files and BDR owners. Use whenever someone brings a list of companies and needs the people at them.
+description: Didero's contact sourcing for company-only lists — exhibitor and sponsor lists, or any list that names companies (with or without job titles) but no people. Researches the companies (HubSpot first, then the web), keeps the target countries, cleans the names, then finds the contacts — branch A, the user builds the list in ZoomInfo from an upload file and a guide page; branch B, ZoomInfo search per job title with the user choosing the people, then enrichment. Ends with a contact file handed to didero-outbound-lists for cleaning, HubSpot upload files and BDR owners. Use whenever someone brings a list of companies and needs the people at them.
 ---
 
 # Didero contact sourcing
 
 For lists that name **companies but no people** (exhibitors, sponsors, a
-target-account list). This skill finds the contacts; **didero-outbound-lists-v2**
+target-account list). This skill finds the contacts; **didero-outbound-lists**
 then cleans them, checks HubSpot and builds the upload files. Lists that
 already name people (attendees, ZoomInfo / LinkedIn exports) go straight to
-didero-outbound-lists-v2.
+didero-outbound-lists.
 
 Scripts are in `scripts/`, settings in `config.json` (both at this skill's
 root). Run folder per list in the user's working folder (`<list>_<date>/`).
@@ -98,7 +98,7 @@ excluded and anyone whose country is unknown, then `--confirm`. Unknowns:
    (company data from the research, Event Name on every row) → **hand-off**.
 
 **Hand-off.** Tell the user the contact file is ready and start
-**didero-outbound-lists-v2** with `sourced_contacts.csv` (both branches of a
+**didero-outbound-lists** with `sourced_contacts.csv` (both branches of a
 mixed list: give it both files). That skill asks its start questions (end
 state, countries, BDRs), cleans the contacts, checks HubSpot and builds the
 upload files, with Lead Source = Events and Lead Source Detail 1 = the event
