@@ -199,6 +199,12 @@ def main():
         if a.cmd == "done" and first and first["id"] != a.step:
             raise SystemExit(f"step {a.step} isn't the current one — the current step is {first['id']} "
                              f"({first['title']}). Finish it first (progress.py next).")
+        if a.cmd == "done" and a.step == "z5":  # the upload files must have passed the format check
+            rep = next(iter(sorted(run.glob("**/upload/format_report.json"))), None)
+            ok = rep and json.loads(rep.read_text()).get("passed") and (rep.parent / "contacts_upload.csv").exists()
+            if not ok:
+                raise SystemExit("the upload files haven't passed the format check (upload/format_report.json): "
+                                 "run hubspot_import.py prepare, fix every error it lists, and export again")
         if a.cmd == "skip" and not a.reason:
             raise SystemExit("skip needs --reason")
         s["state"] = "done" if a.cmd == "done" else "skipped"

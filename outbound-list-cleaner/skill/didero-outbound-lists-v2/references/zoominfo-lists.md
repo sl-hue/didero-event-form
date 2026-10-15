@@ -371,9 +371,21 @@ you prepare them and walk them through it.
    are left blank in the upload and listed (the user can add the option in
    HubSpot and re-export). Then run
    `python3 scripts/hubspot_import.py prepare --run-dir <run_dir> --raw-dir <run_dir>/hs_companies --type Prospect`.
-   It sets Type on the working file, exports the two import-ready upload
-   files into `<run_dir>/upload/` (blank Record ID = create a new record),
-   and writes `import_mapping.md`, `report_step4.json` and
+   It sets Type on the working file and exports the two import-ready upload
+   files into `<run_dir>/upload/` (blank Record ID = create a new record).
+   **Format check, every run:** the export always writes the same columns in
+   the same order (blank where the source had none), puts every value in the
+   one format (`scripts/upload_format.py`: phones `(312) 555-0142`, websites
+   `www.acme.com`, standard LinkedIn / ZoomInfo links, full country and
+   US/Canada state names, digits-only numbers and IDs, HubSpot dropdown
+   options, lowercase emails) and checks both files: unique emails, every
+   contact's company in the company file, no website or HubSpot record on two
+   companies, valid emails and links. **Any error → no files are written**:
+   fix each one in the working file by the step rules (`worksheet.py set` /
+   `remove`, noted in `decisions.md`) and run prepare again. Result:
+   `upload/format_report.json`; show its one-line result. The import step
+   can't be marked done without a passed report. It also writes
+   `import_mapping.md`, `report_step4.json` and
    **`upload/HOW_TO_IMPORT.md`** (click-by-click import steps + mapping).
    **Always** send the user the two upload files, `HOW_TO_IMPORT.md` and (with
    BDR owners) `bdr_assignment.csv`, paste `HOW_TO_IMPORT.md` in the chat, and

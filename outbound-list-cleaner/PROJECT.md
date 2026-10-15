@@ -217,6 +217,18 @@ file, answers everything at the start, and the run is independent.
 - Not yet tested in Cowork. To check on the first import: HubSpot accepts the
   owner ID in the owner columns.
 
+**Upload format check (2026-10-15):** colleagues got inconsistent files (columns
+depended on the source; values on the run; once no websites / domains at all).
+`scripts/upload_format.py`, run by `worksheet.py export`: fixed column set and
+order; safe normalization (phones `(312) 555-0142`, websites `www.acme.com`,
+LinkedIn / ZoomInfo links, full country and US/CA state names, digits-only
+numbers / IDs, lowercase emails); websites + domains filled on both files;
+checks (unique emails, contact companies in the company file, no website /
+record ID on two companies, dropdown options, valid links). Errors → no files.
+Export also refuses if step 1 or 2 never ran; progress.py won't mark the
+import step done without a passed `upload/format_report.json` (which records
+the skill version).
+
 `skill/didero-contact-sourcing/`: the two event-company flows (no titles →
 ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact
 file for v2 (`tag-event` now writes Event Name into the export CSV).

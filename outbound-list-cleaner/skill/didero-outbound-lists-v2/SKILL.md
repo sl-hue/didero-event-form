@@ -109,6 +109,13 @@ Reference pages (`progress.py next` prints the right sections):
   titles are rewritten there; the export refuses if step 2 didn't run, if
   ZoomInfo was pulled but not merged, or if BDR owners were chosen but not
   assigned.
+- **Upload format check before step 5, every run:** the export writes the
+  same columns in the same order, normalizes every value (phones, websites,
+  links, countries, states, numbers, dropdowns), fills websites and domains
+  on both files, and checks both files. Any error → no files; fix it in the
+  working file and export again. It also refuses if step 1 or step 2 never
+  ran. The import step can't be marked done without a passed
+  `upload/format_report.json`.
 - **Import step:** always send the two upload files, `HOW_TO_IMPORT.md` and
   (with BDRs) `bdr_assignment.csv`, and paste the instructions in the chat.
 - **Clay step:** start with `scripts/clay_guide.py` and paste its output.

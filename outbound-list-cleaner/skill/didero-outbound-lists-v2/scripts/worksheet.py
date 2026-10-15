@@ -305,6 +305,8 @@ def pre_export_checks(run_dir, fields, rows):
     lp = Path(run_dir) / "changes.jsonl"
     if lp.exists():
         actions = [json.loads(x) for x in lp.read_text(encoding="utf-8").splitlines() if x.strip()]
+    if not any(a.get("action") == "step1" for a in actions):
+        stop.append("step 1 (email_domain.py apply: email and company domains) never ran")
     step2 = [a for a in actions if a.get("action") == "step2"]
     if not step2:
         stop.append("step 2 (normalize.py apply: names, company names, titles, HubSpot values) never ran")
@@ -323,8 +325,8 @@ def pre_export_checks(run_dir, fields, rows):
     zi_ran = zi.exists() and (any(zi.glob("contacts_*.json")) or any(zi.glob("companies_*.json")))
     if zi_ran and not any(a.get("action") == "merge_sources" for a in actions):
         stop.append("ZoomInfo was pulled but zoominfo_merge.py merge never ran (no ZoomInfo data, no profile URLs)")
-    for col in ("ZoomInfo Contact Profile URL", "ZoomInfo Company Profile URL", "Employee Range", "Industry",
-                "Didero Primary Industry", "Industry Group"):
+    for col in ("Website", "Company Domain", "Email Domain", "ZoomInfo Contact Profile URL",
+                "ZoomInfo Company Profile URL", "Employee Range", "Industry", "Didero Primary Industry", "Industry Group"):
         n = sum(1 for r in rows if (r.get(col) or "").strip())
         info.append(f"{col}: {n}/{len(rows)} rows")
         if zi_ran and col.startswith("ZoomInfo") and n == 0:
@@ -394,8 +396,32 @@ def export_files(run_dir, out_dir=None):
     for col, vals in {**bad_c, **bad_k}.items():
         print(f"not a HubSpot option, left blank in the upload: {col} = {', '.join(vals)} "
               "(add the option in HubSpot and re-export, or leave it blank)")
-    contact_cols = [c for c in CONTACT_EXPORT if c in fields]
-    company_cols = [c for c in COMPANY_EXPORT if c in fields]
+    # One format for every run: the same columns in the same order (blank when a source lacks them),
+    # values normalized, then checked. Errors stop the export before any file is written.
+    import upload_format as uf
+    contact_cols, company_cols = list(CONTACT_EXPORT), list(COMPANY_EXPORT)
+    company_rows = list(companies.values())
+    fixed = {f"contacts · {k}": v for k, v in uf.normalize(rows, contact_cols).items()}
+    fixed.update({f"companies · {k}": v for k, v in uf.normalize(company_rows, company_cols).items()})
+    fixed.update(uf.fill_links(rows, company_rows))
+    opts = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text()).get("hubspot_options", {})
+    errors, warnings = uf.check(rows, contact_cols, company_rows, company_cols, opts)
+    vf = Path(__file__).resolve().parent.parent / "VERSION"
+    report = {"passed": not errors, "skill_version": vf.read_text().strip() if vf.exists() else "",
+              "errors": errors, "warnings": warnings, "normalized": fixed,
+              "contact_columns": contact_cols, "company_columns": company_cols,
+              "contacts": len(rows), "companies": len(company_rows)}
+    for stale in ("contacts_upload.csv", "companies_upload.csv", "HOW_TO_IMPORT.md"):
+        (out / stale).unlink(missing_ok=True)
+    (out / "format_report.json").write_text(json.dumps(report, indent=1, ensure_ascii=False))
+    if fixed:
+        print("format: normalized " + "; ".join(f"{k} ({v})" for k, v in sorted(fixed.items())))
+    if errors:
+        raise SystemExit(f"FORMAT CHECK FAILED — {len(errors)} error(s), no upload files written "
+                         "(upload/format_report.json). Fix each in the working file (worksheet.py set / remove, by "
+                         "the step rules) and export again:\n  - " + "\n  - ".join(errors[:40]))
+    print(f"format check passed ({len(warnings)} warning(s)" + (": " + "; ".join(warnings[:10]) if warnings else "") + ")")
+    companies = {i: r for i, r in enumerate(company_rows)}
     for name, cols, data in (("contacts_upload.csv", contact_cols, rows),
                              ("companies_upload.csv", company_cols, list(companies.values()))):
         with open(out / name, "w", newline="", encoding="utf-8") as f:
