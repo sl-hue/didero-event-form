@@ -32,8 +32,12 @@ each in `<run_dir>/decisions.md`. The run **stops only where the user acts**
 **7. Clay enrichment** — `clay_guide.py` — **USER ACTS**: runs the Clay buttons
 
 All steps read and update the one working file through `worksheet.py`
-(see "One working file"). Run the heavy sub-agents (`web-domain-finder`,
-`hubspot-searcher`) as sub-agents so raw results stay out of the chat. Name
+(see "One working file"). Lists over 20 contacts: every connector batch and
+web-research step runs through helpers started all at once (see "Running
+ZoomInfo calls and web research"); judgment lists without a script
+(`domain-judge`, `web-domain-finder`, `name-and-linkedin-checker`) are split
+the same way — about 10 items per helper — and their answers combined before
+the apply command. Name
 the sub-agent when you start its work ("Step 3 · hubspot-searcher: …").
 
 ## HubSpot links in chat — always
@@ -537,19 +541,26 @@ HubSpot itself (that's Clay, not Claude) — no files are imported or exported.
    what was decided along the way (`decisions.md`), rows removed and why,
    the HubSpot merge / association lists if any, the files delivered.
 
-## Running ZoomInfo calls (all ZoomInfo stages)
+## Running ZoomInfo calls and web research (helpers)
+
+Helpers (sub-agents): **any list over 20 contacts** runs every ZoomInfo / HubSpot batch and every
+web-research step through helpers, **all started at once in one message** (they run in parallel).
+The scripts size the work: `zi_workers.py` (ZoomInfo and HubSpot calls) and `research_workers.py`
+(company research, website + HQ, title review) give each helper an amount it finishes well and quickly,
+so the number of helpers follows from the list — never a fixed count. 20 contacts or fewer: the main
+chat does it itself.
 
 Every ZoomInfo stage (enrich, title search, title enrich) and the step-3
-HubSpot reads run through `scripts/zi_workers.py`. It splits the calls still
-to do between sub-agents (default 6) and writes one brief per sub-agent in
-`zi/workers/`.
-Start them **in one message**, so they run at the same time, each as
-`zoominfo-puller` with the one-line brief the script prints. Each sub-agent
-calls ZoomInfo, saves the raw result as returned, runs the ingest command and
-replies with one line per call. Raw results never come into the main chat.
-If the host has no sub-agents, work through the brief files yourself, in
-order, without commenting between calls. Tell the user before starting:
-"Running N ZoomInfo calls with 6 helpers in parallel."
+HubSpot reads run through `scripts/zi_workers.py`; the web research through
+`scripts/research_workers.py` (`brief`, then `merge`). Each writes one brief
+per helper and prints the one-line instruction for each. Start them **all in
+one message**, each with its one-line brief. A ZoomInfo / HubSpot helper
+calls the connector, saves the raw result as returned, runs the ingest
+command and replies with one line per call; a research helper writes its
+answers to its result file and replies with one line. Raw results never come
+into the main chat. Re-run the same command afterwards: it lists only what's
+still missing and writes new briefs for that. Tell the user before starting:
+"Running N calls / researching N companies with M helpers in parallel."
 
 ## LinkedIn lists: ZoomInfo pull, source priority, consistency, prune
 

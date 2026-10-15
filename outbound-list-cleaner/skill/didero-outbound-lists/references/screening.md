@@ -33,7 +33,10 @@ the job the file lists (no profile checking); the ZoomInfo pull later
 replaces an outdated company only when ZoomInfo confirms the person.
 
 **2. Research companies and review titles**
-- `company-researcher` (subagent) — for each company: what it does, HQ
+- **Company research, in parallel:** `python3 scripts/research_workers.py brief --run-dir <run_dir> --kind companies-screen`
+  and start the helpers it lists all at once (over 20 contacts; smaller lists
+  in the main chat), then `research_workers.py merge … --kind companies-screen`
+  and the `apply-research` command it prints. What each helper does: for each company: what it does, HQ
   country, **every country where it has a real presence** (offices, plants,
   warehouses, distribution — e.g. a Canadian company with US plants is
   present in the US), size, and whether it fits Didero's ICP (manufacturers
@@ -41,7 +44,8 @@ replaces an outdated company only when ZoomInfo confirms the person.
   `didero-icp-check` skill's criteria). Web search only. Write
   `{"<company>": {"fit": "fit|unclear|no", "reason": "…", "hq_country": "…", "presence": ["United States", …]}}`
   and run `screen.py apply-research --run-dir <run_dir>/screen --file research.json`.
-- `title-reviewer` (subagent) — `screen.py check` (step 3) gives every title a
+- **Title review, in parallel:** `research_workers.py brief … --kind titles` → helpers all at
+  once → `merge … --kind titles` → the `set-title` command it prints. `screen.py check` (step 3) gives every title a
   first pass from keywords and seniority (`config.json`). Review every title
   the keywords didn't pass: many target roles use other words ("Integrated
   Supply", "Commodities", "Procure to Pay", "MRO"). Write

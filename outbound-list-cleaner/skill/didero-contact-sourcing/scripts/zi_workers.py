@@ -8,7 +8,7 @@ sub-agent. The sub-agents run at the same time (contacts and companies
 together), save each raw result and ingest it; the main chat only sees one line
 per call.
 
-  python3 zi_workers.py --run-dir <run_dir> --job enrich|search|title-search|title-enrich [--workers 4]
+  python3 zi_workers.py --run-dir <run_dir> --job enrich|search|title-search|title-enrich
 
   enrich        zi/plan.json            (zoominfo_merge.py plan): enrich_contacts + enrich_companies
   search        zi/search_plan.json     (zoominfo_merge.py search-plan): search_contacts, free
@@ -28,6 +28,38 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from titles import ENRICH_FIELDS  # noqa: E402
+
+# How many calls one helper takes, per kind of call — a size one helper finishes well and quickly. The number
+# of helpers follows from the list (never a fixed count); lists of 20 contacts or fewer run in the main chat.
+PER_HELPER = {"enrich": 3, "search": 8, "title-search": 8, "title-enrich": 3,
+              "hs-companies": 2, "hs-names": 2, "hs-contacts": 2, "hs-event-1": 2, "hs-event-2": 2}
+SMALL = 20
+
+
+def list_size(run, n_calls):
+    """Contacts in the run (run_setup.json), else the number of calls."""
+    try:
+        from setup import load_setup
+        return int((load_setup(run) or {}).get("contacts") or 0) or rows_in_list(run) or n_calls
+    except Exception:  # noqa: BLE001
+        return rows_in_list(run) or n_calls
+
+
+def rows_in_list(run):
+    """Contacts in the list when run_setup.json doesn't say: the working / screening / event file's rows."""
+    import csv
+    for name in ("working.csv", "screen/screening.csv", "event.csv", "companies.csv"):
+        p = Path(run) / name
+        if p.exists():
+            with open(p, encoding="utf-8") as f:
+                return max(0, sum(1 for _ in csv.reader(f)) - 1)
+    return 0
+
+
+def helper_count(job, n_calls, size):
+    if size <= SMALL or n_calls <= 1:
+        return 0
+    return max(2, -(-n_calls // PER_HELPER.get(job, 3)))
 
 
 def tasks(run, job):
@@ -82,7 +114,6 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--job", required=True, choices=["title-search", "title-enrich", "hs-event-1", "hs-event-2"])
-    ap.add_argument("--workers", type=int, default=6, help="sub-agents to run at the same time (default 6)")
     args = ap.parse_args()
     run = Path(args.run_dir).resolve()
     all_t = tasks(run, args.job)
@@ -96,8 +127,8 @@ def main():
     if not todo:
         print(f"{args.job}: all {len(all_t)} calls done — nothing left to run.")
         return
-    n = max(1, min(args.workers, len(todo)))
-    groups = [todo[k::n] for k in range(n)]  # round-robin: contacts and companies spread across workers
+    n = helper_count(args.job, len(todo), list_size(run, len(all_t)))
+    groups = [todo] if n == 0 else [todo[k::n] for k in range(n)]  # round-robin: contacts and companies mixed
     files = []
     for k, g in enumerate(groups, 1):
         lines = [HEAD.format(k=k, n=n, count=len(g), job=args.job,
@@ -110,8 +141,12 @@ def main():
         f = wd / f"{args.job}_{k}.md"
         f.write_text("\n".join(lines), encoding="utf-8")
         files.append((f, len(g)))
-    print(f"{args.job}: {len(todo)} of {len(all_t)} calls left, split between {n} sub-agents. Start them ALL AT "
-          f"ONCE (one message, {n} sub-agent calls), each named zoominfo-puller with this brief:")
+    if n == 0:
+        print(f"{args.job}: {len(todo)} calls, a small list (≤{SMALL} contacts) — do them yourself, no helpers: read "
+              f"{files[0][0]} and follow it. Re-run this command afterwards for anything missing.")
+        return
+    print(f"{args.job}: {len(todo)} of {len(all_t)} calls left, split between {n} helpers (~{PER_HELPER.get(args.job, 3)} "
+          f"each). Start them ALL AT ONCE — one message with {n} sub-agent calls, each named zoominfo-puller with this brief:")
     for f, c in files:
         print(f'  - "Read {f} and do exactly what it says. Reply only with the printed lines." ({c} calls)')
     print("When they're back, re-run this command: it shows anything still missing.")

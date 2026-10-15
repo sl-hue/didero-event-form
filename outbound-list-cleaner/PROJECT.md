@@ -294,6 +294,15 @@ Organic Website, Partnerships / Referrals → Partner until HubSpot has the exac
 value (exact match wins automatically). Import steps suggest Don't overwrite on
 both lead source columns.
 
+**Helpers sized to the list (2026-10-15):** any list over 20 contacts runs every
+connector batch and web-research step through helpers started all at once
+(user: "this skill is used in Claude, all of these can run in parallel"; no
+fixed helper count). `zi_workers.py`: PER_HELPER calls per kind (enrich 3 =
+~30 records, search 8, HubSpot SQL 2) → helpers = calls / size. New
+`research_workers.py` (both skills): companies-screen (8 per helper),
+companies-hq (10), titles (40); `brief` splits, `merge` combines and lists
+what's missing. ≤20 contacts: main chat.
+
 `skill/didero-contact-sourcing/`: the two event-company flows (no titles →
 ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact
 file for v2 (`tag-event` now writes Event Name into the export CSV).

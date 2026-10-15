@@ -23,6 +23,13 @@ read-only.
 (see the script's help). Stop only if HubSpot or ZoomInfo isn't connected or
 the model isn't Opus 5.5 or newer.
 
+Helpers (sub-agents): **any list over 20 contacts / companies** runs every ZoomInfo / HubSpot batch and every
+web-research step through helpers, **all started at once in one message** (they run in parallel).
+The scripts size the work: `zi_workers.py` (ZoomInfo and HubSpot calls) and `research_workers.py`
+(company research, website + HQ, title review) give each helper an amount it finishes well and quickly,
+so the number of helpers follows from the list — never a fixed count. 20 contacts / companies or fewer: the main
+chat does it itself.
+
 Instructions and summaries go in the chat as formatted text, never in a file:
 never send the user a `.md` file (hard to read, won't open in Notion). Send
 only CSVs and the HTML pages they work in.
@@ -48,10 +55,12 @@ It says how many companies go to **branch A** (no titles) and **branch B**
    `plan --pass 2` (name contains its main word), `zi_workers.py ... --job hs-event-2`, apply again.
    ASK lines (similar names, several records): ask the user which record (or
    none) → `apply --decisions <file>`.
-3. `company-researcher` (subagent) for the rest: `company_list.py plan --run-dir <run_dir>`
-   → website, HQ city / state / country, employees / revenue if published
-   (exact numbers; a range only if that's all there is) → `found.json` →
-   `company_list.py apply --run-dir <run_dir> --file found.json`. Confirm
+3. Web research for the rest, in parallel: `company_list.py plan --run-dir <run_dir>`, then
+   `research_workers.py brief --run-dir <run_dir> --kind companies-hq` and start the helpers it lists
+   all at once (more than 20 companies; fewer in the main chat) → website, HQ city / state / country,
+   employees / revenue if published (exact numbers; a range only if that's all there is) →
+   `research_workers.py merge … --kind companies-hq` →
+   `company_list.py apply --run-dir <run_dir> --file research/companies-hq.json`. Confirm
    low-confidence finds with the user.
 
 **3. Drop non-target countries.** Ask which countries (default United

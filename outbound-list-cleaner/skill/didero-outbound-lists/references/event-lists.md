@@ -33,13 +33,16 @@ user's device; never publish it.
   or company leaves the list (noted in `decisions.md`); a missing title stays
   blank (ZoomInfo may fill it).
 
-**2. Company website, then HQ** — HubSpot first, then `company-researcher` (subagent) for the rest
+**2. Company website, then HQ** — HubSpot first, then web research for the rest, in parallel
 - **HubSpot first** (see "HubSpot company lookup" below) with `--kind event`.
   Companies HubSpot fills completely are done; only the rest is researched.
 - `python3 scripts/companies.py plan --run-dir <run_dir>` → `companies_todo.json`
   (with the corporate email domains seen on each company's attendees — the
   best clue to the right website).
-- For each company: find the **website** first (the company's own site — not
+- `python3 scripts/research_workers.py brief --run-dir <run_dir> --kind companies-hq` and start
+  the helpers it lists all at once (over 20 contacts; smaller lists in the main chat), then
+  `research_workers.py merge … --kind companies-hq` (→ `research/companies-hq.json`, used as
+  `found.json` below). What each helper does: for each company: find the **website** first (the company's own site — not
   a LinkedIn page, Linktree, careers page or directory), then the **HQ city,
   state and country** from the site (contact / about / locations page) or a
   reliable source. Same-name companies: the attendees' email domain decides.

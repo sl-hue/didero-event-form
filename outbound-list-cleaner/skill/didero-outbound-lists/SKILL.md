@@ -112,8 +112,11 @@ Reference pages (`progress.py next` prints the right sections):
   included) or is done by the user from a list Claude gives them.
 - **Open HubSpot / Clay in the browser window** whenever the user has to act
   there (import page, segments, Clay template), not just a link.
-- **ZoomInfo calls run in parallel** through `scripts/zi_workers.py` and
-  sub-agents started all at once; within the credit cap from the start.
+- **Helpers for every list over 20 contacts:** every ZoomInfo / HubSpot batch (`scripts/zi_workers.py`)
+  and every web-research step (`scripts/research_workers.py`) runs through helpers started all at once
+  in one message, in parallel. The scripts size each helper's share, so the number of helpers follows
+  from the list (never a fixed count). 20 contacts or fewer: the main chat does it. ZoomInfo stays
+  within the credit cap from the start.
 - **Cleaning is step 2, every path:** contact names, company names and job
   titles are rewritten there; the export refuses if step 2 didn't run, if
   ZoomInfo was pulled but not merged, or if BDR owners were chosen but not
