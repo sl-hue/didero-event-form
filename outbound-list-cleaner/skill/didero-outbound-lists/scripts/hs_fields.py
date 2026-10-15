@@ -15,7 +15,7 @@ HubSpot doesn't have (renamed, deleted) is left out and listed.
 Working-file column -> HubSpot internal name. Labels below are as checked on 2026-10-15; the live
 check overrides them. Not here = not imported (e.g. the internal row IDs, owner names for reading,
 the contact's email domain — HubSpot sets it from the email —, additional domains — no importable
-property).
+property, and company data such as industry: it goes on the company file only).
 """
 import argparse
 import json
@@ -33,9 +33,7 @@ CONTACT = [  # (working column, internal name, label on 2026-10-15)
     ("Person Street", "address", "Street Address"), ("Person City", "city", "City"),
     ("Person State", "state", "State/Region"), ("Person Zip Code", "zip", "Postal Code"),
     ("Country", "country", "Country/Region"), ("Company Name", "company", "Company Name"),
-    ("Website", "website", "Website URL"), ("Primary Industry", "primary_industry", "Primary Industry"),
-    ("Primary Sub-Industry", "primary_sub_industry", "Primary Sub-Industry"),
-    ("Company Industry", "company_industry", "Company Industry"),
+    ("Website", "website", "Website URL"),
     ("Lead Source", "lead_source", "LEAD SOURCE"), ("Lead Source Detail 1", "lead_source_detail_1", "LEAD SOURCE DETAIL 1"),
     ("New Contact Outbound Personalization", "contact_outbound_personalization", "Contact Outbound Personalization"),
     ("Contact Owner", "hubspot_owner_id", "Contact owner"),
@@ -86,7 +84,7 @@ def columns(kind, run_dir):
 
 def dropdown_values(rows, kind, run_dir):
     """Every dropdown value as one of HubSpot's current options (live check): matched on the option's label
-    or internal value, any case, and written as HubSpot's label (owners: the owner ID). A value that isn't
+    or internal value, any case, and written as HubSpot's label (owners: the owner's name). A value that isn't
     an option -> blank. Returns [(column, value, n)] of values blanked."""
     lv = live(run_dir) or {}
     blanked = {}
@@ -94,10 +92,9 @@ def dropdown_values(rows, kind, run_dir):
         prop = lv.get(kind, {}).get(internal)
         if not prop or prop.get("type") != "enumeration" or not prop.get("options"):
             continue
-        owner = internal == "hubspot_owner_id"
         lookup = {}
         for label, value in prop["options"]:
-            target = value if owner else label
+            target = label  # owners too: "Bart Lynn", not the owner ID (HubSpot's import accepts the name)
             lookup[str(label).strip().lower()] = target
             lookup[str(value).strip().lower()] = target
         for r in rows:
@@ -105,6 +102,8 @@ def dropdown_values(rows, kind, run_dir):
             if not v:
                 continue
             hit = lookup.get(v.lower())
+            if hit is None and internal == "hubspot_owner_id":
+                hit = lookup.get((r.get(col + " Name") or "").strip().lower())  # ID not an option: try the name
             if hit is None:
                 blanked[(col, v)] = blanked.get((col, v), 0) + 1
                 r[col] = ""

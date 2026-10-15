@@ -335,8 +335,9 @@ Companies first, then contacts. `S=scripts/hubspot_match.py`.
 Only when the end state chosen at the start includes BDR owners
 (`run_setup.json` → `bdr_pool`); otherwise skip. No stop, and **nothing is
 written to HubSpot**: the owners become columns in the upload files
-(**Contact Owner** / **Company Owner** = the HubSpot owner ID, plus a
-**… Owner Name** column for reading), so the import sets them.
+(**Contact Owner** / **Company Owner** = the owner's name as HubSpot shows
+it, e.g. "Bart Lynn" — the export turns the owner ID into the name), so the
+import sets them.
 `O=scripts/owners.py`.
 1. `python3 $O plan --run-dir <run_dir>` → `hs_owners/plan.json`: read-only
    `query_crm_data` calls (current owners of the list's existing contacts and
@@ -619,13 +620,15 @@ and other lists with names and companies but no ZoomInfo / LinkedIn data).
 They're enriched **directly**, 10 people per call, matched on name + company
 + email — no per-person search first (that was one call per person and the
 slowest part of these runs). `attach` then checks every match (same person,
-same company) exactly as for LinkedIn lists. Company HQ already came from
-HubSpot / web research, so **no company enrichment**. Skipped when ZoomInfo
-wasn't approved at the start. No stops.
+same company) exactly as for LinkedIn lists. **Companies are enriched too**
+(10 per call): that's where industry, sub-industry, phone, address and
+founded year come from — the HubSpot / web step only finds website and HQ.
+Skipped when ZoomInfo wasn't approved at the start. No stops.
 
 **ZoomInfo** (`zoominfo-puller`)
-1. `python3 scripts/zoominfo_merge.py plan --run-dir <run_dir> --no-companies`
-   (within the credit cap from the start; ~1 call per 10 people).
+1. `python3 scripts/zoominfo_merge.py plan --run-dir <run_dir>`
+   (contacts + companies, within the credit cap from the start; ~1 call per
+   10 people or companies).
 2. `zi_workers.py --run-dir <run_dir> --job enrich` and start the sub-agents
    it lists all at once (see "Running ZoomInfo calls").
 3. `zoominfo_merge.py attach --run-dir <run_dir>` and decide the **review**

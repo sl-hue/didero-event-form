@@ -326,6 +326,12 @@ def pre_export_checks(run_dir, fields, rows):
     zi_ran = zi.exists() and (any(zi.glob("contacts_*.json")) or any(zi.glob("companies_*.json")))
     if zi_ran and not any(a.get("action") == "merge_sources" for a in actions):
         stop.append("ZoomInfo was pulled but zoominfo_merge.py merge never ran (no ZoomInfo data, no profile URLs)")
+    companies = {r.get(COMPANY_ID) for r in rows}
+    with_industry = {r.get(COMPANY_ID) for r in rows if (r.get("Didero Primary Industry") or r.get("Industry")
+                                                         or r.get("Industry Group") or "").strip()}
+    if companies and not with_industry:
+        stop.append(f"none of the {len(companies)} companies has an industry — the industry step was missed "
+                    "(ZoomInfo company enrichment + zoominfo_merge.py merge, or normalize.py apply). Fill it first.")
     for col in ("Website", "Company Domain", "Email Domain", "ZoomInfo Contact Profile URL",
                 "ZoomInfo Company Profile URL", "Employee Range", "Industry", "Didero Primary Industry", "Industry Group"):
         n = sum(1 for r in rows if (r.get(col) or "").strip())

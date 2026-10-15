@@ -34,8 +34,8 @@ PRESETS = CONFIG.get("country_presets", {})
 PATH_OF = {"zoominfo": "zoominfo", "linkedin": "linkedin", "event-contacts": "contacts"}
 PATH_LABEL = {"zoominfo": "ZoomInfo export path (steps 1–6, no ZoomInfo calls)",
               "linkedin": "LinkedIn path (screening → ZoomInfo pull for contacts and companies → merge)",
-              "contacts": "named-contacts path (HubSpot + web for companies → screening → ZoomInfo direct "
-                          "enrich, 10 people per call)"}
+              "contacts": "named-contacts path (HubSpot + web for companies → screening → ZoomInfo enrich "
+                          "for contacts and companies, 10 per call)"}
 SETUP = "run_setup.json"
 
 
@@ -95,7 +95,7 @@ def start(args):
     comp_col = next((c for c in main["cols"] if c.lower() in COMPANY_COLS), None)
     n_contacts = len(main["rows"])
     n_companies = len({(r.get(comp_col) or "").strip().lower() for r in main["rows"]} - {""}) if comp_col else 0
-    credits = {"zoominfo": 0, "linkedin": n_contacts + n_companies, "contacts": n_contacts}[path]
+    credits = {"zoominfo": 0, "linkedin": n_contacts + n_companies, "contacts": n_contacts + n_companies}[path]
     draft = {"file": main["file"], "other_files": [f["file"] for f in files[1:]], "detected": kind,
              "event_column": "Event Name" in main["cols"],
              "path": path, "evidence": why, "contacts": n_contacts, "companies": n_companies, "max_credits": credits}
@@ -129,7 +129,7 @@ def start(args):
     if credits:
         qs.append({"header": "Credits", "multiSelect": False,
                    "question": f"Approve up to {credits} ZoomInfo Bulk Credits for this list? (one per contact"
-                               + (" and per company" if path == "linkedin" else "") +
+                               + (" and per company" if path in ("linkedin", "contacts") else "") +
                                "; anyone enriched in the last year is free, so the real number is lower)",
                    "options": [{"label": f"Approve up to {credits}", "description": "The run never stops for credits."},
                                {"label": "Don't use ZoomInfo", "description": "Skip the ZoomInfo steps; the list "

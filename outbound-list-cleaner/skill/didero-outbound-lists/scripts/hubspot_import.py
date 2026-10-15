@@ -63,7 +63,7 @@ COMPANY_MAPPING = {
     "Type": ("Type", "type"),
     "Outbound Personalization Token": ("Company Outbound Personalization", "company_outbound_personalization"),
     COMPANY_RECORD: ("Record ID", "hs_object_id"),
-    "Company Owner": ("Company owner", "hubspot_owner_id"),  # HubSpot owner ID
+    "Company Owner": ("Company owner", "hubspot_owner_id"),  # owner's name
     "Company Owner Name": None,  # for reading only
 }
 
@@ -97,7 +97,7 @@ CONTACT_MAPPING = {
     "Website": ("Website URL", "website"),  # not "Contact Website URL (Cleaned)"
     "Company HQ Phone": ("Corporate Phone", "corporate_phone"),
     CONTACT_RECORD: ("Record ID", "hs_object_id"),
-    "Contact Owner": ("Contact owner", "hubspot_owner_id"),  # HubSpot owner ID
+    "Contact Owner": ("Contact owner", "hubspot_owner_id"),  # owner's name
     "Contact Owner Name": None,  # for reading only
     "New Contact Outbound Personalization": ("Contact Outbound Personalization", "contact_outbound_personalization"),
 }
@@ -181,7 +181,7 @@ was left out and why (same columns + **Why Rejected**).
 4. **Columns map themselves:** every header is a HubSpot field name, checked
    live today. Just confirm none shows "Don't import". Tick **Don't overwrite**
    where the table below suggests it (keeps what HubSpot already has).
-   **Company owner** holds the HubSpot owner ID.
+   **Company owner** holds the owner's name, as in HubSpot.
 5. Import option: **Create and update companies**. Rows with a Record ID
    update that company; rows without one create a new company.
 6. Name the import `{run_name} companies` → **Finish import**.
@@ -195,7 +195,7 @@ was left out and why (same columns + **Why Rejected**).
    computer** → **One file** → **One object** → **Contacts** → Next.
 2. Upload `contacts_upload.csv` → Next.
 3. Columns map themselves (same as above); **Contact owner** holds the
-   HubSpot owner ID.
+   owner's name, as in HubSpot.
 4. Import option: **Create and update contacts**.
 5. Name the import `{run_name} contacts` and tick **Create a list of contacts
    from this import** if HubSpot offers it (it makes the next step's segment

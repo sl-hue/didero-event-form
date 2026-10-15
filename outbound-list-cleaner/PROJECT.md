@@ -249,6 +249,14 @@ hs-contacts / hs-event-1/2) with parallel sub-agents, default 6; raw results sta
 out of the main chat. Named-contact lists: ZoomInfo direct enrich, 10 per call
 (no per-person search → pick), `attach` judges the matches.
 
+**New Hires run feedback (2026-10-15):** industry columns were empty — on the
+named-contacts path the HubSpot lookup only fills website/HQ/size and ZoomInfo
+ran `--no-companies`, so nothing supplied industry. Now ZoomInfo enriches the
+companies there too (credits = contacts + companies), and export stops if no
+company has an industry. Owner columns hold the owner's **name** (live option
+label; an unknown ID falls back to the Owner Name column), not the ID. Contact
+file no longer carries company industry fields.
+
 `skill/didero-contact-sourcing/`: the two event-company flows (no titles →
 ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact
 file for v2 (`tag-event` now writes Event Name into the export CSV).
