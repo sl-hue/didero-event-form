@@ -48,7 +48,7 @@ COMPANY_MAPPING = {
     "NAICS Code 2": ("NAICS Code 2", "naics_code_2"),
     "Didero Primary Industry": ("Primary industry", "primary_industry"),  # Manufacturing/Distribution/Software/Services/Other
     "Industry": ("Industry", "industry"),
-    "Industry Group": ("Industry group", "hs_industry_group"),  # "Manufacturing- Building Materials"
+    "Industry Group": ("Industry group", "hs_industry_group"),  # the team's sub-industry list (config industry_map)
     "ZoomInfo Company Profile URL": ("ZoomInfo Company Profile URL", "zoominfo_company_profile_url"),
     "LinkedIn Company Profile URL": ("LinkedIn Company Page", "linkedin_company_page"),
     "Facebook Company Profile URL": ("Facebook Company Page", "facebook_company_page"),

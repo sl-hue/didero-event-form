@@ -242,17 +242,22 @@ Everything the user needs to review goes in the chat.
      With no count, ZoomInfo's range (`Employees.1000to4999`) goes to the
      HubSpot range covering most of it. **Number of Employees** gets exact
      counts only.
-   - **Industry**, filled together every time the industry changes:
-     company **Primary industry** (`primary_industry`: Manufacturing /
-     Distribution / Software / Services / Other; column `Didero Primary
-     Industry`), company **Industry** (`industry`: ZoomInfo's top level as a
-     HubSpot option, e.g. Manufacturing, Retail), company **Industry group**
-     (`hs_industry_group`: `Manufacturing- Building Materials`), and on the
-     contact **Primary Industry**, **Primary Sub-Industry** and **Company
-     Industry**. Companies the rule puts in **Other** are listed (`primary
+   - **Industry**, the team's two levels (Industries cleanup file), filled
+     together every time the industry changes: company **Primary industry**
+     (`primary_industry`: Manufacturing / Distribution / Software / Services /
+     Other; column `Didero Primary Industry`) and company **Industry group**
+     (`hs_industry_group`: one of the team's 48 sub-industries, e.g. Food &
+     Beverage, Building Materials, Construction and property). Both come from
+     `config.json` → `industry_map`: every ZoomInfo industry|sub-industry maps
+     to one Industry group, LinkedIn industry names by keyword; Primary
+     industry follows ZoomInfo (Manufacturing, Software; Retail and
+     distributors → Distribution), else the group's usual one. Contacts carry
+     no industry. Companies the rule puts in **Other** are listed (`primary
      industry other`): decide each one (a building-supply "retailer" that
      sells to contractors is Distribution; check the website when unsure; still
-     unsure → Other) in `didero_primary_industry` and re-run apply.
+     unsure → Other) in `didero_primary_industry` and re-run apply. Companies
+     with no Industry group (`industry group unmapped`, e.g. LinkedIn just says
+     "Wholesale") stay blank and are listed in the step-5 summary.
    **Websites** are cut back to the site itself (subpages, index pages,
    `?…` dropped: `acme.com/about/index.html` → `acme.com`), careers
    subdomains become the main site (`careers.acme.com` → `www.acme.com`), and
@@ -589,7 +594,7 @@ company's most-used domain / address format is primary, the other goes in
 **Additional Emails** (HubSpot "Additional email addresses"); person city/state/country → ZoomInfo when it has them;
 website → ZoomInfo then cleaned; company name → ZoomInfo's when it's the same
 company as LinkedIn's; company LinkedIn URL → LinkedIn; company location,
-phone, industry (`Industry- Sub-industry`), size, revenue, management
+phone, industry (→ Primary industry + Industry group), size, revenue, management
 level, job function, phones, ZoomInfo contact / company profile URLs →
 ZoomInfo. Only "good" matches are used. Ties are flagged: decide each
 (company name → the one on the company's website; otherwise the most recent

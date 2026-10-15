@@ -266,6 +266,14 @@ C-Level → Executive, Non-Manager → Employee). Email Domain is included (HubS
 fills it itself). Dropped: Industry group, outbound personalization columns,
 contact Street Address.
 
+**Industries (2026-10-15):** company file carries the team's two levels from the
+Industries cleanup file (cols C/D): Primary industry (5 values) + Industry group
+(48 values; `hs_industry_group`, text in HubSpot until they make it a dropdown —
+held to the list meanwhile). `config.json` → `industry_map` maps all 180 ZoomInfo
+industry|sub-industry values (79 judgment calls, sent to the user for review)
+and LinkedIn names by keyword. HubSpot's default `industry` dropdown is no
+longer uploaded.
+
 `skill/didero-contact-sourcing/`: the two event-company flows (no titles →
 ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact
 file for v2 (`tag-event` now writes Event Name into the export CSV).

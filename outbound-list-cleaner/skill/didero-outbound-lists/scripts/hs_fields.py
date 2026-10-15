@@ -57,8 +57,8 @@ COMPANY = [
     ("Employee Range", "hs_employee_range", "Employee range", False),
     ("SIC Code 1", "sic_code_1", "SIC Code 1", False), ("SIC Code 2", "sic_code_2", "SIC Code 2", False),
     ("NAICS Code 1", "naics_code_1", "NAICS Code 1", False), ("NAICS Code 2", "naics_code_2", "NAICS Code 2", False),
-    ("Industry", "industry", "Industry", False),
-    ("Didero Primary Industry", "primary_industry", "Primary industry", False),
+    ("Didero Primary Industry", "primary_industry", "Primary industry", False),  # team's level 1 (cleanup file col C)
+    ("Industry Group", "hs_industry_group", "Industry group", False),         # team's level 2 (col D), not the EDGE file
     ("ZoomInfo Company Profile URL", "zoominfo_company_profile_url", "ZoomInfo Company Profile URL", False),
     ("LinkedIn Company Profile URL", "linkedin_company_page", "LinkedIn Company Page", False),
     ("Facebook Company Profile URL", "facebook_company_page", "Facebook Company Page", False),
@@ -107,6 +107,11 @@ def dropdown_values(rows, kind, run_dir):
     blanked = {}
     for col, internal, _, _ in SPEC[kind]:
         prop = lv.get(kind, {}).get(internal)
+        if internal == "hs_industry_group" and prop and not prop.get("options"):
+            # still a text field in HubSpot (becoming a dropdown): hold it to the team's list meanwhile
+            import hs_values
+            groups = hs_values.industry_map().get("groups", [])
+            prop = dict(prop, type="enumeration", options=[[g, g] for g in groups]) if groups else prop
         if not prop or prop.get("type") != "enumeration" or not prop.get("options"):
             continue
         lookup = {}

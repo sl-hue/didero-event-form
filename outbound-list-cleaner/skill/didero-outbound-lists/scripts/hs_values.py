@@ -7,12 +7,14 @@ Employee range (companies.hs_employee_range, dropdown): 1-10, 11-50, 51-200, 201
   ZoomInfo's range ("Employees.1000to4999") goes to the HubSpot range that covers most of it.
   Number of Employees (numberofemployees) is a plain number: an exact count only, never a range.
 
-Industry — one ZoomInfo industry fills every industry property:
+Industry — the company file carries the team's two levels (Industries cleanup file, columns C and D):
   company  Primary industry (primary_industry, dropdown) .. Manufacturing / Distribution / Software /
                                                            Services / Other  -> column "Didero Primary Industry"
-           Industry (industry, dropdown) .................. ZoomInfo's top-level industry as a HubSpot
-                                                           option (e.g. Manufacturing, Retail)  -> "Industry"
-           Industry group (hs_industry_group, text) ....... "Manufacturing- Building Materials" -> "Industry Group"
+           Industry group (hs_industry_group) ............. one of the team's 48 sub-industries
+                                                           (config industry_map.groups), mapped from ZoomInfo's
+                                                           industry|sub-industry (industry_map.zoominfo) or a
+                                                           LinkedIn industry name  -> "Industry Group"
+           (Industry, the HubSpot default dropdown, is still worked out but not uploaded.)
   contact  Primary Industry (primary_industry, dropdown) .. ZoomInfo top level  -> "Primary Industry"
            Primary Sub-Industry (dropdown) ................ ZoomInfo sub-industry  -> "Primary Sub-Industry"
            Company Industry (company_industry, dropdown) .. same as the company's Industry -> "Company Industry"
@@ -118,9 +120,34 @@ def split_industry(primary, sub=""):
     return p, sub
 
 
-def didero_primary(top, sub, company=""):
-    """Manufacturing / Distribution / Software / Services / Other. Wholesale/distribution wins over the
-    ZoomInfo top level (a food distributor is Distribution). Retail, construction etc. -> Other (review)."""
+def industry_map():
+    try:
+        return json.loads(_CFG.read_text()).get("industry_map", {})
+    except (OSError, ValueError):
+        return {}
+
+
+def industry_group(top, sub, imap=None):
+    """Company Industry group (the team's sub-industry list, config industry_map.groups) from ZoomInfo's
+    industry + sub-industry, or from a LinkedIn industry name. "" when nothing fits (listed for review)."""
+    imap = imap if imap is not None else industry_map()
+    zi = imap.get("zoominfo", {})
+    t, s_ = (top or "").strip(), (sub or "").strip()
+    if t in ZI_TOPS and s_ and f"{t}|{s_}" in zi:          # ZoomInfo industry + sub-industry
+        return zi[f"{t}|{s_}"][0]
+    raw = f"{t} {s_}".lower()
+    for pat, group in imap.get("linkedin_keywords", []):   # LinkedIn names ("Chemical Manufacturing", ...)
+        if re.search(pat, raw):
+            return group
+    return (zi.get(t if t in ZI_TOPS else to_zi_top(t)) or [""])[0]  # industry only
+
+
+def didero_primary(top, sub, company="", group="", imap=None):
+    """Primary industry: Manufacturing / Distribution / Software / Services / Other (the team's column C).
+    Distributors / wholesalers -> Distribution; ZoomInfo Manufacturing -> Manufacturing, Software -> Software,
+    Retail -> Distribution; anything else -> the Primary industry the team pairs most often with the
+    company's Industry group (cleanup file), else Services / Other."""
+    imap = imap if imap is not None else industry_map()
     t, s, c = (to_zi_top(top) or top or "").lower(), (sub or "").lower(), (company or "").lower()
     if any(w in s or w in t for w in ("wholesale", "distribut")):
         return "Distribution"
@@ -130,6 +157,11 @@ def didero_primary(top, sub, company=""):
         return "Distribution"
     if t == "software":
         return "Software"
+    if t == "retail":
+        return "Distribution"
+    by_group = imap.get("primary_by_group", {}).get(group)
+    if by_group:
+        return by_group
     if t in SERVICES:
         return "Services"
     return "Other" if t else ""
@@ -161,8 +193,9 @@ def apply_rows(rows, fields, overrides=None):
     options = hubspot_industries()
     if "Industry Source" not in fields:
         fields.append("Industry Source")
-    notes = {"employee_range_estimated": set(), "employee_range_unreadable": set(), "industry_not_an_option": set(),
+    notes = {"employee_range_estimated": set(), "employee_range_unreadable": set(), "industry_group_unmapped": set(),
              "primary_industry_other": set()}
+    imap = industry_map()
     for r in rows:
         rng, how = employee_range(r.get("Employees"), r.get("Employee Range"))
         if rng or not r.get("Employee Range"):
@@ -184,12 +217,14 @@ def apply_rows(rows, fields, overrides=None):
         r["Industry Source"] = f"{top}|{sub}"
         zi_top = to_zi_top(top) or top
         r["Primary Industry"], r["Primary Sub-Industry"] = CONTACT_PRIMARY.get(zi_top, zi_top), sub
-        r["Industry Group"] = f"{top}- {sub}" if sub else top
         r["Industry"] = r["Company Industry"] = industry_option(top, options)
-        if not r["Industry"]:
-            notes["industry_not_an_option"].add(f"{r.get('Company Name')}: '{top}'")
+        # Industry group = the team's sub-industry list (config industry_map), mapped from ZoomInfo / LinkedIn
+        r["Industry Group"] = industry_group(top, sub, imap)
+        if not r["Industry Group"]:
+            notes["industry_group_unmapped"].add(f"{r.get('Company Name')}: '{top}{' / ' + sub if sub else ''}'")
         # recomputed whenever the industry changes; a correction is made at step 4 (after the last step 2)
-        r["Didero Primary Industry"] = overrides.get(r.get("Company Name")) or didero_primary(top, sub, r.get("Company Name"))
+        r["Didero Primary Industry"] = overrides.get(r.get("Company Name")) or didero_primary(
+            top, sub, r.get("Company Name"), r["Industry Group"], imap)
         if r["Didero Primary Industry"] == "Other" and r.get("Company Name") not in overrides:
             notes["primary_industry_other"].add(f"{r.get('Company Name')} ({top}{' / ' + sub if sub else ''})")
     return {k: sorted(v) for k, v in notes.items() if v}

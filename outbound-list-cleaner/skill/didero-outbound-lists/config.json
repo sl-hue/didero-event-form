@@ -1,442 +1,1421 @@
 {
-  "exclusion_lists": [
-    {
-      "name": "Exclusion List A- Open Deals, Closed Lost Last 6 Mths, Customers, Not Persona",
-      "list_id": "1511"
-    },
-    {
-      "name": "Exclusion List B_Actively Worked On",
-      "list_id": "1515"
-    },
-    {
-      "name": "Exclusion List C_Contacts_Not ICP Companies",
-      "list_id": "2605"
-    },
-    {
-      "name": "Exclusion list D_Irrelevant titles (Retired, student, intern, SWE)",
-      "list_id": "1184"
-    },
-    {
-      "name": "Exclusion List E_Product Research Panel_Refined List",
-      "list_id": "1633"
-    },
-    {
-      "name": "Exclusion List F_Contacts_Vendor, Partners, Resellers",
-      "list_id": "2613"
-    }
-  ],
-  "clay_workbooks": {
-    "europe": {
-      "url": "https://app.clay.com/workspaces/335212/workbooks/wb_0tm51ojyxYJGkNquEsG",
-      "use_for": "European contacts (often missing from ZoomInfo)"
-    },
-    "americas_global": {
-      "url": "https://app.clay.com/workspaces/335212/workbooks/wb_0tm51n2tsmYgWNj6Gui",
-      "use_for": "American and other global contacts (providers proven for these regions)"
-    }
+ "exclusion_lists": [
+  {
+   "name": "Exclusion List A- Open Deals, Closed Lost Last 6 Mths, Customers, Not Persona",
+   "list_id": "1511"
   },
-  "bdr_pool": [
-    "Noah",
-    "Davis",
-    "Bart"
-  ],
-  "bdr_balance_flag": {
-    "percent_of_average": 10,
-    "min_contacts": 3
+  {
+   "name": "Exclusion List B_Actively Worked On",
+   "list_id": "1515"
   },
-  "hubspot_portal_id": "46366931",
-  "default_company_countries": [
-    "United States",
-    "Canada",
-    "United Kingdom",
-    "Ireland"
-  ],
-  "default_contact_countries": [
-    "United States",
-    "Canada",
-    "United Kingdom",
-    "Ireland"
-  ],
-  "uk_includes": [
-    "England",
-    "Scotland",
-    "Wales",
-    "Northern Ireland"
-  ],
-  "target_title_keywords": [
-    "procurement",
-    "purchasing",
-    "sourcing",
-    "supply chain",
-    "buyer",
-    "buying",
-    "category",
-    "materials",
-    "supplier",
-    "vendor",
-    "logistics",
-    "operations",
-    "planning",
-    "s&op",
-    "inventory",
-    "replenishment",
-    "merchandising"
-  ],
-  "min_seniority_keywords": [
-    "chief",
-    "cpo",
-    "coo",
-    "cfo",
-    "vp",
-    "vice president",
-    "svp",
-    "evp",
-    "head",
-    "director",
-    "manager",
-    "lead",
-    "president",
-    "owner",
-    "founder"
-  ],
-  "exclude_title_keywords": [
-    "intern",
-    "student",
-    "retired",
-    "assistant to",
-    "software engineer",
-    "recruiter"
-  ],
-  "target_countries": [
-    "United States",
-    "Canada",
-    "United Kingdom",
-    "Ireland"
-  ],
-  "hubspot_options": {
-    "_note": "Dropdown options in Didero's HubSpot (get_properties, 2026-10-13). Values outside these are left blank in the upload and listed. Refresh with the HubSpot connector's get_properties when HubSpot adds options.",
-    "company_employee_range": [
-      "1-10",
-      "11-50",
-      "51-200",
-      "201-500",
-      "501-1,000",
-      "1,001-5,000",
-      "5,001-10,000",
-      "10,000+"
-    ],
-    "company_primary_industry": [
-      "Manufacturing",
-      "Distribution",
-      "Software",
-      "Services",
-      "Other"
-    ],
-    "company_industry": [
-      "Accounting",
-      "Airlines/Aviation",
-      "Alternative Dispute Resolution",
-      "Alternative Medicine",
-      "Animation",
-      "Apparel & Fashion",
-      "Architecture & Planning",
-      "Arts and Crafts",
-      "Automotive",
-      "Aviation & Aerospace",
-      "Banking",
-      "Biotechnology",
-      "Broadcast Media",
-      "Building Materials",
-      "Business Supplies and Equipment",
-      "Capital Markets",
-      "Chemicals",
-      "Civic & Social Organization",
-      "Civil Engineering",
-      "Commercial Real Estate",
-      "Computer & Network Security",
-      "Computer Games",
-      "Computer Hardware",
-      "Computer Networking",
-      "Computer Software",
-      "Internet",
-      "Construction",
-      "Consumer Electronics",
-      "Consumer Goods",
-      "Consumer Services",
-      "Cosmetics",
-      "Dairy",
-      "Defense & Space",
-      "Design",
-      "Education Management",
-      "E-Learning",
-      "Electrical/Electronic Manufacturing",
-      "Entertainment",
-      "Environmental Services",
-      "Events Services",
-      "Executive Office",
-      "Facilities Services",
-      "Farming",
-      "Financial Services",
-      "Fine Art",
-      "Fishery",
-      "Food & Beverages",
-      "Food Production",
-      "Fund-Raising",
-      "Furniture",
-      "Gambling & Casinos",
-      "Glass, Ceramics & Concrete",
-      "Government Administration",
-      "Government Relations",
-      "Graphic Design",
-      "Health, Wellness and Fitness",
-      "Higher Education",
-      "Hospital & Health Care",
-      "Hospitality",
-      "Human Resources",
-      "Import and Export",
-      "Individual & Family Services",
-      "Industrial Automation",
-      "Information Services",
-      "Information Technology and Services",
-      "Insurance",
-      "International Affairs",
-      "International Trade and Development",
-      "Investment Banking",
-      "Investment Management",
-      "Judiciary",
-      "Law Enforcement",
-      "Law Practice",
-      "Legal Services",
-      "Legislative Office",
-      "Leisure, Travel & Tourism",
-      "Libraries",
-      "Logistics and Supply Chain",
-      "Luxury Goods & Jewelry",
-      "Machinery",
-      "Management Consulting",
-      "Maritime",
-      "Market Research",
-      "Marketing and Advertising",
-      "Mechanical or Industrial Engineering",
-      "Media Production",
-      "Medical Devices",
-      "Medical Practice",
-      "Mental Health Care",
-      "Military",
-      "Mining & Metals",
-      "Motion Pictures and Film",
-      "Museums and Institutions",
-      "Music",
-      "Nanotechnology",
-      "Newspapers",
-      "Non-Profit Organization Management",
-      "Oil & Energy",
-      "Online Media",
-      "Outsourcing/Offshoring",
-      "Package/Freight Delivery",
-      "Packaging and Containers",
-      "Paper & Forest Products",
-      "Performing Arts",
-      "Pharmaceuticals",
-      "Philanthropy",
-      "Photography",
-      "Plastics",
-      "Political Organization",
-      "Primary/Secondary Education",
-      "Printing",
-      "Professional Training & Coaching",
-      "Program Development",
-      "Public Policy",
-      "Public Relations and Communications",
-      "Public Safety",
-      "Publishing",
-      "Railroad Manufacture",
-      "Ranching",
-      "Real Estate",
-      "Recreational Facilities and Services",
-      "Religious Institutions",
-      "Renewables & Environment",
-      "Research",
-      "Restaurants",
-      "Retail",
-      "Security and Investigations",
-      "Semiconductors",
-      "Shipbuilding",
-      "Sporting Goods",
-      "Sports",
-      "Staffing and Recruiting",
-      "Supermarkets",
-      "Telecommunications",
-      "Textiles",
-      "Think Tanks",
-      "Tobacco",
-      "Translation and Localization",
-      "Transportation/Trucking/Railroad",
-      "Utilities",
-      "Venture Capital & Private Equity",
-      "Veterinary",
-      "Warehousing",
-      "Wholesale",
-      "Wine and Spirits",
-      "Wireless",
-      "Writing and Editing",
-      "Mobile Games",
-      "Metals & Advanced Manufacturing",
-      "Transportation & Aerospace",
-      "Electronics, Computers & Instruments",
-      "Plastics, Rubber & Chemicals",
-      "Retail and Service",
-      "Machinery & Industrial Equipment",
-      "Medical, Dental & Life Sciences",
-      "Food, Beverage & Agriculture",
-      "Wholesale Trade & Distribution",
-      "Manufacturing",
-      "Business Services",
-      "Energy, Utilities & Waste",
-      "Software",
-      "Finance",
-      "Holding Companies & Conglomerates",
-      "Media & Internet",
-      "Minerals & Mining",
-      "Transportation",
-      "Organizations",
-      "Shipping",
-      "E-commerce",
-      "Fire Protection",
-      "Fluid Power",
-      "HVAC",
-      "Industrial Supplies",
-      "Marine Technology",
-      "Outdoor Goods",
-      "Pet Food",
-      "Printing Machinery",
-      "Property Management",
-      "Skincare",
-      "Social Services",
-      "Spa Components",
-      "Toys",
-      "Water Heating",
-      "Appliances, Electrical, and Electronics Manufacturing",
-      "Medical Equipment Manufacturing",
-      "Motor Vehicle Manufacturing",
-      "Semiconductor Manufacturing",
-      "Defense and Space Manufacturing",
-      "Machinery Manufacturing",
-      "Chemical Manufacturing",
-      "Food and Beverage Manufacturing",
-      "Automation Machinery Manufacturing",
-      "Computer Hardware Manufacturing",
-      "Food and Beverage Services",
-      "Retail Apparel and Fashion",
-      "Textile Manufacturing",
-      "Transportation, Logistics, Supply Chain and Storage",
-      "Wholesale Building Materials",
-      "Agricultural Chemical Manufacturing",
-      "Beverage Manufacturing",
-      "Electric Power Generation",
-      "Hospitals and Health Care",
-      "Industrial Machinery Manufacturing",
-      "IT Services and IT Consulting",
-      "Maritime Transportation",
-      "Medical Device",
-      "Oil and Gas",
-      "Paper and Forest Product",
-      "Personal Care Product Manufacturing",
-      "Plastics Manufacturing",
-      "Renewable Energy Power Generation",
-      "Retail Luxury Goods and Jewelry",
-      "Energy Technology",
-      "Engineering Services",
-      "Retail Groceries",
-      "Robotics Engineering",
-      "Vehicle Repair and Maintenance"
-    ],
-    "contact_primary_industry": [
-      "Manufacturing",
-      "Government",
-      "Retail",
-      "Education",
-      "Construction",
-      "Telecommunications",
-      "Hospitality",
-      "Business Services",
-      "Holding Companies & Conglomerates",
-      "Consumer Services",
-      "Energy, Utilities & Waste Minerals & Mining Agriculture",
-      "Minerals and Mining",
-      "Agriculture",
-      "Transportation",
-      "Software",
-      "Finance",
-      "Media & Internet",
-      "Insurance Organizations Real Estate Hospitals & Physicians Clinics",
-      "Real Estate",
-      "Organizations",
-      "Insurance",
-      "Hospitals & Physicians Clinics",
-      "Healthcare Services"
-    ],
-    "contact_primary_sub_industry": [
-      "Building Materials",
-      "Food & Beverage",
-      "Telecommunication Equipment",
-      "Plastic, Packaging & Containers",
-      "Industrial Machinery & Equipment",
-      "Test & Measurement Equipment",
-      "Chemicals & Related Products",
-      "Automotive Parts",
-      "Local",
-      "Grocery Retail",
-      "K-12 Schools",
-      "Pulp & Paper",
-      "Home Improvement & Hardware Retail",
-      "Electronics",
-      "Commercial & Residential",
-      "Construction",
-      "Automotive Service & Collision Repair",
-      "Flowers, Gifts & Specialty Stores",
-      "Restaurants",
-      "Advertising & Marketing",
-      "Cleaning Products",
-      "Commercial Printing",
-      "Convenience Stores, Gas Stations & Liquor Stores",
-      "Drug Stores & Pharmacies",
-      "Household Goods",
-      "Medical Devices & Equipment",
-      "Pet Products",
-      "Telephony & Wireless",
-      "Vitamins, Supplements & Health Stores",
-      "Wire & Cable",
-      "Freight & Logistics Services",
-      "Automobile Dealers",
-      "Food Service",
-      "Pharmaceuticals",
-      "Sporting Goods",
-      "Aerospace & Defense",
-      "Automobile Parts Stores",
-      "HR & Staffing",
-      "Textiles & Apparel",
-      "Tires & Rubber",
-      "Jewelry & Watch Retail",
-      "Office Products Retail & Distribution",
-      "Crops",
-      "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)",
-      "Commercial & Residential Construction",
-      "Security Software"
-    ]
+  {
+   "name": "Exclusion List C_Contacts_Not ICP Companies",
+   "list_id": "2605"
   },
-  "country_presets": {
-    "us_ca": [
-      "United States",
-      "Canada"
-    ],
-    "na_english": [
-      "United States",
-      "Canada",
-      "United Kingdom",
-      "Ireland",
-      "Australia",
-      "New Zealand"
-    ]
+  {
+   "name": "Exclusion list D_Irrelevant titles (Retired, student, intern, SWE)",
+   "list_id": "1184"
+  },
+  {
+   "name": "Exclusion List E_Product Research Panel_Refined List",
+   "list_id": "1633"
+  },
+  {
+   "name": "Exclusion List F_Contacts_Vendor, Partners, Resellers",
+   "list_id": "2613"
   }
+ ],
+ "clay_workbooks": {
+  "europe": {
+   "url": "https://app.clay.com/workspaces/335212/workbooks/wb_0tm51ojyxYJGkNquEsG",
+   "use_for": "European contacts (often missing from ZoomInfo)"
+  },
+  "americas_global": {
+   "url": "https://app.clay.com/workspaces/335212/workbooks/wb_0tm51n2tsmYgWNj6Gui",
+   "use_for": "American and other global contacts (providers proven for these regions)"
+  }
+ },
+ "bdr_pool": [
+  "Noah",
+  "Davis",
+  "Bart"
+ ],
+ "bdr_balance_flag": {
+  "percent_of_average": 10,
+  "min_contacts": 3
+ },
+ "hubspot_portal_id": "46366931",
+ "default_company_countries": [
+  "United States",
+  "Canada",
+  "United Kingdom",
+  "Ireland"
+ ],
+ "default_contact_countries": [
+  "United States",
+  "Canada",
+  "United Kingdom",
+  "Ireland"
+ ],
+ "uk_includes": [
+  "England",
+  "Scotland",
+  "Wales",
+  "Northern Ireland"
+ ],
+ "target_title_keywords": [
+  "procurement",
+  "purchasing",
+  "sourcing",
+  "supply chain",
+  "buyer",
+  "buying",
+  "category",
+  "materials",
+  "supplier",
+  "vendor",
+  "logistics",
+  "operations",
+  "planning",
+  "s&op",
+  "inventory",
+  "replenishment",
+  "merchandising"
+ ],
+ "min_seniority_keywords": [
+  "chief",
+  "cpo",
+  "coo",
+  "cfo",
+  "vp",
+  "vice president",
+  "svp",
+  "evp",
+  "head",
+  "director",
+  "manager",
+  "lead",
+  "president",
+  "owner",
+  "founder"
+ ],
+ "exclude_title_keywords": [
+  "intern",
+  "student",
+  "retired",
+  "assistant to",
+  "software engineer",
+  "recruiter"
+ ],
+ "target_countries": [
+  "United States",
+  "Canada",
+  "United Kingdom",
+  "Ireland"
+ ],
+ "hubspot_options": {
+  "_note": "Dropdown options in Didero's HubSpot (get_properties, 2026-10-13). Values outside these are left blank in the upload and listed. Refresh with the HubSpot connector's get_properties when HubSpot adds options.",
+  "company_employee_range": [
+   "1-10",
+   "11-50",
+   "51-200",
+   "201-500",
+   "501-1,000",
+   "1,001-5,000",
+   "5,001-10,000",
+   "10,000+"
+  ],
+  "company_primary_industry": [
+   "Manufacturing",
+   "Distribution",
+   "Software",
+   "Services",
+   "Other"
+  ],
+  "company_industry": [
+   "Accounting",
+   "Airlines/Aviation",
+   "Alternative Dispute Resolution",
+   "Alternative Medicine",
+   "Animation",
+   "Apparel & Fashion",
+   "Architecture & Planning",
+   "Arts and Crafts",
+   "Automotive",
+   "Aviation & Aerospace",
+   "Banking",
+   "Biotechnology",
+   "Broadcast Media",
+   "Building Materials",
+   "Business Supplies and Equipment",
+   "Capital Markets",
+   "Chemicals",
+   "Civic & Social Organization",
+   "Civil Engineering",
+   "Commercial Real Estate",
+   "Computer & Network Security",
+   "Computer Games",
+   "Computer Hardware",
+   "Computer Networking",
+   "Computer Software",
+   "Internet",
+   "Construction",
+   "Consumer Electronics",
+   "Consumer Goods",
+   "Consumer Services",
+   "Cosmetics",
+   "Dairy",
+   "Defense & Space",
+   "Design",
+   "Education Management",
+   "E-Learning",
+   "Electrical/Electronic Manufacturing",
+   "Entertainment",
+   "Environmental Services",
+   "Events Services",
+   "Executive Office",
+   "Facilities Services",
+   "Farming",
+   "Financial Services",
+   "Fine Art",
+   "Fishery",
+   "Food & Beverages",
+   "Food Production",
+   "Fund-Raising",
+   "Furniture",
+   "Gambling & Casinos",
+   "Glass, Ceramics & Concrete",
+   "Government Administration",
+   "Government Relations",
+   "Graphic Design",
+   "Health, Wellness and Fitness",
+   "Higher Education",
+   "Hospital & Health Care",
+   "Hospitality",
+   "Human Resources",
+   "Import and Export",
+   "Individual & Family Services",
+   "Industrial Automation",
+   "Information Services",
+   "Information Technology and Services",
+   "Insurance",
+   "International Affairs",
+   "International Trade and Development",
+   "Investment Banking",
+   "Investment Management",
+   "Judiciary",
+   "Law Enforcement",
+   "Law Practice",
+   "Legal Services",
+   "Legislative Office",
+   "Leisure, Travel & Tourism",
+   "Libraries",
+   "Logistics and Supply Chain",
+   "Luxury Goods & Jewelry",
+   "Machinery",
+   "Management Consulting",
+   "Maritime",
+   "Market Research",
+   "Marketing and Advertising",
+   "Mechanical or Industrial Engineering",
+   "Media Production",
+   "Medical Devices",
+   "Medical Practice",
+   "Mental Health Care",
+   "Military",
+   "Mining & Metals",
+   "Motion Pictures and Film",
+   "Museums and Institutions",
+   "Music",
+   "Nanotechnology",
+   "Newspapers",
+   "Non-Profit Organization Management",
+   "Oil & Energy",
+   "Online Media",
+   "Outsourcing/Offshoring",
+   "Package/Freight Delivery",
+   "Packaging and Containers",
+   "Paper & Forest Products",
+   "Performing Arts",
+   "Pharmaceuticals",
+   "Philanthropy",
+   "Photography",
+   "Plastics",
+   "Political Organization",
+   "Primary/Secondary Education",
+   "Printing",
+   "Professional Training & Coaching",
+   "Program Development",
+   "Public Policy",
+   "Public Relations and Communications",
+   "Public Safety",
+   "Publishing",
+   "Railroad Manufacture",
+   "Ranching",
+   "Real Estate",
+   "Recreational Facilities and Services",
+   "Religious Institutions",
+   "Renewables & Environment",
+   "Research",
+   "Restaurants",
+   "Retail",
+   "Security and Investigations",
+   "Semiconductors",
+   "Shipbuilding",
+   "Sporting Goods",
+   "Sports",
+   "Staffing and Recruiting",
+   "Supermarkets",
+   "Telecommunications",
+   "Textiles",
+   "Think Tanks",
+   "Tobacco",
+   "Translation and Localization",
+   "Transportation/Trucking/Railroad",
+   "Utilities",
+   "Venture Capital & Private Equity",
+   "Veterinary",
+   "Warehousing",
+   "Wholesale",
+   "Wine and Spirits",
+   "Wireless",
+   "Writing and Editing",
+   "Mobile Games",
+   "Metals & Advanced Manufacturing",
+   "Transportation & Aerospace",
+   "Electronics, Computers & Instruments",
+   "Plastics, Rubber & Chemicals",
+   "Retail and Service",
+   "Machinery & Industrial Equipment",
+   "Medical, Dental & Life Sciences",
+   "Food, Beverage & Agriculture",
+   "Wholesale Trade & Distribution",
+   "Manufacturing",
+   "Business Services",
+   "Energy, Utilities & Waste",
+   "Software",
+   "Finance",
+   "Holding Companies & Conglomerates",
+   "Media & Internet",
+   "Minerals & Mining",
+   "Transportation",
+   "Organizations",
+   "Shipping",
+   "E-commerce",
+   "Fire Protection",
+   "Fluid Power",
+   "HVAC",
+   "Industrial Supplies",
+   "Marine Technology",
+   "Outdoor Goods",
+   "Pet Food",
+   "Printing Machinery",
+   "Property Management",
+   "Skincare",
+   "Social Services",
+   "Spa Components",
+   "Toys",
+   "Water Heating",
+   "Appliances, Electrical, and Electronics Manufacturing",
+   "Medical Equipment Manufacturing",
+   "Motor Vehicle Manufacturing",
+   "Semiconductor Manufacturing",
+   "Defense and Space Manufacturing",
+   "Machinery Manufacturing",
+   "Chemical Manufacturing",
+   "Food and Beverage Manufacturing",
+   "Automation Machinery Manufacturing",
+   "Computer Hardware Manufacturing",
+   "Food and Beverage Services",
+   "Retail Apparel and Fashion",
+   "Textile Manufacturing",
+   "Transportation, Logistics, Supply Chain and Storage",
+   "Wholesale Building Materials",
+   "Agricultural Chemical Manufacturing",
+   "Beverage Manufacturing",
+   "Electric Power Generation",
+   "Hospitals and Health Care",
+   "Industrial Machinery Manufacturing",
+   "IT Services and IT Consulting",
+   "Maritime Transportation",
+   "Medical Device",
+   "Oil and Gas",
+   "Paper and Forest Product",
+   "Personal Care Product Manufacturing",
+   "Plastics Manufacturing",
+   "Renewable Energy Power Generation",
+   "Retail Luxury Goods and Jewelry",
+   "Energy Technology",
+   "Engineering Services",
+   "Retail Groceries",
+   "Robotics Engineering",
+   "Vehicle Repair and Maintenance"
+  ],
+  "contact_primary_industry": [
+   "Manufacturing",
+   "Government",
+   "Retail",
+   "Education",
+   "Construction",
+   "Telecommunications",
+   "Hospitality",
+   "Business Services",
+   "Holding Companies & Conglomerates",
+   "Consumer Services",
+   "Energy, Utilities & Waste Minerals & Mining Agriculture",
+   "Minerals and Mining",
+   "Agriculture",
+   "Transportation",
+   "Software",
+   "Finance",
+   "Media & Internet",
+   "Insurance Organizations Real Estate Hospitals & Physicians Clinics",
+   "Real Estate",
+   "Organizations",
+   "Insurance",
+   "Hospitals & Physicians Clinics",
+   "Healthcare Services"
+  ],
+  "contact_primary_sub_industry": [
+   "Building Materials",
+   "Food & Beverage",
+   "Telecommunication Equipment",
+   "Plastic, Packaging & Containers",
+   "Industrial Machinery & Equipment",
+   "Test & Measurement Equipment",
+   "Chemicals & Related Products",
+   "Automotive Parts",
+   "Local",
+   "Grocery Retail",
+   "K-12 Schools",
+   "Pulp & Paper",
+   "Home Improvement & Hardware Retail",
+   "Electronics",
+   "Commercial & Residential",
+   "Construction",
+   "Automotive Service & Collision Repair",
+   "Flowers, Gifts & Specialty Stores",
+   "Restaurants",
+   "Advertising & Marketing",
+   "Cleaning Products",
+   "Commercial Printing",
+   "Convenience Stores, Gas Stations & Liquor Stores",
+   "Drug Stores & Pharmacies",
+   "Household Goods",
+   "Medical Devices & Equipment",
+   "Pet Products",
+   "Telephony & Wireless",
+   "Vitamins, Supplements & Health Stores",
+   "Wire & Cable",
+   "Freight & Logistics Services",
+   "Automobile Dealers",
+   "Food Service",
+   "Pharmaceuticals",
+   "Sporting Goods",
+   "Aerospace & Defense",
+   "Automobile Parts Stores",
+   "HR & Staffing",
+   "Textiles & Apparel",
+   "Tires & Rubber",
+   "Jewelry & Watch Retail",
+   "Office Products Retail & Distribution",
+   "Crops",
+   "Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)",
+   "Commercial & Residential Construction",
+   "Security Software"
+  ]
+ },
+ "country_presets": {
+  "us_ca": [
+   "United States",
+   "Canada"
+  ],
+  "na_english": [
+   "United States",
+   "Canada",
+   "United Kingdom",
+   "Ireland",
+   "Australia",
+   "New Zealand"
+  ]
+ },
+ "industry_map": {
+  "_note": "Company Primary industry (primary_industry) + Industry group (hs_industry_group): the team's values (Industries cleanup file, columns C and D, 2026-10-15). zoominfo: 'Industry|Sub-industry' -> [Industry group, how]; how = exact (same name), group (obvious bucket), judgment (Claude's call — review). primary_by_group: the Primary industry the cleanup file pairs most often with each group; manufacturing / software / retail / distributor rules override it (hs_values.py).",
+  "groups": [
+   "Industrial Machinery & Equipment",
+   "Food & Beverage",
+   "Electronics",
+   "Building Materials",
+   "Construction and property",
+   "Automotive Parts",
+   "Medical Devices & Equipment",
+   "Plastic, Packaging & Containers",
+   "Chemicals & Related Products",
+   "Pharmaceuticals",
+   "Apparel & Accessories",
+   "Aerospace & Defense",
+   "Electricity, Oil & Gas",
+   "Industrial and natural resources",
+   "Professional services",
+   "Consumer products",
+   "Finance & Banking",
+   "Freight & Logistics Services",
+   "Cosmetics, Beauty Supply & Personal Care Products",
+   "Custom Software & IT Services",
+   "Public sector and non-profit",
+   "Retail and rental",
+   "Pet Products",
+   "Sporting Goods",
+   "Test & Measurement Equipment",
+   "Healthcare",
+   "Health & Nutrition Products",
+   "Appliances",
+   "Education",
+   "Oil & Gas Exploration & Services",
+   "Research & Development",
+   "Grocery Retail",
+   "Utilities and environment",
+   "Telephony & Wireless Appliances",
+   "Restaurants",
+   "Travel and passenger transport",
+   "Commercial Printing",
+   "Home Improvement & Hardware Retail",
+   "Content & Collaboration Software",
+   "Sporting & Recreational",
+   "Personal and repair services",
+   "Drug Stores & Pharmacies",
+   "Broadcasting",
+   "Automotive Service & Collision Repair",
+   "Amusement Parks, Arcades & Attractions",
+   "Sports Teams & Leagues",
+   "Legal Software",
+   "Vitamins, Supplements & Health Stores"
+  ],
+  "primary_by_group": {
+   "Industrial Machinery & Equipment": "Manufacturing",
+   "Food & Beverage": "Manufacturing",
+   "Electronics": "Manufacturing",
+   "Building Materials": "Manufacturing",
+   "Construction and property": "Services",
+   "Automotive Parts": "Manufacturing",
+   "Medical Devices & Equipment": "Manufacturing",
+   "Plastic, Packaging & Containers": "Manufacturing",
+   "Chemicals & Related Products": "Manufacturing",
+   "Pharmaceuticals": "Manufacturing",
+   "Apparel & Accessories": "Manufacturing",
+   "Aerospace & Defense": "Manufacturing",
+   "Electricity, Oil & Gas": "Other",
+   "Industrial and natural resources": "Manufacturing",
+   "Professional services": "Services",
+   "Consumer products": "Manufacturing",
+   "Finance & Banking": "Services",
+   "Freight & Logistics Services": "Services",
+   "Cosmetics, Beauty Supply & Personal Care Products": "Manufacturing",
+   "Custom Software & IT Services": "Software",
+   "Public sector and non-profit": "Other",
+   "Retail and rental": "Distribution",
+   "Pet Products": "Manufacturing",
+   "Sporting Goods": "Manufacturing",
+   "Test & Measurement Equipment": "Manufacturing",
+   "Healthcare": "Services",
+   "Health & Nutrition Products": "Manufacturing",
+   "Appliances": "Manufacturing",
+   "Education": "Other",
+   "Oil & Gas Exploration & Services": "Other",
+   "Research & Development": "Services",
+   "Grocery Retail": "Distribution",
+   "Utilities and environment": "Other",
+   "Telephony & Wireless Appliances": "Other",
+   "Restaurants": "Services",
+   "Travel and passenger transport": "Services",
+   "Commercial Printing": "Services",
+   "Home Improvement & Hardware Retail": "Distribution",
+   "Content & Collaboration Software": "Software",
+   "Sporting & Recreational": "Distribution",
+   "Personal and repair services": "Services",
+   "Drug Stores & Pharmacies": "Distribution",
+   "Broadcasting": "Other",
+   "Automotive Service & Collision Repair": "Services",
+   "Amusement Parks, Arcades & Attractions": "Services",
+   "Sports Teams & Leagues": "Services",
+   "Legal Software": "Software",
+   "Vitamins, Supplements & Health Stores": "Distribution"
+  },
+  "zoominfo": {
+   "Agriculture": [
+    "Industrial and natural resources",
+    "judgment"
+   ],
+   "Agriculture|Animals & Livestock": [
+    "Food & Beverage",
+    "judgment"
+   ],
+   "Agriculture|Crops": [
+    "Food & Beverage",
+    "judgment"
+   ],
+   "Agriculture|Forestry": [
+    "Industrial and natural resources",
+    "judgment"
+   ],
+   "Business Services": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Accounting Services": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Call Centers & Business Centers": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Debt Collection": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Management Consulting": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Information & Document Management": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Multimedia & Graphic Design": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|HR & Staffing": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Facilities Management & Commercial Cleaning": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Translation & Linguistic Services": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Advertising & Marketing": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Security Products & Services": [
+    "Professional services",
+    "judgment"
+   ],
+   "Business Services|Chambers of Commerce": [
+    "Public sector and non-profit",
+    "judgment"
+   ],
+   "Business Services|Food Service": [
+    "Restaurants",
+    "judgment"
+   ],
+   "Business Services|Commercial Printing": [
+    "Commercial Printing",
+    "exact"
+   ],
+   "Business Services|Research & Development": [
+    "Research & Development",
+    "exact"
+   ],
+   "Business Services|Custom Software & IT Services": [
+    "Custom Software & IT Services",
+    "exact"
+   ],
+   "Holding Companies & Conglomerates": [
+    "Industrial and natural resources",
+    "judgment"
+   ],
+   "Construction": [
+    "Construction and property",
+    "group"
+   ],
+   "Construction|Architecture, Engineering & Design": [
+    "Construction and property",
+    "group"
+   ],
+   "Construction|Civil Engineering Construction": [
+    "Construction and property",
+    "group"
+   ],
+   "Construction|Commercial & Residential Construction": [
+    "Construction and property",
+    "group"
+   ],
+   "Consumer Services": [
+    "Personal and repair services",
+    "group"
+   ],
+   "Consumer Services|Childcare": [
+    "Personal and repair services",
+    "group"
+   ],
+   "Consumer Services|Funeral Homes & Funeral Related Services": [
+    "Personal and repair services",
+    "group"
+   ],
+   "Consumer Services|Barber Shops & Beauty Salons": [
+    "Personal and repair services",
+    "group"
+   ],
+   "Consumer Services|Landscape Services": [
+    "Personal and repair services",
+    "group"
+   ],
+   "Consumer Services|Cleaning Services": [
+    "Personal and repair services",
+    "group"
+   ],
+   "Consumer Services|Photography Studio": [
+    "Personal and repair services",
+    "group"
+   ],
+   "Consumer Services|Repair Services": [
+    "Personal and repair services",
+    "group"
+   ],
+   "Consumer Services|Weight & Health Management": [
+    "Personal and repair services",
+    "group"
+   ],
+   "Consumer Services|Automotive Service & Collision Repair": [
+    "Automotive Service & Collision Repair",
+    "exact"
+   ],
+   "Consumer Services|Car & Truck Rental": [
+    "Retail and rental",
+    "judgment"
+   ],
+   "Education": [
+    "Education",
+    "group"
+   ],
+   "Education|K-12 Schools": [
+    "Education",
+    "group"
+   ],
+   "Education|Training": [
+    "Education",
+    "group"
+   ],
+   "Education|Colleges & Universities": [
+    "Education",
+    "group"
+   ],
+   "Energy, Utilities & Waste": [
+    "Electricity, Oil & Gas",
+    "judgment"
+   ],
+   "Energy, Utilities & Waste|Electricity, Oil & Gas": [
+    "Electricity, Oil & Gas",
+    "exact"
+   ],
+   "Energy, Utilities & Waste|Waste Treatment, Environmental Services & Recycling": [
+    "Utilities and environment",
+    "group"
+   ],
+   "Energy, Utilities & Waste|Oil & Gas Exploration & Services": [
+    "Oil & Gas Exploration & Services",
+    "exact"
+   ],
+   "Energy, Utilities & Waste|Water Treatment": [
+    "Utilities and environment",
+    "group"
+   ],
+   "Finance": [
+    "Finance & Banking",
+    "group"
+   ],
+   "Finance|Banking": [
+    "Finance & Banking",
+    "group"
+   ],
+   "Finance|Lending & Brokerage": [
+    "Finance & Banking",
+    "group"
+   ],
+   "Finance|Credit Cards & Transaction Processing": [
+    "Finance & Banking",
+    "group"
+   ],
+   "Finance|Investment Banking": [
+    "Finance & Banking",
+    "group"
+   ],
+   "Finance|Venture Capital & Private Equity": [
+    "Finance & Banking",
+    "group"
+   ],
+   "Insurance": [
+    "Finance & Banking",
+    "group"
+   ],
+   "Government": [
+    "Public sector and non-profit",
+    "group"
+   ],
+   "Government|Federal": [
+    "Public sector and non-profit",
+    "group"
+   ],
+   "Government|Local": [
+    "Public sector and non-profit",
+    "group"
+   ],
+   "Government|State": [
+    "Public sector and non-profit",
+    "group"
+   ],
+   "Government|Tribal Nations": [
+    "Public sector and non-profit",
+    "group"
+   ],
+   "Healthcare Services": [
+    "Healthcare",
+    "group"
+   ],
+   "Healthcare Services|Ambulance Services": [
+    "Healthcare",
+    "group"
+   ],
+   "Healthcare Services|Blood & Organ Banks": [
+    "Healthcare",
+    "group"
+   ],
+   "Healthcare Services|Medical Laboratories & Imaging Centers": [
+    "Healthcare",
+    "group"
+   ],
+   "Healthcare Services|Elderly Care Services": [
+    "Healthcare",
+    "group"
+   ],
+   "Healthcare Services|Mental Health & Rehabilitation Facilities": [
+    "Healthcare",
+    "group"
+   ],
+   "Healthcare Services|Veterinary Services": [
+    "Healthcare",
+    "judgment"
+   ],
+   "Hospitals & Physicians Clinics": [
+    "Healthcare",
+    "group"
+   ],
+   "Hospitals & Physicians Clinics|Physicians Clinics": [
+    "Healthcare",
+    "group"
+   ],
+   "Hospitals & Physicians Clinics|Dental Offices": [
+    "Healthcare",
+    "group"
+   ],
+   "Hospitals & Physicians Clinics|Medical & Surgical Hospitals": [
+    "Healthcare",
+    "group"
+   ],
+   "Hospitals & Physicians Clinics|Medical Specialists": [
+    "Healthcare",
+    "group"
+   ],
+   "Hospitality": [
+    "Restaurants",
+    "judgment"
+   ],
+   "Hospitality|Amusement Parks, Arcades & Attractions": [
+    "Amusement Parks, Arcades & Attractions",
+    "exact"
+   ],
+   "Hospitality|Restaurants": [
+    "Restaurants",
+    "exact"
+   ],
+   "Hospitality|Sports Teams & Leagues": [
+    "Sports Teams & Leagues",
+    "exact"
+   ],
+   "Hospitality|Movie Theaters": [
+    "Amusement Parks, Arcades & Attractions",
+    "judgment"
+   ],
+   "Hospitality|Gambling & Gaming": [
+    "Amusement Parks, Arcades & Attractions",
+    "judgment"
+   ],
+   "Hospitality|Performing Arts Theaters": [
+    "Amusement Parks, Arcades & Attractions",
+    "judgment"
+   ],
+   "Hospitality|Fitness & Dance Facilities": [
+    "Sporting & Recreational",
+    "judgment"
+   ],
+   "Hospitality|Lodging & Resorts": [
+    "Travel and passenger transport",
+    "judgment"
+   ],
+   "Hospitality|Travel Agencies & Services": [
+    "Travel and passenger transport",
+    "group"
+   ],
+   "Hospitality|Cultural & Informational Centers": [
+    "Public sector and non-profit",
+    "judgment"
+   ],
+   "Hospitality|Libraries": [
+    "Public sector and non-profit",
+    "judgment"
+   ],
+   "Hospitality|Museums & Art Galleries": [
+    "Public sector and non-profit",
+    "judgment"
+   ],
+   "Hospitality|Zoos & National Parks": [
+    "Public sector and non-profit",
+    "judgment"
+   ],
+   "Law Firms & Legal Services": [
+    "Professional services",
+    "group"
+   ],
+   "Media & Internet": [
+    "Broadcasting",
+    "judgment"
+   ],
+   "Media & Internet|Broadcasting": [
+    "Broadcasting",
+    "exact"
+   ],
+   "Media & Internet|Data Collection & Internet Portals": [
+    "Content & Collaboration Software",
+    "judgment"
+   ],
+   "Media & Internet|Social Networks": [
+    "Content & Collaboration Software",
+    "judgment"
+   ],
+   "Media & Internet|Music Production & Services": [
+    "Broadcasting",
+    "judgment"
+   ],
+   "Media & Internet|Newspapers & News Services": [
+    "Broadcasting",
+    "judgment"
+   ],
+   "Media & Internet|Ticket Sales": [
+    "Broadcasting",
+    "judgment"
+   ],
+   "Media & Internet|Publishing": [
+    "Commercial Printing",
+    "judgment"
+   ],
+   "Manufacturing": [
+    "Industrial and natural resources",
+    "judgment"
+   ],
+   "Manufacturing|Aerospace & Defense": [
+    "Aerospace & Defense",
+    "exact"
+   ],
+   "Manufacturing|Appliances": [
+    "Appliances",
+    "exact"
+   ],
+   "Manufacturing|Building Materials": [
+    "Building Materials",
+    "exact"
+   ],
+   "Manufacturing|Automotive Parts": [
+    "Automotive Parts",
+    "exact"
+   ],
+   "Manufacturing|Chemicals & Related Products": [
+    "Chemicals & Related Products",
+    "exact"
+   ],
+   "Manufacturing|Cosmetics, Beauty Supply & Personal Care Products": [
+    "Cosmetics, Beauty Supply & Personal Care Products",
+    "exact"
+   ],
+   "Manufacturing|Electronics": [
+    "Electronics",
+    "exact"
+   ],
+   "Manufacturing|Food & Beverage": [
+    "Food & Beverage",
+    "exact"
+   ],
+   "Manufacturing|Health & Nutrition Products": [
+    "Health & Nutrition Products",
+    "exact"
+   ],
+   "Manufacturing|Industrial Machinery & Equipment": [
+    "Industrial Machinery & Equipment",
+    "exact"
+   ],
+   "Manufacturing|Medical Devices & Equipment": [
+    "Medical Devices & Equipment",
+    "exact"
+   ],
+   "Manufacturing|Pet Products": [
+    "Pet Products",
+    "exact"
+   ],
+   "Manufacturing|Pharmaceuticals": [
+    "Pharmaceuticals",
+    "exact"
+   ],
+   "Manufacturing|Plastic, Packaging & Containers": [
+    "Plastic, Packaging & Containers",
+    "exact"
+   ],
+   "Manufacturing|Sporting Goods": [
+    "Sporting Goods",
+    "exact"
+   ],
+   "Manufacturing|Test & Measurement Equipment": [
+    "Test & Measurement Equipment",
+    "exact"
+   ],
+   "Manufacturing|Boats & Submarines": [
+    "Industrial Machinery & Equipment",
+    "judgment"
+   ],
+   "Manufacturing|Motor Vehicles": [
+    "Automotive Parts",
+    "judgment"
+   ],
+   "Manufacturing|Cleaning Products": [
+    "Consumer products",
+    "judgment"
+   ],
+   "Manufacturing|Textiles & Apparel": [
+    "Apparel & Accessories",
+    "judgment"
+   ],
+   "Manufacturing|Computer Equipment & Peripherals": [
+    "Electronics",
+    "judgment"
+   ],
+   "Manufacturing|Furniture": [
+    "Consumer products",
+    "judgment"
+   ],
+   "Manufacturing|Glass & Clay": [
+    "Building Materials",
+    "judgment"
+   ],
+   "Manufacturing|Household Goods": [
+    "Consumer products",
+    "judgment"
+   ],
+   "Manufacturing|Pulp & Paper": [
+    "Plastic, Packaging & Containers",
+    "judgment"
+   ],
+   "Manufacturing|Photographic & Optical Equipment": [
+    "Electronics",
+    "judgment"
+   ],
+   "Manufacturing|Tires & Rubber": [
+    "Automotive Parts",
+    "judgment"
+   ],
+   "Manufacturing|Telecommunication Equipment": [
+    "Telephony & Wireless Appliances",
+    "judgment"
+   ],
+   "Manufacturing|Hand, Power & Lawn-care Tools": [
+    "Industrial Machinery & Equipment",
+    "judgment"
+   ],
+   "Manufacturing|Toys & Games": [
+    "Consumer products",
+    "judgment"
+   ],
+   "Manufacturing|Watches & Jewelry": [
+    "Apparel & Accessories",
+    "judgment"
+   ],
+   "Manufacturing|Wire & Cable": [
+    "Electronics",
+    "judgment"
+   ],
+   "Minerals & Mining": [
+    "Industrial and natural resources",
+    "group"
+   ],
+   "Organizations": [
+    "Public sector and non-profit",
+    "group"
+   ],
+   "Organizations|Non-Profit & Charitable Organizations": [
+    "Public sector and non-profit",
+    "group"
+   ],
+   "Organizations|Membership Organizations": [
+    "Public sector and non-profit",
+    "group"
+   ],
+   "Organizations|Religious Organizations": [
+    "Public sector and non-profit",
+    "group"
+   ],
+   "Real Estate": [
+    "Construction and property",
+    "group"
+   ],
+   "Retail": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Grocery Retail": [
+    "Grocery Retail",
+    "exact"
+   ],
+   "Retail|Home Improvement & Hardware Retail": [
+    "Home Improvement & Hardware Retail",
+    "exact"
+   ],
+   "Retail|Vitamins, Supplements & Health Stores": [
+    "Vitamins, Supplements & Health Stores",
+    "exact"
+   ],
+   "Retail|Drug Stores & Pharmacies": [
+    "Drug Stores & Pharmacies",
+    "exact"
+   ],
+   "Retail|Apparel & Accessories Retail": [
+    "Apparel & Accessories",
+    "judgment"
+   ],
+   "Retail|Sporting & Recreational Equipment Retail": [
+    "Sporting & Recreational",
+    "judgment"
+   ],
+   "Retail|Pet Products": [
+    "Pet Products",
+    "judgment"
+   ],
+   "Retail|Auctions": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Automobile Dealers": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Automobile Parts Stores": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Record, Video & Book Stores": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Consumer Electronics & Computers Retail": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Convenience Stores, Gas Stations & Liquor Stores": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Department Stores, Shopping Centers & Superstores": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Furniture": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Flowers, Gifts & Specialty Stores": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Jewelry & Watch Retail": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Office Products Retail & Distribution": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Other Rental Stores (Furniture, A/V, Construction & Industrial Equipment)": [
+    "Retail and rental",
+    "group"
+   ],
+   "Retail|Toys & Games": [
+    "Retail and rental",
+    "group"
+   ],
+   "Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Content & Collaboration Software": [
+    "Content & Collaboration Software",
+    "exact"
+   ],
+   "Software|Legal Software": [
+    "Legal Software",
+    "exact"
+   ],
+   "Software|Mobile App Development": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Business Intelligence (BI) Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Customer Relationship Management (CRM) Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Database & File Management Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Engineering Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Enterprise Resource Planning (ERP) Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Financial Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Healthcare Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Human Resources Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Networking Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Supply Chain Management (SCM) Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Security Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Storage & System Management Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Software|Multimedia, Games & Graphics Software": [
+    "Custom Software & IT Services",
+    "judgment"
+   ],
+   "Telecommunications": [
+    "Telephony & Wireless Appliances",
+    "judgment"
+   ],
+   "Telecommunications|Cable & Satellite": [
+    "Telephony & Wireless Appliances",
+    "judgment"
+   ],
+   "Telecommunications|Internet Service Providers, Website Hosting & Internet-related Services": [
+    "Telephony & Wireless Appliances",
+    "judgment"
+   ],
+   "Telecommunications|Telephony & Wireless": [
+    "Telephony & Wireless Appliances",
+    "judgment"
+   ],
+   "Transportation": [
+    "Freight & Logistics Services",
+    "judgment"
+   ],
+   "Transportation|Freight & Logistics Services": [
+    "Freight & Logistics Services",
+    "group"
+   ],
+   "Transportation|Marine Shipping & Transportation": [
+    "Freight & Logistics Services",
+    "group"
+   ],
+   "Transportation|Trucking, Moving & Storage": [
+    "Freight & Logistics Services",
+    "group"
+   ],
+   "Transportation|Airlines, Airports & Air Services": [
+    "Travel and passenger transport",
+    "group"
+   ],
+   "Transportation|Rail, Bus & Taxi": [
+    "Travel and passenger transport",
+    "group"
+   ]
+  },
+  "linkedin_keywords": [
+   [
+    "pharma",
+    "Pharmaceuticals"
+   ],
+   [
+    "medical (device|equipment)",
+    "Medical Devices & Equipment"
+   ],
+   [
+    "food|beverage|dairy|bakery|winer|brewer",
+    "Food & Beverage"
+   ],
+   [
+    "chemical",
+    "Chemicals & Related Products"
+   ],
+   [
+    "cosmetic|personal care|beauty",
+    "Cosmetics, Beauty Supply & Personal Care Products"
+   ],
+   [
+    "pet ",
+    "Pet Products"
+   ],
+   [
+    "aviation|aerospace|defense|space",
+    "Aerospace & Defense"
+   ],
+   [
+    "automotive|motor vehicle|tire",
+    "Automotive Parts"
+   ],
+   [
+    "semiconductor|electric|electronic|computer hardware|computers",
+    "Electronics"
+   ],
+   [
+    "plastic|packaging|container|paper",
+    "Plastic, Packaging & Containers"
+   ],
+   [
+    "building material|glass|ceramic|concrete|wholesale building",
+    "Building Materials"
+   ],
+   [
+    "mechanical|industrial engineering",
+    "Industrial Machinery & Equipment"
+   ],
+   [
+    "machinery|industrial automation|robotics|tools",
+    "Industrial Machinery & Equipment"
+   ],
+   [
+    "apparel|textile|fashion|jewelry|luxury",
+    "Apparel & Accessories"
+   ],
+   [
+    "appliance",
+    "Appliances"
+   ],
+   [
+    "sporting goods",
+    "Sporting Goods"
+   ],
+   [
+    "oil|gas",
+    "Oil & Gas Exploration & Services"
+   ],
+   [
+    "utilit|renewable|environment|water|waste",
+    "Utilities and environment"
+   ],
+   [
+    "power generation|energy",
+    "Electricity, Oil & Gas"
+   ],
+   [
+    "mining|metal|forestry|farming|agricultur",
+    "Industrial and natural resources"
+   ],
+   [
+    "construction|real estate|architecture|civil engineering",
+    "Construction and property"
+   ],
+   [
+    "software|it services|information technology",
+    "Custom Software & IT Services"
+   ],
+   [
+    "logistic|freight|truck|shipping|warehous|maritime|transportation",
+    "Freight & Logistics Services"
+   ],
+   [
+    "airline|travel|hotel|hospitality|leisure",
+    "Travel and passenger transport"
+   ],
+   [
+    "restaurant|food and beverage services",
+    "Restaurants"
+   ],
+   [
+    "hospital|health care|medical practice|wellness",
+    "Healthcare"
+   ],
+   [
+    "bank|financ|insurance|invest|capital",
+    "Finance & Banking"
+   ],
+   [
+    "government|non-profit|nonprofit|civic|religious|museum",
+    "Public sector and non-profit"
+   ],
+   [
+    "education|e-learning|universit",
+    "Education"
+   ],
+   [
+    "grocer|supermarket",
+    "Grocery Retail"
+   ],
+   [
+    "retail",
+    "Retail and rental"
+   ],
+   [
+    "research",
+    "Research & Development"
+   ],
+   [
+    "printing|publishing",
+    "Commercial Printing"
+   ],
+   [
+    "broadcast|media|entertainment",
+    "Broadcasting"
+   ],
+   [
+    "telecom|wireless",
+    "Telephony & Wireless Appliances"
+   ],
+   [
+    "consumer goods|consumer products|furniture|household|toys",
+    "Consumer products"
+   ],
+   [
+    "consult|staffing|marketing|advertis|accounting|legal|outsourc|services",
+    "Professional services"
+   ],
+   [
+    "manufactur",
+    "Industrial and natural resources"
+   ]
+  ]
+ }
 }
