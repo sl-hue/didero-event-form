@@ -1,6 +1,6 @@
 ---
 name: didero-outbound-lists
-description: Didero's outbound prospect lists, v2 — the user gives the file and answers a few questions at the start (end state with or without BDR owners, countries, BDRs and split, ZoomInfo credits); Claude works out the list type and enrichment path itself (ZoomInfo export, LinkedIn Sales Navigator / Evaboot export, or a list of named contacts such as event attendees), then runs on its own, screening, researching, cleaning, matching ZoomInfo, checking HubSpot for duplicates (read-only) and building the company and contact upload files with owner columns, stopping only where the user acts (import, segment, Clay). Use whenever someone brings a contact list, export or attendee list to clean, enrich, dedupe, prepare for HubSpot import or assign to BDRs. Company-only lists go to didero-contact-sourcing.
+description: Didero's outbound prospect lists, v2 — the user gives the file and answers a few questions at the start (end state with or without BDR owners, countries, BDRs and split, ZoomInfo credits, lead source); Claude works out the list type and enrichment path itself (ZoomInfo export, LinkedIn Sales Navigator / Evaboot export, or a list of named contacts such as event attendees), then runs on its own, screening, researching, cleaning, matching ZoomInfo, checking HubSpot for duplicates (read-only) and building the company and contact upload files with owner columns, stopping only where the user acts (import, segment, Clay). Use whenever someone brings a contact list, export or attendee list to clean, enrich, dedupe, prepare for HubSpot import or assign to BDRs. Company-only lists go to didero-contact-sourcing.
 ---
 
 # Didero outbound lists (v2)
@@ -47,8 +47,9 @@ Say what it found in one line ("This is a LinkedIn Sales Navigator export:
 the user it belongs to didero-contact-sourcing. Only if the file has no
 recognisable names and companies, ask which columns hold them.
 
-**3. The start questions — all at once, in one multiple-choice call.**
-`setup.py start` prints them ready for the multiple-choice tool:
+**3. The start questions — all at once.** `setup.py start` prints them ready
+for the multiple-choice tool: one call, or two calls right after each other
+when there are five (the tool takes four per call) — no work in between.
 1. **End state:** upload files only, or upload files + BDR owners (even
    split — all contacts of one account go to one BDR first — or another
    split the user describes). Either way the result is the same company and
@@ -60,6 +61,14 @@ recognisable names and companies, ask which columns hold them.
 3. **BDRs** (if assigning): who gets the list (default pool in `config.json`).
 4. **ZoomInfo credits** (LinkedIn and contacts paths): approve the maximum
    for this file once; the run never stops for credits again.
+5. **Lead source**, the way the team's lead source sheet categorizes it
+   (Lead Source → Lead Channel → Lead Source Detail, e.g. Events → Dinner →
+   `ASCM Dinner - 2026 - Denver, CO`; Outbound → Manual - BDR Led → `Noah`;
+   `scripts/leadsource.py show`). Only LEAD SOURCE and LEAD SOURCE DETAIL 1
+   are uploaded (the channel isn't in HubSpot yet, but it decides how the
+   detail is written). "I don't know" → both columns are left out of the
+   upload. An Events answer without the detail: work it out from the file /
+   event and set it (`references/event-lists.md` step 4).
 Then `python3 scripts/setup.py save --run-dir <run_dir> --answers '<json>'`
 and `python3 scripts/progress.py start --run-dir <run_dir>`. Tell the user in
 one short message what will happen and where it will stop for them — then
@@ -79,7 +88,7 @@ status` and `next`.
 |---|---|
 | zoominfo | 1 email domains · 2 normalization + cleaning · 3 HubSpot duplicates (read-only) · 4 BDR owners* · **5 import** · **6 segment + checks** · **7 Clay** |
 | linkedin | load · research + titles + countries → keep / exclude · hand-off · 1–2 · ZoomInfo pull · source per field · consistency · prune · 1–2 again · 3 · 4* · **5** · **6** · **7** |
-| contacts | load · website + HQ (HubSpot first) · screening + hand-off · 1–2 · ZoomInfo direct enrich (10 per call) · source per field, consistency, prune · 1–2 again · Lead Source (events) · 3 · 4* · **5** · **6** · **7** |
+| contacts | load · website + HQ (HubSpot first) · screening + hand-off · 1–2 · ZoomInfo direct enrich (10 per call) · source per field, consistency, prune · 1–2 again · lead source detail (if open) · 3 · 4* · **5** · **6** · **7** |
 
 \* only when the end state includes BDR owners. **Bold** = the user acts.
 ZoomInfo stages are skipped when credits weren't approved.

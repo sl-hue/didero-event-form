@@ -652,8 +652,9 @@ stage 8 ZoomInfo's title is used **only when it's the same job** as the list's
 ZoomInfo's.
 
 Then stages 8–10 (source per field, consistency, prune), steps 1–2 again, and
-steps 3–7. For event lists the export writes **Lead Source** = `Events` and
-**Lead Source Detail 1** = the event name.
+steps 3–7. The export writes **LEAD SOURCE** and **LEAD SOURCE DETAIL 1**
+from the start answer (the team's lead source sheet; left out when the user
+didn't know it).
 
 ## Data handling
 

@@ -1417,5 +1417,181 @@
     "Industrial and natural resources"
    ]
   ]
+ },
+ "lead_sources": {
+  "_note": "The team's lead source sheet (Didero - Contacts - Lead source cleanup, Sheet5, 2026-10-15): Lead Source -> Lead Channel -> Lead Source Detail. Only LEAD SOURCE and LEAD SOURCE DETAIL 1 are uploaded (the channel isn't in HubSpot yet). hubspot_fallback: the current HubSpot option used while the sheet's source isn't one yet.",
+  "taxonomy": {
+   "Events": {
+    "Conference": {
+     "detail": "Name - YYYY - City, ST (outside the US/Canada: City, Country)",
+     "kind": "event",
+     "examples": [
+      "AHTD - 2026 - Carlsbad, CA",
+      "ASCM 2026 - Columbus, OH",
+      "ASCM Supply Chain Conference - 2026 - San Diego, CA",
+      "American Supply Chain Summit - 2026 - Dallas, TX",
+      "Applied AI for Distributors - 2026 - Chicago, IL",
+      "BizClick Procurement and Supply Chain Live - 2026 - London, United Kingdom",
+      "CHAINge - 2026 - Long Beach, CA",
+      "DPW Amsterdam - 2026 - Amsterdam, Netherlands",
+      "DPW New York - 2026 - New York, NY",
+      "EDGE - 2026 - Nashville, TN",
+      "IMTS Conference - 2026 - Chicago, IL",
+      "MDM South - 2026 - Charlotte, NC",
+      "MEMA Aftermarket - 2026 - Frisco, TX",
+      "NAED Eastern Region Conference - 2027 - Orlando, FL",
+      "NAED National Conference - 2027 - Salt Lake City, UT",
+      "NAED Western Region Conference - 2027 - Phoenix, AZ",
+      "NASCES - 2026 - Las Vegas, NV",
+      "NAW Innovator Summit - 2026 - Nashville, TN"
+     ]
+    },
+    "Dinner": {
+     "detail": "Host Dinner - YYYY - City, ST",
+     "kind": "event",
+     "examples": [
+      "ASCM Dinner - 2026 - Chicago, IL",
+      "ASCM Dinner - 2026 - Dallas, TX",
+      "ASCM Dinner - 2026 - Denver, CO",
+      "ASCM Dinner - 2026 - Detroit, MI",
+      "ASCM Dinner - 2026 - San Diego, CA",
+      "ASCM Dinner - 2026 - San Fernando Valley, CA",
+      "ASCM Dinner - 2026 - Washington, DC"
+     ]
+    }
+   },
+   "Outbound": {
+    "Automated BDR Campaign": {
+     "detail": "the campaign name: an event (Name - YYYY - City, ST (outside the US/Canada: City, Country)) or a segment name",
+     "kind": "campaign",
+     "examples": [
+      "AHTD - 2026 - Carlsbad, CA",
+      "ASCM Dinner - 2026 - Chicago, IL",
+      "ASCM Webinar - 2026 - Chicago, IL",
+      "Automotive Tier I",
+      "CBM M&A",
+      "CBM New Location",
+      "Chemical Manufacturing",
+      "Construction & Building Materials",
+      "EDGE - 2026 - Nashville, TN"
+     ]
+    },
+    "Automated AE Campaign": {
+     "detail": "Target Accounts - <AE first name>",
+     "kind": "campaign",
+     "examples": [
+      "Target Accounts - Jory"
+     ]
+    },
+    "Automated Founder Campaign": {
+     "detail": "the campaign name: an event (Name - YYYY - City, ST (outside the US/Canada: City, Country)), a school (e.g. Booth MBA) or a theme",
+     "kind": "campaign",
+     "examples": [
+      "ASCM Dinner - 2026 - Denver, CO",
+      "ASU MBA",
+      "Booth MBA",
+      "Columbia MBA",
+      "Cornell MBA",
+      "MSU MBA",
+      "Marquee Logos",
+      "OSU Fisher MBA",
+      "Reuters Supply Chain USA - 2026 - Chicago, IL",
+      "Stanford MBA",
+      "UCLA MBA"
+     ]
+    },
+    "Founder BD Campaign": {
+     "detail": "the campaign name",
+     "kind": "campaign",
+     "examples": []
+    },
+    "Manual - Founder Led": {
+     "detail": "the founder's first name",
+     "kind": "person",
+     "examples": [
+      "Lorenz",
+      "Tim",
+      "Tom"
+     ]
+    },
+    "Manual - AE Led": {
+     "detail": "the AE's first name",
+     "kind": "person",
+     "examples": [
+      "Jory",
+      "David",
+      "Michael",
+      "Jason",
+      "Garrett"
+     ]
+    },
+    "Manual - BDR Led": {
+     "detail": "the BDR's first name (with BDR assignment: each contact's own BDR)",
+     "kind": "person",
+     "examples": [
+      "Alexander",
+      "Bart",
+      "Brady",
+      "Courtnei",
+      "Davis",
+      "Elizabeth",
+      "Noah",
+      "Patricia",
+      "Riley",
+      "Scott"
+     ]
+    },
+    "Research": {
+     "detail": "the research programme",
+     "kind": "campaign",
+     "examples": [
+      "Product Research Panel"
+     ]
+    }
+   },
+   "Inbound": {
+    "Content Downloads": {
+     "detail": "the content piece",
+     "kind": "campaign",
+     "examples": [
+      "FABCo Case Study"
+     ]
+    },
+    "Paid Advertising": {
+     "detail": "the ad / campaign",
+     "kind": "campaign",
+     "examples": [
+      "Unlocking Procurement's Potential with AI Agents",
+      "Demystifying AI for Procurement in 60 Seconds"
+     ]
+    },
+    "Email Forms": {
+     "detail": "the form",
+     "kind": "campaign",
+     "examples": [
+      "Early Access Signup"
+     ]
+    }
+   },
+   "Partnerships / Referrals": {
+    "Webinar": {
+     "detail": "YYYY - City, ST, or the programme name",
+     "kind": "campaign",
+     "examples": [
+      "2026 ASCM Practitioner Program",
+      "2026 - New York, NY",
+      "2026 - Chicago, IL",
+      "2026 - San Diego, CA"
+     ]
+    }
+   }
+  },
+  "hubspot_fallback": {
+   "Outbound": "Outbound Marketing",
+   "Inbound|Content Downloads": "Content Syndication",
+   "Inbound|Paid Advertising": "Paid Advertising",
+   "Inbound|Email Forms": "Organic Website",
+   "Partnerships / Referrals": "Partner"
+  }
  }
 }

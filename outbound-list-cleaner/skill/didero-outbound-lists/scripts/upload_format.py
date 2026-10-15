@@ -27,7 +27,7 @@ The format (from the hand-cleaned CBM M&A files and Didero's HubSpot properties)
   country ........ full name ("United States", "United Kingdom")
   state .......... full name for the US and Canada ("Illinois", "Ontario")
   numbers / IDs .. digits only
-  dropdowns ...... HubSpot's options (Type, Employee range, industries, Lead Source = Events)
+  dropdowns ...... HubSpot's options (Type, Employee range, industries, Lead Source from the start answer)
 """
 import re
 
@@ -297,8 +297,8 @@ def resolve(contacts, companies, contact_cols, company_cols, options):
         if ranges and k.get("Employee Range") and k["Employee Range"] not in ranges:
             blank(k, "Employee Range", "companies", "isn't a HubSpot range")
     for r in contacts:
-        if r.get("Lead Source") and (r["Lead Source"] != "Events" or not r.get("Lead Source Detail 1")):
-            blank(r, "Lead Source", "contacts", "has no event name with it")
+        if r.get("Lead Source") and not r.get("Lead Source Detail 1"):  # e.g. per-owner detail but no owner
+            blank(r, "Lead Source", "contacts", "has no lead source detail with it")
     info = [f"contact with no name (kept): {r.get('Email Address') or r.get('Company Name')}"
             for r in contacts if not (r.get("First Name") or r.get("Last Name"))]
     info += [f"company with no website or domain (kept; HubSpot can't link its contacts by domain — step 6 checks "

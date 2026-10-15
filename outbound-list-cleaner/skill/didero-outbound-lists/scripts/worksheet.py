@@ -329,6 +329,14 @@ def pre_export_checks(run_dir, fields, rows):
     companies = {r.get(COMPANY_ID) for r in rows}
     with_industry = {r.get(COMPANY_ID) for r in rows if (r.get("Didero Primary Industry") or r.get("Industry")
                                                          or r.get("Industry Group") or "").strip()}
+    try:
+        from setup import load_setup as _ls
+        lsrc = (_ls(run_dir) or {}).get("lead_source") or {}
+    except Exception:  # noqa: BLE001
+        lsrc = {}
+    if lsrc.get("detail_pending"):
+        stop.append(f"the lead source detail for {lsrc.get('source')} / {lsrc.get('channel')} isn't filled — work it out "
+                    "from the file / event (leadsource.py show for the format) and run setup.py set --lead-source")
     if companies and not with_industry:
         stop.append(f"none of the {len(companies)} companies has an industry — the industry step was missed "
                     "(ZoomInfo company enrichment + zoominfo_merge.py merge, or normalize.py apply). Fill it first.")
@@ -434,12 +442,20 @@ def export_files(run_dir, out_dir=None):
                        for k, v in r.items()}
     rows = [blank(r) for r in rows]
     companies = {k: blank(v) for k, v in companies.items()}
-    # Event lists: the event goes to HubSpot as Lead Source = "Events" + Lead Source Detail 1 = the event name.
-    if "Event Name" in fields:
-        for r in rows:
-            if (r.get("Event Name") or "").strip():
-                r["Lead Source"], r["Lead Source Detail 1"] = "Events", r["Event Name"].strip()
-        fields = list(fields) + [c for c in ("Lead Source", "Lead Source Detail 1") if c not in fields]
+    # Lead source from the start answer, as the team's lead source sheet writes it (leadsource.py). Not known ->
+    # both columns stay empty and are left out of the upload (nothing overwritten in HubSpot).
+    import leadsource
+    from setup import load_setup
+    ls = (load_setup(run_dir) or {}).get("lead_source")
+    if ls is None and "Event Name" in fields:  # runs set up before the question existed
+        ev = next(((r.get("Event Name") or "").strip() for r in rows if (r.get("Event Name") or "").strip()), "")
+        ls = {"source": "Events", "channel": "Conference", "detail": ev} if ev else {"unknown": True}
+    for r in rows:
+        r["Lead Source"] = r["Lead Source Detail 1"] = r["Lead Channel"] = ""
+        if ls and not ls.get("unknown"):
+            r["Lead Source"], r["Lead Channel"] = ls["source"], ls["channel"]
+            r["Lead Source Detail 1"] = leadsource.detail_for(r, ls)
+    fields = list(fields) + [c for c in ("Lead Source", "Lead Source Detail 1", "Lead Channel") if c not in fields]
     # One format for every run: the same columns in the same order (blank when a source lacks them),
     # values normalized, then the rules for problems applied (upload_format.py). Nothing here stops the
     # run; every change is written to decisions.md.

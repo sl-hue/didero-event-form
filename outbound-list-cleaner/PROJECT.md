@@ -281,6 +281,19 @@ HOW_TO_IMPORT.md / CLAY_STEPS.md / import_mapping.md); the import steps list
 only the "Don't overwrite" columns instead of the full mapping table (columns
 map themselves). Rule in SKILL.md / progress.py: never send a .md file.
 
+**Lead source (2026-10-15):** asked at the start (5th question; setup prints two
+back-to-back AskUserQuestion calls when there are 5). Taxonomy from the team's
+lead source sheet (Sheet5 screenshots) in `config.json` → `lead_sources`:
+Lead Source → Lead Channel → Lead Source Detail; `leadsource.py` checks and
+formats answers (events `Name - YYYY - City, ST`, states abbreviated; Manual
+channels = first name, "per owner" = each contact's BDR). Only LEAD SOURCE +
+LEAD SOURCE DETAIL 1 uploaded (no channel property yet). Unknown → both columns
+left out. HubSpot's LEAD SOURCE options are still the old ones: Outbound →
+Outbound Marketing, Inbound channels → Content Syndication / Paid Advertising /
+Organic Website, Partnerships / Referrals → Partner until HubSpot has the exact
+value (exact match wins automatically). Import steps suggest Don't overwrite on
+both lead source columns.
+
 `skill/didero-contact-sourcing/`: the two event-company flows (no titles →
 ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact
 file for v2 (`tag-event` now writes Event Name into the export CSV).

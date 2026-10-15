@@ -53,7 +53,7 @@ S = {
     "ev3": ("event-lists.md", "**2. Company website, then HQ**"),
     "evhs": ("event-lists.md", "## HubSpot company lookup"),
     "ev4": ("event-lists.md", "**3. Screening and hand-off**"),
-    "ev5": ("event-lists.md", "**4. Event in HubSpot"),
+    "ev5": ("event-lists.md", "**4. Lead source"),
 }
 HS = "https://app.hubspot.com"
 OPEN = {  # pages to open in the browser window when the step starts ({p} = portal id)
@@ -147,11 +147,11 @@ def verify(run, p, step):
         elif kind == "file" and not (run / what).exists():
             return f"{what} doesn't exist yet"
         elif kind == "event":
-            import csv
-            w = run / "working.csv"
-            rows = list(csv.DictReader(open(w, encoding="utf-8"))) if w.exists() else []
-            if rows and not all((r.get("Event Name") or "").strip() for r in rows):
-                return "some rows have no Event Name (setup.py set --event-name, then re-run intake / handoff)"
+            from setup import load_setup
+            ls = (load_setup(run) or {}).get("lead_source") or {}
+            if ls.get("detail_pending"):
+                return ("the lead source detail isn't filled (leadsource.py show for the format, then "
+                        "setup.py set --lead-source '<Source / Channel / Detail>')")
         if ref == "z5" and "export" not in actions:
             return "the upload files weren't exported (hubspot_import.py prepare)"
     return ""
@@ -213,8 +213,8 @@ def main():
         flow = FLOWS[path] + (OWN if st.get("bdr_pool") else []) + TAIL
         if path != "zoominfo" and not st.get("use_zoominfo"):
             flow = [f for f in flow if f[0] not in ("st7", "st8", "st9", "st10", "evzi", "z1b")]
-        if st.get("detected") == "event-contacts" or st.get("event_name") or st.get("event_column"):
-            flow.insert([x[0] for x in flow].index("z5"), ("ev5", "Event in HubSpot: Lead Source + Detail 1", ["ev5"]))
+        if (st.get("lead_source") or {}).get("detail_pending"):
+            flow.insert([x[0] for x in flow].index("z5"), ("ev5", "Lead source detail (from the start answer)", ["ev5"]))
         steps = [{"id": i, "title": t, "refs": r, "state": "todo"} for i, t, r in flow]
         save(run, {"list_type": path, "started": datetime.datetime.now().isoformat(timespec="seconds"),
                    "steps": steps})

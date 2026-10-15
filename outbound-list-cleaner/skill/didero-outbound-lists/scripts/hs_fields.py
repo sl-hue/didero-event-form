@@ -42,8 +42,8 @@ CONTACT = [
     ("ZoomInfo Contact Profile URL", "zoominfo_contact_profile_url", "ZoomInfo Contact Profile URL", False),
     ("LinkedIn Contact Profile URL", "lgm_linkedinurl", "Linkedin Url (Default)", False),
     ("Company HQ Phone", "corporate_phone", "Corporate Phone", False),
-    ("Lead Source", "lead_source", "LEAD SOURCE", False),
-    ("Lead Source Detail 1", "lead_source_detail_1", "LEAD SOURCE DETAIL 1", False),
+    ("Lead Source", "lead_source", "LEAD SOURCE", True),                     # only when the lead source is known
+    ("Lead Source Detail 1", "lead_source_detail_1", "LEAD SOURCE DETAIL 1", True),
     ("HubSpot Contact Record ID", "hs_object_id", "Record ID", False),
     ("Additional Emails", "secondary_email", "Secondary email", True),
     ("Contact Owner", "hubspot_owner_id", "Contact owner", True),
@@ -124,6 +124,11 @@ def dropdown_values(rows, kind, run_dir):
             if not v:
                 continue
             hit = lookup.get(v.lower())
+            if hit is None and internal == "lead_source":  # the sheet's source until HubSpot has it as an option
+                import leadsource
+                alt = leadsource.hubspot_option({"source": v, "channel": r.get("Lead Channel", "")},
+                                                [lab for lab, _ in prop["options"]])
+                hit = lookup.get(alt.lower()) if alt else None
             if hit is None and internal == "hs_seniority":
                 hit = lookup.get(SENIORITY.get(v.lower(), "").lower())
             if hit is None and internal == "hubspot_owner_id":

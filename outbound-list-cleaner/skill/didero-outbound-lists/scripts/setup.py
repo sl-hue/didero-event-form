@@ -4,13 +4,16 @@
          Claude's own read of the file: list type and enrichment path (from the columns and
          filled values), contacts, companies and the maximum ZoomInfo credits. Prints what was
          determined and the start questions (asked together, in one multiple-choice call).
-  set    --run-dir <run_dir> --event-name "<event>"   (determined from the file; not a question)
+  set    --run-dir <run_dir> [--event-name "<event>"] [--lead-source '<answer>']
+         values Claude works out later (the event name; the lead source detail from the file)
   save   --run-dir <run_dir> --answers '<json>'
          {"end_state": "upload" | "upload+bdr",
           "countries": "us_ca" | "na_english" | ["Country", ...],
           "bdr_pool": ["Noah", ...],               (upload+bdr only)
           "split": "even" | "<the user's own rule>", (upload+bdr only)
           "credits_ok": true | false,               (asked only when the path uses ZoomInfo)
+          "lead_source": "unknown" | "Source / Channel / Detail" | {"source","channel","detail"}
+                         (leadsource.py: the team's sheet; detail may be left for Claude to fill)
           "event_name": "<event name>"}            (event lists, from the file / sources — not asked)
          Writes run_setup.json, which the later steps read (countries, credit cap, BDRs), and
          prints the plan: which steps run and where the run will stop for the user.
@@ -126,6 +129,24 @@ def start(args):
          "options": [{"label": p, "description": "BDR in the default pool"} for p in pool[:3]] +
                     [{"label": "No assignment", "description": "Upload files only"}]},
     ]
+    eventish = kind == "event-contacts" or draft["event_column"] or any(
+        w in Path(main["file"]).name.lower() for w in ("event", "attendee", "conference", "summit", "expo", "dinner"))
+    ls_opts = ([{"label": "Events — Conference", "description": "Detail = the event, written 'Name - YYYY - City, ST' "
+                 "(e.g. EDGE - 2026 - Nashville, TN). Claude fills it from the file / event name."},
+                {"label": "Events — Dinner", "description": "Detail = 'Host Dinner - YYYY - City, ST' (e.g. ASCM Dinner - "
+                 "2026 - Denver, CO). Claude fills it from the file / event name."}] if eventish else []) + [
+        {"label": "Outbound — Manual - BDR Led", "description": "Detail = each contact's BDR first name (e.g. Noah); "
+         "needs BDR owners, or type one name under Other."},
+        {"label": "I don't know", "description": "Lead Source and Lead Source Detail are left out of the upload "
+         "(nothing overwritten in HubSpot)."}]
+    if not eventish:
+        ls_opts.insert(0, {"label": "Events — Conference", "description": "Detail = 'Name - YYYY - City, ST' (e.g. EDGE - "
+                           "2026 - Nashville, TN); type the event under Other if Claude can't tell it from the file."})
+    lead_q = {"header": "Lead source", "multiSelect": False,
+              "question": "What's the lead source for these contacts? (the lead source sheet: Lead Source → Channel → "
+                          "Detail). Something else: type 'Source / Channel / Detail' under Other, e.g. 'Outbound / "
+                          "Automated AE Campaign / Target Accounts - Jory'.",
+              "options": ls_opts[:4]}
     if credits:
         qs.append({"header": "Credits", "multiSelect": False,
                    "question": f"Approve up to {credits} ZoomInfo Bulk Credits for this list? (one per contact"
@@ -134,8 +155,17 @@ def start(args):
                    "options": [{"label": f"Approve up to {credits}", "description": "The run never stops for credits."},
                                {"label": "Don't use ZoomInfo", "description": "Skip the ZoomInfo steps; the list "
                                 "keeps its own data."}]})
-    print("\nASK ALL OF THESE IN ONE multiple-choice call (AskUserQuestion), nothing else:")
-    print(json.dumps(qs, indent=1, ensure_ascii=False))
+    qs.append(lead_q)
+    calls = [qs[i:i + 4] for i in range(0, len(qs), 4)]  # AskUserQuestion takes at most 4 questions per call
+    if len(calls) == 1:
+        print("\nASK ALL OF THESE IN ONE multiple-choice call (AskUserQuestion), nothing else:")
+        print(json.dumps(qs, indent=1, ensure_ascii=False))
+    else:
+        print(f"\nASK THESE IN {len(calls)} multiple-choice calls (AskUserQuestion) RIGHT AFTER EACH OTHER — no work and "
+              "no other message in between (the tool takes at most 4 questions per call):")
+        for i, c in enumerate(calls, 1):
+            print(f"--- call {i} ---")
+            print(json.dumps(c, indent=1, ensure_ascii=False))
     print(f"\nThen: setup.py save --run-dir {args.run_dir} --answers '<json>' (see --help for the keys).")
 
 
@@ -154,14 +184,16 @@ def save(args):
     if end == "upload+bdr" and not pool:
         raise SystemExit("BDR owners chosen but no BDRs named — that answer is needed before starting")
     credits_ok = bool(a.get("credits_ok")) if draft["max_credits"] else False
+    ls = lead_source_of(a.get("lead_source", "unknown"), end == "upload+bdr")
     setup = dict(draft, end_state=end, countries=countries, bdr_pool=pool if end == "upload+bdr" else [],
                  split=split if end == "upload+bdr" else "", credit_cap=draft["max_credits"] if credits_ok else 0,
-                 use_zoominfo=credits_ok, event_name=a.get("event_name", ""))
+                 use_zoominfo=credits_ok, event_name=a.get("event_name", ""), lead_source=ls)
     (run / SETUP).write_text(json.dumps(setup, indent=1, ensure_ascii=False))
     print(f"saved {run / SETUP}")
     print(f"- path: {PATH_LABEL[setup['path']]}")
     print(f"- countries: {', '.join(countries)} (companies by HQ or presence, then contacts)")
     print(f"- end state: {'upload files + BDR owners (' + ', '.join(pool) + '; split: ' + split + ')' if end == 'upload+bdr' else 'upload files only'}")
+    print(f"- lead source: {lead_source_text(ls)}")
     if draft["max_credits"]:
         print(f"- ZoomInfo: {'up to ' + str(draft['max_credits']) + ' credits approved' if credits_ok else 'not used'}")
     print("- the run now goes on its own. It stops only where the user acts: the HubSpot import, building the "
@@ -169,13 +201,55 @@ def save(args):
     print(f"Next: progress.py start --run-dir {args.run_dir}")
 
 
+def lead_source_of(answer, bdr):
+    """The start answer -> run_setup lead_source. Events with no detail yet -> detail left for Claude to fill
+    from the file (setup.py set --lead-source); Manual - BDR Led with BDR owners -> each contact's own BDR."""
+    import leadsource
+    if isinstance(answer, str):
+        a = answer.replace("—", "/").replace(" – ", " / ")
+        if a.strip().lower() in ("i don't know", "unknown", ""):
+            return {"unknown": True}
+        answer = a
+    try:
+        return leadsource.normalize(answer)
+    except ValueError as e:
+        if "needs a detail" not in str(e):
+            raise SystemExit(f"lead source: {e}")
+    parts = answer if isinstance(answer, dict) else dict(zip(("source", "channel"), [x.strip() for x in answer.split("/")]))
+    ch = parts.get("channel", "")
+    if bdr and ch.lower().startswith("manual - bdr"):
+        return leadsource.normalize(dict(parts, detail="per owner"))
+    src = leadsource.normalize(dict(parts, detail="Placeholder - 2000 - City, ST"))
+    return dict(src, detail="", detail_pending=True)
+
+
+def lead_source_text(ls):
+    if not ls or ls.get("unknown"):
+        return "not known — left out of the upload"
+    d = "each contact's own owner" if ls["detail"] == "per owner" else (ls["detail"] or "TO FILL from the file "
+                                                                       "(setup.py set --lead-source)")
+    return f"{ls['source']} / {ls['channel']} / {d}"
+
+
 def set_(args):
-    """Fill a value Claude determines later (the event name) without re-asking anything."""
+    """Fill values Claude determines later (the event name, the lead source detail) without re-asking anything."""
+    import leadsource
     run = Path(args.run_dir)
     st = json.loads((run / SETUP).read_text())
-    st["event_name"] = args.event_name
+    if args.event_name:
+        st["event_name"] = args.event_name
+        print(f"event name: {args.event_name}")
+    if args.lead_source:
+        try:
+            a = json.loads(args.lead_source)
+        except ValueError:
+            a = args.lead_source
+        try:
+            st["lead_source"] = leadsource.normalize(a)
+        except ValueError as e:
+            raise SystemExit(f"lead source: {e}")
+        print(f"lead source: {lead_source_text(st['lead_source'])}")
     (run / SETUP).write_text(json.dumps(st, indent=1, ensure_ascii=False))
-    print(f"event name: {args.event_name}")
 
 
 def main():
@@ -185,7 +259,8 @@ def main():
     p.add_argument("--run-dir", required=True); p.set_defaults(func=start)
     p = sub.add_parser("save"); p.add_argument("--run-dir", required=True); p.add_argument("--answers", required=True)
     p.set_defaults(func=save)
-    p = sub.add_parser("set"); p.add_argument("--run-dir", required=True); p.add_argument("--event-name", required=True)
+    p = sub.add_parser("set"); p.add_argument("--run-dir", required=True); p.add_argument("--event-name")
+    p.add_argument("--lead-source")
     p.set_defaults(func=set_)
     args = ap.parse_args()
     args.func(args)

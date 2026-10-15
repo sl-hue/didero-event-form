@@ -16,8 +16,8 @@ user's device; never publish it.
 **1. Load the essentials** — `intake.py`
 - The event name: take it from the file, its name or the sources the user
   gave (e.g. `IMTS 2026`), and record it with
-  `python3 scripts/setup.py set --run-dir <run_dir> --event-name "<event>"`. It becomes Lead Source
-  Detail 1 (step 4).
+  `python3 scripts/setup.py set --run-dir <run_dir> --event-name "<event>"`. If the start
+  answer left the lead source detail open, it's written from this (step 4).
 - `python3 scripts/intake.py init --input <file> [<file> …] --event "<event name>" --out-dir <run_dir>`
   → `<run_dir>/event.csv` with **First Name, Last Name, Job Title, Company**
   (plus email, phone, LinkedIn URL, website, location when the files have
@@ -56,12 +56,17 @@ user's device; never publish it.
   location isn't known: companies are screened by HQ / presence), the
   decision, and the hand-off with `--list-type Event`.
 
-**4. Event in HubSpot: Lead Source + Lead Source Detail 1**
-The working file keeps the event in **Event Name**. The export (`worksheet.py
-export`) turns it into two upload columns, mapped at the import:
-- **Lead Source** (`lead_source`, dropdown) = `Events`
-- **Lead Source Detail 1** (`lead_source_detail_1`, text) = the event name.
-Check every row has the Event Name before the import step; no stop.
+**4. Lead source detail** (only when the start answer left it to you)
+The lead source was asked at the start, the way the team's lead source sheet
+categorizes it (Lead Source → Lead Channel → Lead Source Detail;
+`python3 scripts/leadsource.py show`). When the user picked e.g. "Events —
+Conference" without the detail, work it out from the file name, the event
+name and the event's own site, written exactly like the sheet: `Name - YYYY -
+City, ST` (e.g. `EDGE - 2026 - Nashville, TN`; dinners `ASCM Dinner - 2026 -
+Denver, CO`). Then `python3 scripts/setup.py set --run-dir <run_dir>
+--lead-source "Events / Conference / <detail>"` (it checks the format). The
+export writes **LEAD SOURCE** and **LEAD SOURCE DETAIL 1** on every contact;
+when the user didn't know the lead source, both columns are left out.
 
 ## HubSpot company lookup
 

@@ -81,7 +81,7 @@ CONTACT_MAPPING = {
     "Primary Industry": ("Primary Industry", "primary_industry"),  # contact property: ZoomInfo's top level
     "Primary Sub-Industry": ("Primary Sub-Industry", "primary_sub_industry"),
     "Company Industry": ("Company Industry", "company_industry"),
-    # event lists: Lead Source (dropdown) = "Events"; Lead Source Detail 1 (text) = the event name
+    # from the start answer (leadsource.py, the team's lead source sheet); left out when not known
     "Lead Source": ("Lead Source", "lead_source"),
     "Lead Source Detail 1": ("Lead Source Detail 1", "lead_source_detail_1"),
     "Email Domain": None,  # HubSpot sets the contact's email domain from the email itself
@@ -109,6 +109,8 @@ PROTECT = {
                   "Type": "keeps Customer/Partner/etc. on existing records",
                   "Company Domain": "the primary domain is HubSpot's unique key for the company"},
     "contacts": {"Email Address": "changing the primary email on an existing contact can break its history",
+                 "Lead Source": "keeps the original lead source on contacts already in HubSpot",
+                 "Lead Source Detail 1": "keeps the original lead source detail on contacts already in HubSpot",
                  "Company Name": "keeps the company name already on the contact"},
 }
 
