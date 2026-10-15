@@ -1,0 +1,279 @@
+"""Step 4 — prepare the HubSpot import.
+
+The user imports the files through HubSpot's import screen (companies first,
+so they exist as anchors for the contacts). This script:
+
+  prepare   Sets Type on the working file (default "Prospect"), exports the
+            two upload files from it (worksheet.py export — refuses while
+            rows are flagged),
+            checks the Type already on matched HubSpot records, and writes
+            import_mapping.md: for each file, every column -> HubSpot property
+            (label + internal name), how many rows have a value, and whether to
+            tick "Don't overwrite" for it. Claude shows these tables in chat so
+            the user can pick the same fields in the import screen.
+
+Record IDs: the upload files are import-ready — "Not in HubSpot" is written
+as a blank Record ID (HubSpot rejects text there); blank means "create", a
+number means "update that record".
+"""
+import argparse
+import csv
+import json
+import sys
+from collections import Counter
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import worksheet as ws  # noqa: E402
+
+COMPANY_RECORD = "HubSpot Company Record ID"
+CONTACT_RECORD = "HubSpot Contact Record ID"
+NOT_IN_HUBSPOT = "Not in HubSpot"
+
+# File column -> (HubSpot property label, internal name). None = don't import.
+COMPANY_MAPPING = {
+    "ZoomInfo Company ID": None,  # not sent: it confuses a calling tool
+    "Company Name": ("Company name", "name"),
+    "Website": ("Website URL", "website"),  # not "Company Website URL (Cleaned)"
+    "Founded Year": ("Year Founded", "founded_year"),
+    "Company HQ Phone": ("Phone Number", "phone"),
+    "Revenue (in USD)": ("Annual Revenue", "annualrevenue"),
+    "Revenue Range (in USD)": ("Revenue range", "hs_revenue_range"),
+    "Employees": ("Number of Employees", "numberofemployees"),
+    "Employee Range": ("Employee range", "hs_employee_range"),
+    "SIC Code 1": ("SIC Code 1", "sic_code_1"),
+    "SIC Code 2": ("SIC Code 2", "sic_code_2"),
+    "NAICS Code 1": ("NAICS Code 1", "naics_code_1"),
+    "NAICS Code 2": ("NAICS Code 2", "naics_code_2"),
+    "Didero Primary Industry": ("Primary industry", "primary_industry"),  # Manufacturing/Distribution/Software/Services/Other
+    "Industry": ("Industry", "industry"),
+    "Industry Group": ("Industry group", "hs_industry_group"),  # "Manufacturing- Building Materials"
+    "ZoomInfo Company Profile URL": ("ZoomInfo Company Profile URL", "zoominfo_company_profile_url"),
+    "LinkedIn Company Profile URL": ("LinkedIn Company Page", "linkedin_company_page"),
+    "Facebook Company Profile URL": ("Facebook Company Page", "facebook_company_page"),
+    "Twitter Company Profile URL": ("Twitter Company Profile URL", "twitter_company_profile_url"),
+    "Company City": ("City", "city"),
+    "Company State": ("State/Region", "state"),
+    "Company Zip Code": ("Postal Code", "zip"),
+    "Company Country": ("Country/Region", "country"),
+    "Full Address": ("Street Address", "address"),
+    "Company Domain": ("Company Domain Name", "domain"),
+    "Additional Domains": ("Additional Domains", "hs_additional_domains"),
+    "Type": ("Type", "type"),
+    "Outbound Personalization Token": ("Company Outbound Personalization", "company_outbound_personalization"),
+    COMPANY_RECORD: ("Record ID", "hs_object_id"),
+    "Company Owner": ("Company owner", "hubspot_owner_id"),  # HubSpot owner ID
+    "Company Owner Name": None,  # for reading only
+}
+
+CONTACT_MAPPING = {
+    "ZoomInfo Contact ID": None,
+    "First Name": ("First Name", "firstname"),
+    "Last Name": ("Last Name", "lastname"),
+    "Job Title": ("Job Title", "jobtitle"),
+    "Management Level": ("Employment Seniority", "hs_seniority"),  # dropdown; values converted in step 2
+    "Job Function": ("Job function", "job_function"),
+    "Department": ("Department", "department"),  # dropdown; values checked in step 2
+    "Direct Phone Number": ("Work Direct Phone", "work_direct_phone"),
+    "Email Address": ("Email", "email"),
+    "Additional Emails": ("Additional email addresses", "hs_additional_emails"),
+    "Primary Industry": ("Primary Industry", "primary_industry"),  # contact property: ZoomInfo's top level
+    "Primary Sub-Industry": ("Primary Sub-Industry", "primary_sub_industry"),
+    "Company Industry": ("Company Industry", "company_industry"),
+    # event lists: Lead Source (dropdown) = "Events"; Lead Source Detail 1 (text) = the event name
+    "Lead Source": ("Lead Source", "lead_source"),
+    "Lead Source Detail 1": ("Lead Source Detail 1", "lead_source_detail_1"),
+    "Email Domain": ("Company Domain", "company_domain"),
+    "Mobile phone": ("Mobile Phone Number", "mobilephone"),
+    "ZoomInfo Contact Profile URL": ("ZoomInfo Contact Profile URL", "zoominfo_contact_profile_url"),
+    "LinkedIn Contact Profile URL": ("Linkedin Url (Default)", "lgm_linkedinurl"),
+    "Person Street": ("Street Address", "address"),
+    "Person City": ("City", "city"),
+    "Person State": ("State/Region", "state"),
+    "Person Zip Code": ("Postal Code", "zip"),
+    "Country": ("Country/Region", "country"),
+    "Company Name": ("Company Name", "company"),
+    "Website": ("Website URL", "website"),  # not "Contact Website URL (Cleaned)"
+    "Company HQ Phone": ("Corporate Phone", "corporate_phone"),
+    CONTACT_RECORD: ("Record ID", "hs_object_id"),
+    "Contact Owner": ("Contact owner", "hubspot_owner_id"),  # HubSpot owner ID
+    "Contact Owner Name": None,  # for reading only
+    "New Contact Outbound Personalization": ("Contact Outbound Personalization", "contact_outbound_personalization"),
+}
+
+# Columns where an existing HubSpot value is usually worth keeping: suggest
+# ticking "Don't overwrite" (the user decides).
+PROTECT = {
+    "companies": {"Company Name": "keeps the name already curated in HubSpot",
+                  "Type": "keeps Customer/Partner/etc. on existing records",
+                  "Company Domain": "the primary domain is HubSpot's unique key for the company"},
+    "contacts": {"Email Address": "changing the primary email on an existing contact can break its history",
+                 "Company Name": "keeps the company name already on the contact"},
+}
+
+
+def read_rows(path):
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        return reader.fieldnames, list(reader)
+
+
+def write_rows(path, fieldnames, rows):
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def hubspot_types(raw_dir):
+    types = {}
+    if raw_dir:
+        for path in Path(raw_dir).glob("*.json"):
+            data = json.loads(path.read_text())
+            for resp in data if isinstance(data, list) else [data]:
+                for rec in resp.get("results", []):
+                    types[str(rec["id"])] = (rec.get("properties") or {}).get("type") or ""
+    return types
+
+
+def mapping_table(kind, fields, rows, mapping):
+    lines = [f"### {kind.capitalize()} file → HubSpot {kind}", "",
+             "| File column | HubSpot property | Internal name | Rows with a value | Don't overwrite? |",
+             "|---|---|---|---|---|"]
+    unknown = []
+    for f in fields:
+        if f not in mapping:
+            unknown.append(f)
+            continue
+        filled = sum(1 for r in rows if (r.get(f) or "").strip())
+        target = mapping[f]
+        if target is None:
+            lines.append(f"| {f} | *Don't import column* | — | {filled}/{len(rows)} | — |")
+            continue
+        protect = PROTECT[kind].get(f)
+        lines.append(f"| {f} | {target[0]} | `{target[1]}` | {filled}/{len(rows)} | "
+                     f"{'Suggested — ' + protect if protect else ''} |")
+    return lines, unknown
+
+
+def how_to_import(run_name, out, notes, type_conflicts, tables):
+    """Click-by-click import steps for the user, with the mapping tables (upload/HOW_TO_IMPORT.md)."""
+    counts = {n.split(":")[0]: n.split(":", 1)[1].strip() for n in notes if "records" in n}
+    conflicts = "".join(f"\n   - {c['company']}: HubSpot says {c['hubspot_type']}, the file says {c['file_type']} "
+                        f"({c['url']})" for c in type_conflicts)
+    return f"""# How to import into HubSpot — {run_name}
+
+Two files, **companies first**, then contacts (contacts attach to their
+company through the company domain, so the companies must exist first):
+- `{out / 'companies_upload.csv'}` — {counts.get('companies', '')}
+- `{out / 'contacts_upload.csv'}` — {counts.get('contacts', '')}
+
+## A. Companies
+1. In HubSpot open **CRM → Companies** and click **Import** (top right), then
+   **Start an import**.
+2. Choose **File from computer** → **One file** → **One object** →
+   **Companies** → Next.
+3. Upload `companies_upload.csv` → Next.
+4. **Map the columns** as in the companies table below. HubSpot matches most
+   of them itself; check each one, and set **Don't import column** where the
+   table says so. Tick **Don't overwrite** where the table suggests it (keeps
+   what HubSpot already has). **Company Owner** (if present) maps to **Company
+   owner**: it holds the HubSpot owner ID; Company Owner Name is only for
+   reading (Don't import column).
+5. Import option: **Create and update companies**. Rows with a Record ID
+   update that company; rows without one create a new company.
+6. Name the import `{run_name} companies` → **Finish import**.
+7. When it's done, open the import and check **errors**. Tell Claude about any
+   (fix in the file and re-import those rows, or fix the record in HubSpot).{
+    chr(10) + "8. These existing companies have a different Type than the file — consider ticking "
+    "**Don't overwrite** on Type:" + conflicts if conflicts else ""}
+
+## B. Contacts (after the company import has finished)
+1. **CRM → Contacts** → **Import** → **Start an import** → **File from
+   computer** → **One file** → **One object** → **Contacts** → Next.
+2. Upload `contacts_upload.csv` → Next.
+3. Map the columns as in the contacts table below (same rules as above).
+   **Contact Owner** (if present) maps to **Contact owner** (HubSpot owner ID);
+   Contact Owner Name is only for reading.
+4. Import option: **Create and update contacts**.
+5. Name the import `{run_name} contacts` and tick **Create a list of contacts
+   from this import** if HubSpot offers it (it makes the next step's segment
+   easy). Confirm the consent box → **Finish import**.
+6. Check the import's **errors** and tell Claude.
+
+Then tell Claude "imported" — the next step builds the segment and checks
+company associations.
+
+## Column mapping
+{chr(10).join(tables)}
+"""
+
+
+def prepare(args):
+    out = Path(args.out_dir or Path(args.run_dir) / "upload")
+    out.mkdir(parents=True, exist_ok=True)
+    # Type is company data: set it on the working file, then export from it.
+    fields, rows = ws.load(args.run_dir)
+    fields = ws.ensure_columns(fields, ["Type"])
+    for r in rows:
+        r["Type"] = r.get("Type") or args.type
+    ws.save(args.run_dir, fields, rows)
+    ws.export_files(args.run_dir, str(out))
+    args.companies, args.contacts = str(out / "companies_upload.csv"), str(out / "contacts_upload.csv")
+    cfields, companies = read_rows(args.companies)
+
+    # Existing HubSpot records whose Type differs from the file's.
+    types = hubspot_types(args.raw_dir)
+    type_conflicts = []
+    for c in companies:
+        rid = c.get(COMPANY_RECORD, "")
+        existing = types.get(rid, "")
+        if existing and existing.lower() != c["Type"].lower():
+            portal = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text()).get("hubspot_portal_id", "")
+            type_conflicts.append({"company": c["Company Name"], "record_id": rid,
+                                   "url": f"https://app.hubspot.com/contacts/{portal}/record/0-2/{rid}",
+                                   "hubspot_type": existing, "file_type": c["Type"]})
+
+    lines = ["# HubSpot import mapping", "",
+             "Import the company file first, then the contact file. In HubSpot's import "
+             "screen, map each column as below. Tick \"Don't overwrite\" for any column "
+             "where you'd rather keep the value already in HubSpot.", ""]
+    notes = []
+    for kind, path, mapping, record in (("companies", args.companies, COMPANY_MAPPING, COMPANY_RECORD),
+                                        ("contacts", args.contacts, CONTACT_MAPPING, CONTACT_RECORD)):
+        fields, rows = read_rows(path)
+        table, unknown = mapping_table(kind, fields, rows, mapping)
+        lines += table + [""]
+        if unknown:
+            notes.append(f"{kind}: columns with no agreed mapping (don't import): {', '.join(unknown)}")
+        new = sum(1 for r in rows if not r.get(record))
+        notes.append(f"{kind}: {len(rows) - new} update existing records, {new} create new records")
+    type_counts = Counter(c["Type"] for c in companies)
+    steps = how_to_import(Path(args.run_dir).name, out, notes, type_conflicts, lines[4:])
+    (out / "HOW_TO_IMPORT.md").write_text(steps, encoding="utf-8")
+    report = {"type_counts": dict(type_counts), "type_conflicts": type_conflicts, "notes": notes}
+    (Path(args.run_dir) / "import_mapping.md").write_text("\n".join(lines))
+    (Path(args.run_dir) / "report_step4.json").write_text(json.dumps(report, indent=2))
+    ws.snapshot_copy(args.run_dir, "04_import_ready")
+    print(f"upload files: {out / 'companies_upload.csv'}, {out / 'contacts_upload.csv'}; mapping: import_mapping.md")
+    print(f"UPLOAD INSTRUCTIONS: {out / 'HOW_TO_IMPORT.md'} — send it with the two files AND paste it in the chat.")
+    print("Type:", dict(type_counts), f"| {len(type_conflicts)} existing records with a different Type")
+    for n in notes:
+        print(n)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    p = sub.add_parser("prepare")
+    p.add_argument("--run-dir", required=True, help="the run folder (working.csv)")
+    p.add_argument("--raw-dir", help="step 3 HubSpot company search results, to check existing Type")
+    p.add_argument("--type", default="Prospect", help="Type for the list's companies (default Prospect)")
+    p.add_argument("--out-dir", help="where the upload files go (default: the run folder)")
+    p.set_defaults(func=prepare)
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

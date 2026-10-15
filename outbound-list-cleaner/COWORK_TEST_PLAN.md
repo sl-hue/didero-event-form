@@ -124,3 +124,15 @@ into the build chat so the skill can be fixed.
 - Setting the token needs your own terminal or the Cowork file route; the token never goes in chat.
 - The Clay connector can't run workbooks; step 5 is always manual.
 - Connector-only fallback (no token) works but is slow (~10–15 min per 60 companies).
+
+
+## v2 (didero-outbound-lists-v2 + didero-contact-sourcing)
+- [ ] Upload both new zips; remove or disable v1 so it doesn't trigger instead.
+- [ ] Wrong model or a missing HubSpot / ZoomInfo connector stops the run before anything else, with what to fix.
+- [ ] Claude says the list type and path in one line, no question.
+- [ ] All start questions come in one multiple-choice call (end state, countries, BDRs, credits).
+- [ ] After that, no questions and no OK stops until the import step.
+- [ ] Upload files carry Contact Owner / Company Owner (with BDRs), and HubSpot accepts the owner IDs on import.
+- [ ] Claude writes nothing to HubSpot; association fixes and merges come as lists.
+- [ ] `decisions.md` lists Claude's judgment calls; the end summary shows them.
+- [ ] An exhibitor list is sent to didero-contact-sourcing, which hands a contact file back to v2.

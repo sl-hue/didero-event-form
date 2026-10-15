@@ -191,6 +191,36 @@ it's the same job. Tested with fictional data.
    step 2 (every list type) next to contact names; the export refuses if
    step 2 didn't run or left decisions open.
 
+## v2 (2026-10-15): start questions, then independent
+
+`skill/didero-outbound-lists-v2/` (v1 kept as is). Goal: the user gives the
+file, answers everything at the start, and the run is independent.
+- **Checks (only reasons to stop before starting):** HubSpot + ZoomInfo
+  connected; Opus 5.5 or newer (Fable passes). `preflight.py`.
+- **Claude determines** the list type and path from the columns:
+  zoominfo / linkedin / contacts (`setup.py start`). Company-only lists →
+  didero-contact-sourcing.
+- **Start questions, one call:** end state (upload files, or + BDR owners —
+  even split with accounts kept together, or the user's own split);
+  countries (US + Canada / US, CA, UK, IE, AU, NZ / typed), companies by HQ or
+  presence first, then contacts; BDRs; ZoomInfo credit cap. `setup.py save`
+  → `run_setup.json`.
+- **Stops only where the user acts:** import, segment (+ fix lists from the
+  read-only checks), Clay. All OK gates, review pages, the multiple-jobs page
+  and the LinkedIn finder page are gone; Claude's calls go to `decisions.md`.
+- **Claude never writes to HubSpot** (manager's rule): owners are upload
+  columns (Contact Owner / Company Owner = HubSpot owner ID, plus name
+  columns), assigned before the import by `owners.py`; association fixes and
+  duplicate merges are lists for the user.
+- Duplicates at step 3: Claude picks the record (primary domain, most
+  contacts, oldest) and lists the rest for the user to merge after import.
+- Not yet tested in Cowork. To check on the first import: HubSpot accepts the
+  owner ID in the owner columns.
+
+`skill/didero-contact-sourcing/`: the two event-company flows (no titles →
+ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact
+file for v2 (`tag-event` now writes Event Name into the export CSV).
+
 ## Open questions
 
 - Cowork review 2.4–2.13 (LinkedIn global pages, noisy phone matches, stale

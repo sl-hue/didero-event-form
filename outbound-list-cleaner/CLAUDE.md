@@ -6,6 +6,10 @@ working here. Keep `PROJECT.md` current at the end of each session.
 - Sample and run files contain personal contact data and the repo is public:
   never commit anything under `samples/` except README/MANIFEST, or anything
   under `runs/`.
-- One skill, `skill/didero-outbound-lists/` (SKILL.md + references/ +
-  scripts/ + config.json). Scripts live in its `scripts/` so the skill folder
-  stays self-contained for Cowork.
+- Skills (each folder self-contained for Cowork: SKILL.md + references/ +
+  scripts/ + config.json):
+  - `skill/didero-outbound-lists-v2/` — current: start questions, then an
+    independent run; stops only where the user acts; never writes to HubSpot.
+  - `skill/didero-contact-sourcing/` — company-only lists (exhibitors,
+    sponsors): finds the contacts, hands the file to v2.
+  - `skill/didero-outbound-lists/` — v1, kept for reference; don't develop it.

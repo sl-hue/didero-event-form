@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--fg:#1d1b18;--mut:#6f6a62;--line:#e4e1da;--fit:#1f7a4d;--fitbg:#e3f3ea;
+--unc:#8a5a00;--uncbg:#fbf0d9;--no:#b3261e;--nobg:#fbe4e2;--acc:#2f5bd3;--accbg:#e6ecfb;--hl:#fff1a8;--shadow:0 6px 24px rgba(0,0,0,.06)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#161513;--card:#22201d;--fg:#f1eee8;--mut:#a39d93;
+--line:#3a3631;--fit:#6fd3a0;--fitbg:#163527;--unc:#f0c46a;--uncbg:#3a2e14;--no:#ff8a80;--nobg:#3d1a17;--acc:#8fb0ff;--accbg:#1d2740;--hl:#4a4012;--shadow:none}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 110px}
+h1{font-size:19px;margin:0 0 4px}.mut{color:var(--mut)}.sm{font-size:13px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);margin:12px 0}
+button{font:inherit;font-weight:600;border-radius:9px;border:1px solid var(--line);padding:8px 12px;cursor:pointer;background:var(--card);color:var(--fg)}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff}button.link{border:0;background:none;color:var(--acc);padding:0;font-weight:500}
+input[type=text]{font:inherit;padding:8px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:8px 12px;font-weight:500}.seg button.on{background:var(--acc);color:#fff}
+.seg.big button{padding:9px 18px;font-weight:600}
+.msg{margin-top:10px;padding:9px 11px;border-radius:9px;background:var(--uncbg);font-size:14px}.msg.ok{background:var(--fitbg)}
+.msg button{padding:4px 10px;margin:4px 6px 0 0;font-size:13px}
+.rule{display:inline-flex;align-items:center;gap:6px;background:var(--accbg);border-radius:99px;padding:3px 4px 3px 10px;margin:8px 6px 0 0;font-size:13px}
+.rule button{border:0;background:none;padding:0 6px;font-size:15px;color:var(--mut)}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;white-space:nowrap}
+.c-keep{background:var(--fitbg);color:var(--fit)}.c-exclude{background:var(--nobg);color:var(--no)}.c-review{background:var(--uncbg);color:var(--unc)}
+.list{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}.item.chg{background:var(--hl)}
+.co-head{cursor:pointer}.co-name{font-weight:650}.caret{display:inline-block;width:14px;color:var(--mut)}
+.person{padding-left:38px;background:color-mix(in srgb,var(--bg) 45%,var(--card))}.person.chg{background:var(--hl)}
+.pname{font-weight:600}.pname a{color:inherit}.meta{font-size:13px;color:var(--mut)}.why{font-size:13px;color:var(--unc);margin-top:2px}
+.tog{display:flex;gap:6px;align-items:center}
+.tog button{padding:6px 12px;font-size:14px}.tog button.on.k{background:var(--fit);border-color:var(--fit);color:#fff}
+.tog button.on.x{background:var(--no);border-color:var(--no);color:#fff}
+.state{font-size:12px;color:var(--mut);text-align:right;margin-top:3px}
+.foot{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px}
+.foot .in{max-width:980px;margin:0 auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.foot b{font-size:17px}
+.steps{display:flex;gap:6px;margin:12px 0 4px}.steps button{border-radius:99px;padding:7px 16px;font-weight:600}
+.steps button.on{background:var(--acc);border-color:var(--acc);color:#fff}.steps button:disabled{opacity:.45;cursor:default}
+.about{font-size:13px;color:var(--mut);margin-top:2px}.pres b{color:var(--fg);font-weight:600}
+button:disabled{opacity:.45;cursor:default}.legend{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--hl);border:1px solid var(--line);vertical-align:-1px;margin-right:4px}
+textarea{width:100%;font:13px ui-monospace,Menlo,monospace;padding:10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-height:64px;margin-top:8px}
+@media (max-width:640px){.item{grid-template-columns:1fr}.state{text-align:left}.person{padding-left:22px}}
+.keys{font-size:12px;color:var(--mut);text-align:center;margin-top:8px}
+.person-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow);margin:12px 0}
+.big{font-size:22px;font-weight:650}.jobs{display:inline-block;background:var(--uncbg);color:var(--unc);font-weight:600;font-size:13px;padding:2px 10px;border-radius:99px;margin-left:6px}
+.hl{margin:8px 0 2px;font-size:14px}.hl b{font-size:12px;color:var(--mut);font-weight:600;margin-right:6px}
+label.f{display:block;font-size:12px;color:var(--mut);font-weight:600;margin:12px 0 4px}
+label.f input{display:block;width:100%;margin-top:4px;font-size:15px}
+input.edited{border-color:var(--acc);background:var(--accbg)}
+.acts{display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:8px;margin-top:16px}.acts button{padding:11px}
+button.k{background:var(--fit);border-color:var(--fit);color:#fff}button.x{background:var(--no);border-color:var(--no);color:#fff}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.plist{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.pi{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 14px;border-top:1px solid var(--line);cursor:pointer;font-size:14px}
+.pi:first-child{border-top:0}.pi.cur{background:var(--accbg)}.pi .meta{font-size:12px}
+.st{font-size:12px;font-weight:600}.st.ok{color:var(--fit)}.st.chg{color:var(--acc)}.st.ex{color:var(--no)}.st.open{color:var(--mut)}
+.step{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:12px 0;border-top:1px solid var(--line)}.step:first-of-type{border-top:0}
+.step input[type=checkbox]{width:20px;height:20px;margin-top:2px}.step.done .t{text-decoration:line-through;color:var(--mut)}
+.t{font-weight:650}.d{font-size:14px;margin-top:3px}.pill{display:inline-block;background:var(--accbg);border-radius:99px;padding:2px 9px;margin:3px 4px 0 0;font-size:13px}
+.pill.x{background:var(--nobg)}.warn{background:var(--uncbg);border-radius:9px;padding:9px 11px;margin-top:8px;font-size:14px}
+.cp{padding:3px 9px;font-size:12px;margin-left:6px}
+</style></head><body><div class="wrap" id="app"></div>
+<script>
+const F = __FILTERS__;
+const KEY = "zg-" + document.title;
+let done = {}; try { done = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {} };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const pills = (a, cls) => a.map(x => `<span class="pill ${cls || ""}">${esc(x)}</span>`).join("");
+const copyBtn = (id, a) => `<button class="cp" data-copy="${esc(a.join(", "))}">Copy</button>`;
+const STEPS = [
+  ["Upload the companies", `In ZoomInfo, start a <b>company</b> search and use the upload / import option for a company list. Upload <b>__FILE__</b> and match the columns: Company Name, Company Website, Company City, Company State, Company Country, Number of Employees, Annual Revenue. Save it as a company list for this event.`],
+  ["Switch to contacts at those companies", `Open a <b>contact</b> search and filter it to the company list you just saved.`],
+  ["Company country (HQ)", `${pills(F.company_hq_countries)} ${copyBtn("hq", F.company_hq_countries)}`],
+  ["Contact country", `${pills(F.contact_countries)} ${copyBtn("cc", F.contact_countries)}`],
+  ["Seniority (management level)", `${pills(F.management_levels)} ${copyBtn("ml", F.management_levels)}`],
+  ["Job titles to include", `${pills(F.titles_include)} ${copyBtn("ti", F.titles_include)}`],
+  ["Job titles to exclude", `${pills(F.titles_exclude, "x")} ${copyBtn("tx", F.titles_exclude)}`],
+  ["Select the contacts first", `Tick the contacts (select all results) <b>before</b> exporting.<div class="warn">Don't use “export all” without selecting — select first.</div>`],
+  ["Export as Excel", `Click <b>Export</b> and choose <b>Excel</b>.`],
+  ["Suppression &amp; limits", `Open <b>Suppression</b> / limits in the export window: at most <b>${F.contacts_per_company} contacts per company</b>, prioritized by <b>${esc(F.prioritize)}</b>.`],
+  ["Wait for the file", `ZoomInfo takes about <b>10–15 minutes</b> to prepare it. Download it from the exports page.`],
+  ["Give the file to Claude", `Drop the downloaded file in the chat (or the shared folder). Claude processes it as a normal ZoomInfo list and adds the event to every contact.`],
+];
+function render() {
+  const n = STEPS.filter((s, i) => done[i]).length;
+  document.getElementById("app").innerHTML = `<h1>__TITLE__</h1>
+  <div class="mut">Build the contact list in ZoomInfo with this page open beside it. Tick each step as you go. ${n} of ${STEPS.length} done. (ZoomInfo's button names can differ slightly.)</div>
+  <div class="box">${STEPS.map((s, i) => `<div class="step ${done[i] ? "done" : ""}"><input type="checkbox" data-i="${i}" ${done[i] ? "checked" : ""}>
+    <div><div class="t">${i + 1}. ${s[0]}</div><div class="d">${s[1]}</div></div></div>`).join("")}</div>`;
+  document.querySelectorAll("[data-i]").forEach(b => b.onchange = () => { done[b.dataset.i] = b.checked; save(); render(); });
+  document.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied ✓"; } catch (e) { b.textContent = b.dataset.copy; } });
+}
+render();
+</script></body></html>
