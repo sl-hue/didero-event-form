@@ -121,6 +121,13 @@ Reference pages (`progress.py next` prints the right sections):
   step's own output (run log, files) and refuses a step that didn't run; the
   export also refuses if steps 1–2 (or the ZoomInfo merge, or the BDR step
   when chosen) never ran.
-- **Import step:** always send the two upload files, `HOW_TO_IMPORT.md` and
+- **Upload files match HubSpot as it is that day:** the fields are read
+  live before the export (`hs_fields.py`); headers are HubSpot's field names
+  and every dropdown value is one of the property's current options (else
+  blank). Existing contacts and companies carry their HubSpot Record ID, so
+  the import updates them.
+- **Excluded lists:** `excluded_contacts.csv` and `excluded_companies.csv`
+  come with the upload files: same columns plus **Why Rejected**.
+- **Import step:** always send the two upload files, the two excluded lists, `HOW_TO_IMPORT.md` and
   (with BDRs) `bdr_assignment.csv`, and paste the instructions in the chat.
 - **Clay step:** start with `scripts/clay_guide.py` and paste its output.

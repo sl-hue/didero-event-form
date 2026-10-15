@@ -362,7 +362,17 @@ you prepare them and walk them through it.
 1. **Choose Type.** Default `Prospect`. Companies that clearly aren't
    prospects (partners, vendors, existing customers in HubSpot) keep their
    HubSpot Type (suggest "Don't overwrite" on Type); note it in `decisions.md`.
-2. **Settle open flags first** (`worksheet.py flags`) — export refuses
+2. **Read HubSpot's fields live, every run:** `python3 scripts/hs_fields.py plan --run-dir <run_dir>`
+   prints two `get_properties` calls (contacts, companies); run them, save
+   each raw result, then `hs_fields.py check --run-dir <run_dir> --contacts <file> --companies <file>`
+   (→ `hubspot_fields.json`). The export refuses without it. With it, the
+   upload files' **headers are HubSpot's own field names** (so the import
+   maps every column by itself), only properties HubSpot has today are
+   included, and **every dropdown value is one of the property's current
+   options** (matched on label or internal value, any case, written as
+   HubSpot's label; owners as owner IDs). A value that isn't an option is
+   left blank and noted in `decisions.md`.
+3. **Settle open flags first** (`worksheet.py flags`) — export refuses
    while any row is flagged. It also refuses when step 2 never ran or left
    decisions open, or when ZoomInfo was pulled but not merged (no profile
    URLs), or when BDR owners were chosen but step 4 didn't run. It prints how
@@ -395,22 +405,28 @@ you prepare them and walk them through it.
    companies with no website or domain are kept and listed. It also writes
    `import_mapping.md`, `report_step4.json` and
    **`upload/HOW_TO_IMPORT.md`** (click-by-click import steps + mapping).
-   **Always** send the user the two upload files, `HOW_TO_IMPORT.md` and (with
+   It also writes **`upload/excluded_contacts.csv`** and
+   **`upload/excluded_companies.csv`**: everyone left out along the way
+   (screening, rows removed by a rule), in the same columns plus **Why
+   Rejected** — for the record, not for import.
+   **Always** send the user the two upload files, the two excluded lists,
+   `HOW_TO_IMPORT.md` and (with
    BDR owners) `bdr_assignment.csv`, paste `HOW_TO_IMPORT.md` in the chat, and
    open the HubSpot import page in the browser. Never finish this step without
    giving the upload instructions. Then wait for the user to say it's imported.
-3. The instructions cover:
+4. The instructions cover:
    - import the company file first, then the contact file;
-   - map each column to the HubSpot property shown and set "Don't import
-     column" where indicated;
+   - the columns map themselves (headers are HubSpot field names);
    - tick "Don't overwrite" on any column where they want to keep what's
      already in HubSpot (the table suggests some);
    - how many rows will update vs. create, and any existing records whose
      Type differs (from `report_step4.json`) — suggest "Don't overwrite" on
      Type for those.
-4. After the company import, the user can run the contact import; contacts
-   associate to companies through the company domain.
-5. **If HubSpot reports import errors** (the user tells you), tell them to either fix the
+5. After the company import, the user can run the contact import; contacts
+   associate to companies through the company domain. Contacts and companies
+   already in HubSpot carry their **Record ID** (from step 3), so the import
+   updates them instead of creating duplicates.
+6. **If HubSpot reports import errors** (the user tells you), tell them to either fix the
    value in the file and re-import those rows, or edit the records directly
    in HubSpot. If a dropdown value keeps failing, check the property's
    current options with the HubSpot connector (`get_properties`) and add the

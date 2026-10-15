@@ -56,6 +56,45 @@ def revenue_range(lo, hi):
     return f"{money(lo_f)} - {money(hi_f)}"
 
 
+def to_row(r, company_ids, list_type):
+    """One screening row -> the working file's columns."""
+    key = r["Company"].strip().lower()
+    company_ids.setdefault(key, f"LIC-{len(company_ids) + 1:04d}")
+    first, last = first_of(r, FIRST), first_of(r, LAST)
+    if not (first or last):
+        first, _, last = r["Contact"].partition(" ")
+    email = first_of(r, ["Email", "Email Address", "email"])
+    hq = parse_location(first_of(r, ["Company Location"]), COUNTRY_ALIASES)
+    full = first_of(r, ["Company Headquarters (Full Address)", "Company Headquarters"])
+    zip_m = re.search(r",\s*([0-9]{5}(?:-[0-9]{4})?|[A-Z][0-9][A-Z] ?[0-9][A-Z][0-9])\s*,", full)
+    founded = first_of(r, ["Company Year Founded", "Founded Year"])
+    return {
+        "ZoomInfo Contact ID": f"{'EV' if list_type == 'Event' else 'LI'}-{r['Row ID']}",
+        "First Name": first, "Last Name": last, "Job Title": r["Title"],
+        "Email Address": email, "Email Domain": email.split("@")[-1].lower() if "@" in email else "",
+        "LinkedIn Contact Profile URL": clean_li(pick(r, "linkedin")),
+        "Person City": r.get("Contact City", ""), "Person State": r.get("Contact State", ""),
+        "Country": r.get("Contact Country", ""),
+        "ZoomInfo Company ID": company_ids[key], "Company Name": r["Company"],
+        "Website": first_of(r, ["Company Website URL", "Website", "Company Website"]),
+        "LinkedIn Company Profile URL": clean_li(first_of(r, ["Company Linkedin URL Unique ID",
+                                                              "Company LinkedIn URL", "Company Linkedin URL"])),
+        "Founded Year": "" if founded in ("", "0") else founded,
+        "Revenue Range (in USD)": revenue_range(first_of(r, ["Company Revenue Min (Millions USD)"]),
+                                                first_of(r, ["Company Revenue Max (Millions USD)"])),
+        "Employees": "" if first_of(r, ["Company Employee Exact Count"]) in ("", "0")
+                     else first_of(r, ["Company Employee Exact Count"]),
+        "Employee Range": first_of(r, ["Company Employee Range"]),
+        "Primary Industry": first_of(r, ["Company Industry"]),
+        "Company City": hq["city"], "Company State": hq["state"],
+        "Company Zip Code": zip_m.group(1) if zip_m else "",
+        "Company Country": r.get("Company Country") or hq["country"], "Full Address": full,
+        "Source List Type": list_type, "LinkedIn Headline": first_of(r, ["Profile Headline", "Headline"]),
+        "Event Name": first_of(r, ["Event Name"]),
+        "Jobs Check": r.get("Jobs Check", ""),
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run-dir", required=True)
@@ -68,49 +107,29 @@ def main():
         raise SystemExit("no contacts with Decision = keep — finish the screening review first")
     open_ = sum(1 for r in rows if not r.get("Decision"))
     company_ids = {}
-    out = []
-    for r in keep:
-        key = r["Company"].strip().lower()
-        company_ids.setdefault(key, f"LIC-{len(company_ids) + 1:04d}")
-        first, last = first_of(r, FIRST), first_of(r, LAST)
-        if not (first or last):
-            first, _, last = r["Contact"].partition(" ")
-        email = first_of(r, ["Email", "Email Address", "email"])
-        hq = parse_location(first_of(r, ["Company Location"]), COUNTRY_ALIASES)
-        full = first_of(r, ["Company Headquarters (Full Address)", "Company Headquarters"])
-        zip_m = re.search(r",\s*([0-9]{5}(?:-[0-9]{4})?|[A-Z][0-9][A-Z] ?[0-9][A-Z][0-9])\s*,", full)
-        founded = first_of(r, ["Company Year Founded", "Founded Year"])
-        out.append({
-            "ZoomInfo Contact ID": f"{'EV' if args.list_type == 'Event' else 'LI'}-{r['Row ID']}",
-            "First Name": first, "Last Name": last, "Job Title": r["Title"],
-            "Email Address": email, "Email Domain": email.split("@")[-1].lower() if "@" in email else "",
-            "LinkedIn Contact Profile URL": clean_li(pick(r, "linkedin")),
-            "Person City": r.get("Contact City", ""), "Person State": r.get("Contact State", ""),
-            "Country": r.get("Contact Country", ""),
-            "ZoomInfo Company ID": company_ids[key], "Company Name": r["Company"],
-            "Website": first_of(r, ["Company Website URL", "Website", "Company Website"]),
-            "LinkedIn Company Profile URL": clean_li(first_of(r, ["Company Linkedin URL Unique ID",
-                                                                  "Company LinkedIn URL", "Company Linkedin URL"])),
-            "Founded Year": "" if founded in ("", "0") else founded,
-            "Revenue Range (in USD)": revenue_range(first_of(r, ["Company Revenue Min (Millions USD)"]),
-                                                    first_of(r, ["Company Revenue Max (Millions USD)"])),
-            "Employees": "" if first_of(r, ["Company Employee Exact Count"]) in ("", "0")
-                         else first_of(r, ["Company Employee Exact Count"]),
-            "Employee Range": first_of(r, ["Company Employee Range"]),
-            "Primary Industry": first_of(r, ["Company Industry"]),
-            "Company City": hq["city"], "Company State": hq["state"],
-            "Company Zip Code": zip_m.group(1) if zip_m else "",
-            "Company Country": r.get("Company Country") or hq["country"], "Full Address": full,
-            "Source List Type": args.list_type, "LinkedIn Headline": first_of(r, ["Profile Headline", "Headline"]),
-            "Event Name": first_of(r, ["Event Name"]),
-            "Jobs Check": r.get("Jobs Check", ""),
-        })
+    out = [to_row(r, company_ids, args.list_type) for r in keep]
+    # Everyone screening excluded, in the same columns + why — for the excluded lists at export.
+    rejected = []
+    for r in rows:
+        if r.get("Decision") != "exclude":
+            continue
+        row = to_row(r, company_ids, args.list_type)
+        row["Why Rejected"] = r.get("Decision Note") or "excluded at screening"
+        geo = r.get("Geo Reason", "") if r.get("Geo Fit") == "no" else ""
+        row["Company Why Rejected"] = ("not an ICP fit: " + r.get("Company Reason", "")) if r.get("Company Fit") == "no" \
+            else ("; ".join(x for x in geo.split("; ") if x.startswith("company")) if geo else "")
+        rejected.append(row)
+    with open(Path(args.out).parent / "excluded_screening.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=OUT_COLUMNS + ["Why Rejected", "Company Why Rejected"])
+        w.writeheader()
+        w.writerows(rejected)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=OUT_COLUMNS)
         w.writeheader()
         w.writerows(out)
-    print(f"{args.out}: {len(out)} contacts at {len(company_ids)} companies"
+    print(f"{args.out}: {len(out)} contacts at {len({o['ZoomInfo Company ID'] for o in out})} companies; "
+          f"{len(rejected)} excluded at screening -> excluded_screening.csv"
           + (f" ({open_} contacts had no decision and were left out — check with the user)" if open_ else ""))
     print(f"next: python3 scripts/worksheet.py init --contacts {args.out} --out-dir <run_dir>")
 

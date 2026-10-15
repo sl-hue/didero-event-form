@@ -378,8 +378,11 @@ def decide(args):
             r["Decision"], r["Decision Note"] = c["decision"], c.get("note", "Claude's call")
         elif r.get("Recommendation") in ("keep", "exclude"):
             r["Decision"] = r["Recommendation"]
-            r["Decision Note"] = "; ".join(x for x in (r.get("Title Reason"), r.get("Company Reason"), r.get("Geo Reason"))
-                                           if x and r["Recommendation"] == "exclude") or "fits"
+            fails = [(label, r.get(reason)) for label, fit, reason in
+                     (("title", "Title Fit", "Title Reason"), ("company", "Company Fit", "Company Reason"),
+                      ("geography", "Geo Fit", "Geo Reason")) if r.get(fit) == "no"]
+            r["Decision Note"] = ("; ".join(f"{label}: {why}" if why else label for label, why in fails)
+                                  if r["Recommendation"] == "exclude" else "fits")
         else:
             open_rows.append(r)
     if open_rows:

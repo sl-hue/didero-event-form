@@ -228,6 +228,15 @@ report file).
 **No skipping:** progress.py has no skip; `done` checks each step's output (run log / files)
 and refuses a step that didn't run.
 
+**Excluded lists + HubSpot fields (2026-10-15):** export also writes
+`excluded_contacts.csv` / `excluded_companies.csv` (screening exclusions from
+the hand-off + rows removed during the run; same columns + Why Rejected).
+Upload files use HubSpot's field labels as headers and every dropdown value is
+one of the property's current options, both from a live `get_properties` check
+each run (`hs_fields.py`; export refuses without it). Live check found:
+additional emails = `secondary_email`; contact email domain is HubSpot-set (not
+imported); no importable additional-domains property; LEAD SOURCE labels in caps.
+
 `skill/didero-contact-sourcing/`: the two event-company flows (no titles →
 ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact
 file for v2 (`tag-event` now writes Event Name into the export CSV).

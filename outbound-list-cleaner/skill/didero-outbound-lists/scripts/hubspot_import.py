@@ -1,4 +1,5 @@
-"""Step 4 — prepare the HubSpot import.
+"""Step 5 — prepare the HubSpot import. (Upload headers and dropdown values come from hs_fields.py's
+live check; the mapping below is the working-column reference.)
 
 The user imports the files through HubSpot's import screen (companies first,
 so they exist as anchors for the contacts). This script:
@@ -58,7 +59,7 @@ COMPANY_MAPPING = {
     "Company Country": ("Country/Region", "country"),
     "Full Address": ("Street Address", "address"),
     "Company Domain": ("Company Domain Name", "domain"),
-    "Additional Domains": ("Additional Domains", "hs_additional_domains"),
+    "Additional Domains": None,  # no importable property in HubSpot (checked live 2026-10-15)
     "Type": ("Type", "type"),
     "Outbound Personalization Token": ("Company Outbound Personalization", "company_outbound_personalization"),
     COMPANY_RECORD: ("Record ID", "hs_object_id"),
@@ -76,14 +77,14 @@ CONTACT_MAPPING = {
     "Department": ("Department", "department"),  # dropdown; values checked in step 2
     "Direct Phone Number": ("Work Direct Phone", "work_direct_phone"),
     "Email Address": ("Email", "email"),
-    "Additional Emails": ("Additional email addresses", "hs_additional_emails"),
+    "Additional Emails": ("Secondary email", "secondary_email"),
     "Primary Industry": ("Primary Industry", "primary_industry"),  # contact property: ZoomInfo's top level
     "Primary Sub-Industry": ("Primary Sub-Industry", "primary_sub_industry"),
     "Company Industry": ("Company Industry", "company_industry"),
     # event lists: Lead Source (dropdown) = "Events"; Lead Source Detail 1 (text) = the event name
     "Lead Source": ("Lead Source", "lead_source"),
     "Lead Source Detail 1": ("Lead Source Detail 1", "lead_source_detail_1"),
-    "Email Domain": ("Company Domain", "company_domain"),
+    "Email Domain": None,  # HubSpot sets the contact's email domain from the email itself
     "Mobile phone": ("Mobile Phone Number", "mobilephone"),
     "ZoomInfo Contact Profile URL": ("ZoomInfo Contact Profile URL", "zoominfo_contact_profile_url"),
     "LinkedIn Contact Profile URL": ("Linkedin Url (Default)", "lgm_linkedinurl"),
@@ -168,18 +169,19 @@ company through the company domain, so the companies must exist first):
 - `{out / 'companies_upload.csv'}` — {counts.get('companies', '')}
 - `{out / 'contacts_upload.csv'}` — {counts.get('contacts', '')}
 
+Not for import: `excluded_contacts.csv` and `excluded_companies.csv` list who
+was left out and why (same columns + **Why Rejected**).
+
 ## A. Companies
 1. In HubSpot open **CRM → Companies** and click **Import** (top right), then
    **Start an import**.
 2. Choose **File from computer** → **One file** → **One object** →
    **Companies** → Next.
 3. Upload `companies_upload.csv` → Next.
-4. **Map the columns** as in the companies table below. HubSpot matches most
-   of them itself; check each one, and set **Don't import column** where the
-   table says so. Tick **Don't overwrite** where the table suggests it (keeps
-   what HubSpot already has). **Company Owner** (if present) maps to **Company
-   owner**: it holds the HubSpot owner ID; Company Owner Name is only for
-   reading (Don't import column).
+4. **Columns map themselves:** every header is a HubSpot field name, checked
+   live today. Just confirm none shows "Don't import". Tick **Don't overwrite**
+   where the table below suggests it (keeps what HubSpot already has).
+   **Company owner** holds the HubSpot owner ID.
 5. Import option: **Create and update companies**. Rows with a Record ID
    update that company; rows without one create a new company.
 6. Name the import `{run_name} companies` → **Finish import**.
@@ -192,9 +194,8 @@ company through the company domain, so the companies must exist first):
 1. **CRM → Contacts** → **Import** → **Start an import** → **File from
    computer** → **One file** → **One object** → **Contacts** → Next.
 2. Upload `contacts_upload.csv` → Next.
-3. Map the columns as in the contacts table below (same rules as above).
-   **Contact Owner** (if present) maps to **Contact owner** (HubSpot owner ID);
-   Contact Owner Name is only for reading.
+3. Columns map themselves (same as above); **Contact owner** holds the
+   HubSpot owner ID.
 4. Import option: **Create and update contacts**.
 5. Name the import `{run_name} contacts` and tick **Create a list of contacts
    from this import** if HubSpot offers it (it makes the next step's segment
@@ -218,9 +219,7 @@ def prepare(args):
     for r in rows:
         r["Type"] = r.get("Type") or args.type
     ws.save(args.run_dir, fields, rows)
-    ws.export_files(args.run_dir, str(out))
-    args.companies, args.contacts = str(out / "companies_upload.csv"), str(out / "contacts_upload.csv")
-    cfields, companies = read_rows(args.companies)
+    contacts, companies, c_pairs, k_pairs = ws.export_files(args.run_dir, str(out))
 
     # Existing HubSpot records whose Type differs from the file's.
     types = hubspot_types(args.raw_dir)
@@ -239,13 +238,17 @@ def prepare(args):
              "screen, map each column as below. Tick \"Don't overwrite\" for any column "
              "where you'd rather keep the value already in HubSpot.", ""]
     notes = []
-    for kind, path, mapping, record in (("companies", args.companies, COMPANY_MAPPING, COMPANY_RECORD),
-                                        ("contacts", args.contacts, CONTACT_MAPPING, CONTACT_RECORD)):
-        fields, rows = read_rows(path)
-        table, unknown = mapping_table(kind, fields, rows, mapping)
-        lines += table + [""]
-        if unknown:
-            notes.append(f"{kind}: columns with no agreed mapping (don't import): {', '.join(unknown)}")
+    import hs_fields
+    for kind, rows, pairs, record in (("companies", companies, k_pairs, COMPANY_RECORD),
+                                      ("contacts", contacts, c_pairs, CONTACT_RECORD)):
+        internal = {col: i for col, i, _ in hs_fields.SPEC[kind]}
+        lines += [f"### {kind.capitalize()} file → HubSpot {kind}", "",
+                  "| Column (= HubSpot field) | Internal name | Rows with a value | Don't overwrite? |", "|---|---|---|---|"]
+        for col, label in pairs:
+            filled = sum(1 for r in rows if (r.get(col) or "").strip())
+            protect = PROTECT[kind].get(col)
+            lines.append(f"| {label} | `{internal[col]}` | {filled}/{len(rows)} | {'Suggested — ' + protect if protect else ''} |")
+        lines.append("")
         new = sum(1 for r in rows if not r.get(record))
         notes.append(f"{kind}: {len(rows) - new} update existing records, {new} create new records")
     type_counts = Counter(c["Type"] for c in companies)

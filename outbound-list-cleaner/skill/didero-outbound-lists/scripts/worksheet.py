@@ -31,6 +31,7 @@ import argparse
 import csv
 import json
 import shutil
+from collections import Counter
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -351,7 +352,53 @@ def check_options(rows, cols):
     return {k: sorted(v) for k, v in bad.items()}
 
 
+def excluded_rows(run_dir, kept_companies):
+    """Everyone left out along the way, in the working file's columns + Why Rejected: screening exclusions
+    (excluded_screening.csv from the hand-off) and rows removed during the run (changes.jsonl).
+    Companies: those with no contact kept, with the company-level reason when there is one."""
+    contacts = []
+    p = Path(run_dir) / "excluded_screening.csv"
+    if p.exists():
+        with open(p, newline="", encoding="utf-8") as f:
+            contacts += list(csv.DictReader(f))
+    lp = Path(run_dir) / "changes.jsonl"
+    if lp.exists():
+        for line in lp.read_text(encoding="utf-8").splitlines():
+            e = json.loads(line)
+            if e.get("action") == "remove":
+                contacts.append(dict(e["removed"], **{"Why Rejected": e.get("reason", "removed during the run")}))
+    by_co = {}
+    for r in contacts:
+        name = (r.get("Company Name") or "").strip()
+        if name and name.lower() not in kept_companies:
+            by_co.setdefault(name.lower(), []).append(r)
+    companies = []
+    for rs in by_co.values():
+        co = dict(rs[0])
+        why = Counter(r.get("Company Why Rejected") for r in rs if r.get("Company Why Rejected")).most_common(1)
+        if why:
+            co["Why Rejected"] = why[0][0]
+        else:
+            top = Counter(r.get("Why Rejected", "") for r in rs).most_common(1)[0][0]
+            co["Why Rejected"] = f"no contact kept ({len(rs)}): {top}"
+        companies.append(co)
+    return contacts, companies
+
+
+def write_labeled(path, pairs, rows, extra=()):
+    """Upload file with HubSpot's own field labels as headers (pairs: [(working column, label)])."""
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow([lab for _, lab in pairs] + list(extra))
+        for r in rows:
+            w.writerow([r.get(col, "") for col, _ in pairs] + [r.get(x, "") for x in extra])
+
+
 def export_files(run_dir, out_dir=None):
+    import hs_fields
+    if hs_fields.live(run_dir) is None:
+        raise SystemExit("check HubSpot's fields live first (hs_fields.py plan, the two get_properties calls, "
+                         "hs_fields.py check): the upload columns must match HubSpot as it is now")
     fields, rows = load(run_dir)
     stop, info = pre_export_checks(run_dir, fields, rows)
     print("before export — " + "; ".join(info))
@@ -387,15 +434,6 @@ def export_files(run_dir, out_dir=None):
             if (r.get("Event Name") or "").strip():
                 r["Lead Source"], r["Lead Source Detail 1"] = "Events", r["Event Name"].strip()
         fields = list(fields) + [c for c in ("Lead Source", "Lead Source Detail 1") if c not in fields]
-    bad_c = check_options(rows, {"Primary Industry": "contact_primary_industry",
-                                 "Primary Sub-Industry": "contact_primary_sub_industry",
-                                 "Company Industry": "company_industry"})
-    bad_k = check_options(list(companies.values()), {"Didero Primary Industry": "company_primary_industry",
-                                                     "Industry": "company_industry",
-                                                     "Employee Range": "company_employee_range"})
-    for col, vals in {**bad_c, **bad_k}.items():
-        print(f"not a HubSpot option, left blank in the upload: {col} = {', '.join(vals)} "
-              "(add the option in HubSpot and re-export, or leave it blank)")
     # One format for every run: the same columns in the same order (blank when a source lacks them),
     # values normalized, then the rules for problems applied (upload_format.py). Nothing here stops the
     # run; every change is written to decisions.md.
@@ -414,12 +452,29 @@ def export_files(run_dir, out_dir=None):
           + (f"; blanked: " + "; ".join(f"{k} ({v})" for k, v in sorted(blanked.items())) if blanked else ""))
     for line in info:
         print("  note:", line)
-    for name, cols, data in (("contacts_upload.csv", contact_cols, rows),
-                             ("companies_upload.csv", company_cols, list(companies.values()))):
-        with open(out / name, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
-            writer.writeheader()
-            writer.writerows(data)
+    # Dropdown values = the properties' current options in HubSpot (live check); anything else blank.
+    for kind, data in (("contacts", rows), ("companies", list(companies.values()))):
+        for col, v, n in hs_fields.dropdown_values(data, kind, run_dir):
+            notes_line = f"{kind}: {col} '{v}' isn't an option of the HubSpot property — left blank ({n})"
+            print("  " + notes_line)
+            with open(Path(run_dir) / "decisions.md", "a", encoding="utf-8") as f:
+                f.write(f"- {notes_line}\n")
+    # Headers = HubSpot's fields as they are now (hs_fields.py live check); only importable properties.
+    c_pairs, k_pairs = hs_fields.columns("contacts", run_dir), hs_fields.columns("companies", run_dir)
+    company_rows = list(companies.values())
+    write_labeled(out / "contacts_upload.csv", c_pairs, rows)
+    write_labeled(out / "companies_upload.csv", k_pairs, company_rows)
+    # The excluded lists: same columns, plus why.
+    ex_contacts, ex_companies = excluded_rows(run_dir, {(k.get("Company Name") or "").lower() for k in company_rows})
+    uf.normalize(ex_contacts, contact_cols)
+    uf.normalize(ex_companies, company_cols)
+    for k in ex_companies:
+        if not k.get("Company Domain") and k.get("Website"):
+            k["Company Domain"] = k["Website"][4:] if k["Website"].startswith("www.") else k["Website"]
+    write_labeled(out / "excluded_contacts.csv", c_pairs, ex_contacts, extra=("Why Rejected",))
+    write_labeled(out / "excluded_companies.csv", k_pairs, ex_companies, extra=("Why Rejected",))
+    print(f"excluded_contacts.csv: {len(ex_contacts)} rows; excluded_companies.csv: {len(ex_companies)} rows "
+          "(same columns + Why Rejected; for the record, not for import)")
     removed = []
     log_path = Path(run_dir) / "changes.jsonl"
     if log_path.exists():
@@ -429,12 +484,13 @@ def export_files(run_dir, out_dir=None):
                 r = e["removed"]
                 removed.append(f"{r.get('First Name')} {r.get('Last Name')} ({r.get('Company Name')}): {e['reason']}")
     log(run_dir, {"action": "export", "contacts": len(rows), "companies": len(companies)})
-    print(f"contacts_upload.csv: {len(rows)} rows, {len(contact_cols)} columns; "
-          f"companies_upload.csv: {len(companies)} rows, {len(company_cols)} columns")
+    print(f"contacts_upload.csv: {len(rows)} rows, {len(c_pairs)} columns; "
+          f"companies_upload.csv: {len(company_rows)} rows, {len(k_pairs)} columns (HubSpot field names)")
     if removed:
-        print("rows removed during the run (tell the list's owner):")
+        print("rows removed during the run (also in excluded_contacts.csv):")
         for r in removed:
             print("  -", r)
+    return rows, company_rows, c_pairs, k_pairs
 
 
 def main():
