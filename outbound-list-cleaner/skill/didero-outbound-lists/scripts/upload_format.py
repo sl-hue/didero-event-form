@@ -230,7 +230,7 @@ def resolve(contacts, companies, contact_cols, company_cols, options):
     # contacts take their company's name and website; domains on both files
     for k in companies.values():
         if not k.get("Company Domain") and k.get("Website"):
-            k["Company Domain"] = re.sub(r"^www\.", "", k["Website"])
+            k["Company Domain"] = re.sub(r"^(https?://)?(www\.)?", "", k["Website"])
     for r in contacts:
         r[COMPANY_ID] = final(r.get(COMPANY_ID))
         k = companies.get(r[COMPANY_ID], {})

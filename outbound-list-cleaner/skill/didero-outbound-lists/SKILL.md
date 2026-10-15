@@ -122,8 +122,9 @@ Reference pages (`progress.py next` prints the right sections):
   export also refuses if steps 1–2 (or the ZoomInfo merge, or the BDR step
   when chosen) never ran.
 - **Upload files match HubSpot as it is that day:** the fields are read
-  live before the export (`hs_fields.py`); headers are HubSpot's field names
-  and every dropdown value is one of the property's current options (else
+  live before the export (`hs_fields.py`); the columns are the ones in the team's
+  reference upload files (EDGE 2026, plus Type and Primary industry), headed
+  with HubSpot's field names, and every dropdown value is one of the property's current options (else
   blank). Existing contacts and companies carry their HubSpot Record ID, so
   the import updates them.
 - **Excluded lists:** `excluded_contacts.csv` and `excluded_companies.csv`

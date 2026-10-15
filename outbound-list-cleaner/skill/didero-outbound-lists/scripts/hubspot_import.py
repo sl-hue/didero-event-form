@@ -179,8 +179,9 @@ was left out and why (same columns + **Why Rejected**).
    **Companies** → Next.
 3. Upload `companies_upload.csv` → Next.
 4. **Columns map themselves:** every header is a HubSpot field name, checked
-   live today. Just confirm none shows "Don't import". Tick **Don't overwrite**
-   where the table below suggests it (keeps what HubSpot already has).
+   live today. Just confirm none shows "Don't import" (except Email Domain,
+   which HubSpot fills itself). Tick **Don't overwrite** where the table
+   suggests it (keeps what HubSpot already has).
    **Company owner** holds the owner's name, as in HubSpot.
 5. Import option: **Create and update companies**. Rows with a Record ID
    update that company; rows without one create a new company.
@@ -194,7 +195,7 @@ was left out and why (same columns + **Why Rejected**).
 1. **CRM → Contacts** → **Import** → **Start an import** → **File from
    computer** → **One file** → **One object** → **Contacts** → Next.
 2. Upload `contacts_upload.csv` → Next.
-3. Columns map themselves (same as above); **Contact owner** holds the
+3. Columns map themselves (same as above); **Contact owner** (if present) holds the
    owner's name, as in HubSpot.
 4. Import option: **Create and update contacts**.
 5. Name the import `{run_name} contacts` and tick **Create a list of contacts
@@ -241,13 +242,17 @@ def prepare(args):
     import hs_fields
     for kind, rows, pairs, record in (("companies", companies, k_pairs, COMPANY_RECORD),
                                       ("contacts", contacts, c_pairs, CONTACT_RECORD)):
-        internal = {col: i for col, i, _ in hs_fields.SPEC[kind]}
+        internal = {x[0]: x[1] for x in hs_fields.SPEC[kind]}
         lines += [f"### {kind.capitalize()} file → HubSpot {kind}", "",
-                  "| Column (= HubSpot field) | Internal name | Rows with a value | Don't overwrite? |", "|---|---|---|---|"]
+                  "| Column (= HubSpot field) | Internal name | Rows with a value | Don't overwrite? |",
+                  "|---|---|---|---|"]
         for col, label in pairs:
             filled = sum(1 for r in rows if (r.get(col) or "").strip())
             protect = PROTECT[kind].get(col)
-            lines.append(f"| {label} | `{internal[col]}` | {filled}/{len(rows)} | {'Suggested — ' + protect if protect else ''} |")
+            if internal[col] == "hs_email_domain":
+                protect = "HubSpot sets it from the email — HubSpot may show it as Don't import; that's fine"
+            lines.append(f"| {label} | `{internal[col]}` | {filled}/{len(rows)} | "
+                         f"{'Suggested — ' + protect if protect else ''} |")
         lines.append("")
         new = sum(1 for r in rows if not r.get(record))
         notes.append(f"{kind}: {len(rows) - new} update existing records, {new} create new records")

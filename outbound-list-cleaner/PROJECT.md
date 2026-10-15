@@ -231,7 +231,7 @@ and refuses a step that didn't run.
 **Excluded lists + HubSpot fields (2026-10-15):** export also writes
 `excluded_contacts.csv` / `excluded_companies.csv` (screening exclusions from
 the hand-off + rows removed during the run; same columns + Why Rejected).
-Upload files use HubSpot's field labels as headers and every dropdown value is
+Upload files have the columns of the team's reference files (EDGE 2026 upload files, + Type, + Primary industry; hs_fields.SPEC), headed with HubSpot's field labels; every dropdown value is
 one of the property's current options, both from a live `get_properties` check
 each run (`hs_fields.py`; export refuses without it). Live check found:
 additional emails = `secondary_email`; contact email domain is HubSpot-set (not
@@ -256,6 +256,15 @@ companies there too (credits = contacts + companies), and export stops if no
 company has an industry. Owner columns hold the owner's **name** (live option
 label; an unknown ID falls back to the Owner Name column), not the ID. Contact
 file no longer carries company industry fields.
+
+**Upload columns (2026-10-15):** the user's EDGE 2026 upload files decide which
+columns the upload files have (and their order); headers stay HubSpot's field
+labels. Companies add Type (came after that template) and Primary industry.
+Contacts add Secondary email / Contact owner only when filled. ZoomInfo
+management levels map to HubSpot's Employment Seniority (VP-Level → VP,
+C-Level → Executive, Non-Manager → Employee). Email Domain is included (HubSpot
+fills it itself). Dropped: Industry group, outbound personalization columns,
+contact Street Address.
 
 `skill/didero-contact-sourcing/`: the two event-company flows (no titles →
 ZoomInfo list build; titles → ZoomInfo search per title), ending in a contact

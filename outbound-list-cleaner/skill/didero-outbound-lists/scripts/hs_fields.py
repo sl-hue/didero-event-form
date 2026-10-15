@@ -1,7 +1,8 @@
 """The upload files' columns = HubSpot's own fields, as they are in HubSpot right now.
 
-Each upload file has one column per HubSpot property, headed with the property's current HubSpot
-label, so HubSpot's import maps every column by itself, and every dropdown value is one of the
+Which columns (and their order) follow the team's reference upload files (EDGE 2026, + Type, + Primary
+industry); each is headed with the property's current HubSpot label, so HubSpot's import maps every
+column by itself, and every dropdown value is one of the
 property's current options (dropdown_values: matched on label or internal value, any case, written as
 HubSpot's label; anything else blank). Before the export, the run reads the
 properties live (read-only get_properties) and the export uses exactly those labels; a property
@@ -21,44 +22,57 @@ import argparse
 import json
 from pathlib import Path
 
-CONTACT = [  # (working column, internal name, label on 2026-10-15)
-    ("First Name", "firstname", "First Name"), ("Last Name", "lastname", "Last Name"),
-    ("Job Title", "jobtitle", "Job Title"), ("Management Level", "hs_seniority", "Employment Seniority"),
-    ("Job Function", "job_function", "Job function"), ("Department", "department", "Department"),
-    ("Email Address", "email", "Email"), ("Additional Emails", "secondary_email", "Secondary email"),
-    ("Direct Phone Number", "work_direct_phone", "Work Direct Phone"),
-    ("Mobile phone", "mobilephone", "Mobile Phone Number"), ("Company HQ Phone", "corporate_phone", "Corporate Phone"),
-    ("LinkedIn Contact Profile URL", "lgm_linkedinurl", "Linkedin Url (Default)"),
-    ("ZoomInfo Contact Profile URL", "zoominfo_contact_profile_url", "ZoomInfo Contact Profile URL"),
-    ("Person Street", "address", "Street Address"), ("Person City", "city", "City"),
-    ("Person State", "state", "State/Region"), ("Person Zip Code", "zip", "Postal Code"),
-    ("Country", "country", "Country/Region"), ("Company Name", "company", "Company Name"),
-    ("Website", "website", "Website URL"),
-    ("Lead Source", "lead_source", "LEAD SOURCE"), ("Lead Source Detail 1", "lead_source_detail_1", "LEAD SOURCE DETAIL 1"),
-    ("New Contact Outbound Personalization", "contact_outbound_personalization", "Contact Outbound Personalization"),
-    ("Contact Owner", "hubspot_owner_id", "Contact owner"),
-    ("HubSpot Contact Record ID", "hs_object_id", "Record ID"),
+# Which columns, and in what order = the team's reference upload files (EDGE 2026, user 2026-10-15), plus Type
+# on companies (added after that template) and Primary industry. Headers = HubSpot's own field labels (the
+# live check overrides these), so the import maps every column by itself.
+# (working column, HubSpot internal name, label on 2026-10-15, optional) — optional columns appear only when
+# some row has a value (owners: only with BDR assignment).
+CONTACT = [
+    ("First Name", "firstname", "First Name", False), ("Last Name", "lastname", "Last Name", False),
+    ("Company Name", "company", "Company Name", False), ("Job Title", "jobtitle", "Job Title", False),
+    ("Website", "website", "Website URL", False), ("Person Zip Code", "zip", "Postal Code", False),
+    ("Country", "country", "Country/Region", False), ("Person City", "city", "City", False),
+    ("Person State", "state", "State/Region", False),
+    ("Management Level", "hs_seniority", "Employment Seniority", False),
+    ("Job Function", "job_function", "Job function", False), ("Department", "department", "Department", False),
+    ("Direct Phone Number", "work_direct_phone", "Work Direct Phone", False),
+    ("Email Address", "email", "Email", False),
+    ("Email Domain", "hs_email_domain", "Email Domain", False),
+    ("Mobile phone", "mobilephone", "Mobile Phone Number", False),
+    ("ZoomInfo Contact Profile URL", "zoominfo_contact_profile_url", "ZoomInfo Contact Profile URL", False),
+    ("LinkedIn Contact Profile URL", "lgm_linkedinurl", "Linkedin Url (Default)", False),
+    ("Company HQ Phone", "corporate_phone", "Corporate Phone", False),
+    ("Lead Source", "lead_source", "LEAD SOURCE", False),
+    ("Lead Source Detail 1", "lead_source_detail_1", "LEAD SOURCE DETAIL 1", False),
+    ("HubSpot Contact Record ID", "hs_object_id", "Record ID", False),
+    ("Additional Emails", "secondary_email", "Secondary email", True),
+    ("Contact Owner", "hubspot_owner_id", "Contact owner", True),
 ]
 COMPANY = [
-    ("Company Name", "name", "Company name"), ("Website", "website", "Website URL"),
-    ("Company Domain", "domain", "Company Domain Name"), ("Company HQ Phone", "phone", "Phone Number"),
-    ("Founded Year", "founded_year", "Year Founded"), ("Revenue (in USD)", "annualrevenue", "Annual Revenue"),
-    ("Revenue Range (in USD)", "hs_revenue_range", "Revenue range"), ("Employees", "numberofemployees", "Number of Employees"),
-    ("Employee Range", "hs_employee_range", "Employee range"), ("SIC Code 1", "sic_code_1", "SIC Code 1"),
-    ("SIC Code 2", "sic_code_2", "SIC Code 2"), ("NAICS Code 1", "naics_code_1", "NAICS Code 1"),
-    ("NAICS Code 2", "naics_code_2", "NAICS Code 2"), ("Didero Primary Industry", "primary_industry", "Primary industry"),
-    ("Industry", "industry", "Industry"), ("Industry Group", "hs_industry_group", "Industry group"),
-    ("ZoomInfo Company Profile URL", "zoominfo_company_profile_url", "ZoomInfo Company Profile URL"),
-    ("LinkedIn Company Profile URL", "linkedin_company_page", "LinkedIn Company Page"),
-    ("Facebook Company Profile URL", "facebook_company_page", "Facebook Company Page"),
-    ("Twitter Company Profile URL", "twitter_company_profile_url", "Twitter Company Profile URL"),
-    ("Full Address", "address", "Street Address"), ("Company City", "city", "City"),
-    ("Company State", "state", "State/Region"), ("Company Zip Code", "zip", "Postal Code"),
-    ("Company Country", "country", "Country/Region"), ("Type", "type", "Type"),
-    ("Outbound Personalization Token", "company_outbound_personalization", "Company Outbound Personalization"),
-    ("Company Owner", "hubspot_owner_id", "Company owner"),
-    ("HubSpot Company Record ID", "hs_object_id", "Record ID"),
+    ("Company Name", "name", "Company name", False), ("Website", "website", "Website URL", False),
+    ("Founded Year", "founded_year", "Year Founded", False), ("Company HQ Phone", "phone", "Phone Number", False),
+    ("Revenue (in USD)", "annualrevenue", "Annual Revenue", False),
+    ("Revenue Range (in USD)", "hs_revenue_range", "Revenue range", False),
+    ("Employees", "numberofemployees", "Number of Employees", False),
+    ("Employee Range", "hs_employee_range", "Employee range", False),
+    ("SIC Code 1", "sic_code_1", "SIC Code 1", False), ("SIC Code 2", "sic_code_2", "SIC Code 2", False),
+    ("NAICS Code 1", "naics_code_1", "NAICS Code 1", False), ("NAICS Code 2", "naics_code_2", "NAICS Code 2", False),
+    ("Industry", "industry", "Industry", False),
+    ("Didero Primary Industry", "primary_industry", "Primary industry", False),
+    ("ZoomInfo Company Profile URL", "zoominfo_company_profile_url", "ZoomInfo Company Profile URL", False),
+    ("LinkedIn Company Profile URL", "linkedin_company_page", "LinkedIn Company Page", False),
+    ("Facebook Company Profile URL", "facebook_company_page", "Facebook Company Page", False),
+    ("Twitter Company Profile URL", "twitter_company_profile_url", "Twitter Company Profile URL", False),
+    ("Company City", "city", "City", False), ("Company State", "state", "State/Region", False),
+    ("Company Zip Code", "zip", "Postal Code", False), ("Company Country", "country", "Country/Region", False),
+    ("Full Address", "address", "Street Address", False), ("Company Domain", "domain", "Company Domain Name", False),
+    ("HubSpot Company Record ID", "hs_object_id", "Record ID", False),
+    ("Type", "type", "Type", False),
+    ("Company Owner", "hubspot_owner_id", "Company owner", True),
 ]
+# ZoomInfo management levels -> HubSpot's Employment Seniority options
+SENIORITY = {"c-level": "Executive", "vp-level": "VP", "director": "Director", "manager": "Manager",
+             "non-manager": "Employee", "board member": "Executive"}
 SPEC = {"contacts": CONTACT, "companies": COMPANY}
 LIVE = "hubspot_fields.json"
 
@@ -68,16 +82,19 @@ def live(run_dir):
     return json.loads(p.read_text()) if p.exists() else None
 
 
-def columns(kind, run_dir):
-    """[(working column, HubSpot label)] for the upload file, labels from the live check when there is one."""
+def columns(kind, run_dir, rows=None):
+    """[(working column, HubSpot label)] for the upload file, labels from the live check when there is one.
+    A property HubSpot no longer has is left out (listed by `check`); optional columns only when filled."""
     lv = live(run_dir)
     out = []
-    for col, internal, label in SPEC[kind]:
+    for col, internal, label, optional in SPEC[kind]:
         if lv is not None:
             prop = lv[kind].get(internal)
             if not prop:
-                continue  # not in HubSpot any more: left out (listed by `check`)
+                continue
             label = prop["label"]
+        if optional and not any((r.get(col) or "").strip() for r in (rows or [])):
+            continue
         out.append((col, label))
     return out
 
@@ -88,7 +105,7 @@ def dropdown_values(rows, kind, run_dir):
     an option -> blank. Returns [(column, value, n)] of values blanked."""
     lv = live(run_dir) or {}
     blanked = {}
-    for col, internal, _ in SPEC[kind]:
+    for col, internal, _, _ in SPEC[kind]:
         prop = lv.get(kind, {}).get(internal)
         if not prop or prop.get("type") != "enumeration" or not prop.get("options"):
             continue
@@ -102,6 +119,8 @@ def dropdown_values(rows, kind, run_dir):
             if not v:
                 continue
             hit = lookup.get(v.lower())
+            if hit is None and internal == "hs_seniority":
+                hit = lookup.get(SENIORITY.get(v.lower(), "").lower())
             if hit is None and internal == "hubspot_owner_id":
                 hit = lookup.get((r.get(col + " Name") or "").strip().lower())  # ID not an option: try the name
             if hit is None:
@@ -114,7 +133,7 @@ def dropdown_values(rows, kind, run_dir):
 
 def plan(args):
     for kind, obj in (("contacts", "contacts"), ("companies", "companies")):
-        print(f"get_properties objectType={obj} propertyNames={json.dumps([i for _, i, _ in SPEC[kind]])}")
+        print(f"get_properties objectType={obj} propertyNames={json.dumps([x[1] for x in SPEC[kind]])}")
     print(f"Save each raw result, then: hs_fields.py check --run-dir {args.run_dir} --contacts <file> --companies <file>")
 
 
@@ -126,7 +145,7 @@ def check(args):
                              "options": [[o.get("label", ""), o.get("value", "")] for o in r.get("options", [])]}
                  for r in data.get("results", [])}
         out[kind] = props
-        for col, internal, label in SPEC[kind]:
+        for col, internal, label, _ in SPEC[kind]:
             if internal not in props:
                 notes.append(f"{kind}: '{col}' -> {internal} isn't in HubSpot — left out of the upload")
             elif props[internal]["label"] != label:

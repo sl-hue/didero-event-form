@@ -374,9 +374,11 @@ you prepare them and walk them through it.
    prints two `get_properties` calls (contacts, companies); run them, save
    each raw result, then `hs_fields.py check --run-dir <run_dir> --contacts <file> --companies <file>`
    (→ `hubspot_fields.json`). The export refuses without it. With it, the
-   upload files' **headers are HubSpot's own field names** (so the import
-   maps every column by itself), only properties HubSpot has today are
-   included, and **every dropdown value is one of the property's current
+   upload files have **the columns of the team's reference files** (EDGE 2026
+   upload files, in that order; companies also get Primary industry and Type;
+   owners / Secondary email only when filled), **headed with HubSpot's own
+   field names** (so the import maps every column by itself), only properties
+   HubSpot has today are included, and **every dropdown value is one of the property's current
    options** (matched on label or internal value, any case, written as
    HubSpot's label; owners as owner IDs). A value that isn't an option is
    left blank and noted in `decisions.md`.

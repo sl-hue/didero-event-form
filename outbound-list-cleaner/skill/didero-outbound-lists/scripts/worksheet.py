@@ -465,9 +465,9 @@ def export_files(run_dir, out_dir=None):
             print("  " + notes_line)
             with open(Path(run_dir) / "decisions.md", "a", encoding="utf-8") as f:
                 f.write(f"- {notes_line}\n")
-    # Headers = HubSpot's fields as they are now (hs_fields.py live check); only importable properties.
-    c_pairs, k_pairs = hs_fields.columns("contacts", run_dir), hs_fields.columns("companies", run_dir)
+    # Columns = the team's reference upload files; headers = HubSpot's labels (hs_fields.py live check).
     company_rows = list(companies.values())
+    c_pairs, k_pairs = hs_fields.columns("contacts", run_dir, rows), hs_fields.columns("companies", run_dir, company_rows)
     write_labeled(out / "contacts_upload.csv", c_pairs, rows)
     write_labeled(out / "companies_upload.csv", k_pairs, company_rows)
     # The excluded lists: same columns, plus why.
